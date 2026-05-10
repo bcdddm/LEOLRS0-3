@@ -1,6 +1,6 @@
 import pandas as pd
 
-from trend_system.signals import history_start_date, latest_signal, required_history_days
+from trend_system.signals import history_start_date, latest_signal, recent_signals, required_history_days
 
 
 def test_history_start_date_uses_longest_configured_signal_window():
@@ -70,6 +70,38 @@ def test_latest_signal_applies_trend_and_vix_multiplier():
     assert signal.trend_exposure == 100.0
     assert signal.vix_label == "low"
     assert signal.target_exposure == 120.0
+
+
+def test_recent_signals_returns_latest_two_signals():
+    dates = pd.bdate_range("2024-01-01", periods=260)
+    price = pd.Series(range(100, 360), index=dates, dtype=float)
+    vix = pd.Series(16.0, index=dates)
+    settings = {
+        "trend": {
+            "short_window": 20,
+            "medium_window": 50,
+            "long_window": 200,
+            "exposure": {
+                "below_long": 0.0,
+                "above_long": 50.0,
+                "medium_above_long": 80.0,
+                "short_above_medium_above_long": 100.0,
+            },
+        },
+        "position": {"min_exposure": 0.0, "max_exposure": 120.0},
+        "vix": {
+            "rules": [
+                {"label": "low", "max_exclusive": 20.0, "multiplier": 1.2},
+                {"label": "normal", "min_inclusive": 20.0, "max_exclusive": 30.0, "multiplier": 1.0},
+            ]
+        },
+    }
+
+    signals = recent_signals(price, vix, settings, count=2)
+
+    assert len(signals) == 2
+    assert signals[0].date == dates[-2]
+    assert signals[1].date == dates[-1]
 
 
 def test_latest_signal_can_snap_target_to_fixed_exposure_tiers():

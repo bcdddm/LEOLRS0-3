@@ -37,11 +37,20 @@ def latest_signal(
     vix: pd.Series,
     settings_raw: dict,
 ) -> Signal:
+    return recent_signals(price, vix, settings_raw, count=1)[-1]
+
+
+def recent_signals(
+    price: pd.Series,
+    vix: pd.Series,
+    settings_raw: dict,
+    *,
+    count: int = 2,
+) -> list[Signal]:
     frame = signal_frame(price, vix, settings_raw)
     if frame.empty:
         raise RuntimeError("Not enough data to calculate signal.")
-    row = frame.iloc[-1]
-    return _row_to_signal(frame.index[-1], row)
+    return [_row_to_signal(index, row) for index, row in frame.tail(count).iterrows()]
 
 
 def required_history_days(settings_raw: dict, *, include_market_health: bool = False) -> int:
