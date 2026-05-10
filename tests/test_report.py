@@ -68,7 +68,7 @@ def test_daily_report_says_no_action_when_allocation_is_unchanged(monkeypatch):
 
     report = daily_report(signal, allocation, _settings(), previous_signal, allocation)
 
-    assert report.startswith("Action today: NO ACTION NEEDED")
+    assert report.startswith("🟩 Action today: NO ACTION NEEDED")
     assert "Same execution allocation as previous signal date 2026-01-01" in report
 
 
@@ -99,7 +99,7 @@ def test_daily_report_says_action_needed_when_allocation_changes(monkeypatch):
 
     report = daily_report(signal, allocation, _settings(), previous_signal, previous_allocation)
 
-    assert report.startswith("Action today: ACTION NEEDED")
+    assert report.startswith("🟥 Action today: ACTION NEEDED")
     assert "- Core: 60.00% VOO -> 90.00% VOO" in report
     assert "- Leveraged: 0.00% none -> 10.00% UPRO" in report
     assert "target exposure 60% -> 120%" in report

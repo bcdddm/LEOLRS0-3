@@ -55,7 +55,7 @@ def _action_summary(
 ) -> list[str]:
     if previous_signal is None or previous_allocation is None:
         return [
-            "Action today: REVIEW MANUALLY",
+            "🟥 Action today: REVIEW MANUALLY",
             "- No previous signal is available for comparison.",
         ]
 
@@ -63,7 +63,7 @@ def _action_summary(
     signal_changes = _signal_changes(signal, previous_signal)
     if changes:
         lines = [
-            "Action today: ACTION NEEDED",
+            "🟥 Action today: ACTION NEEDED",
             f"- Previous signal date: {previous_signal.date.date()}",
         ]
         lines.extend(f"- {change}" for change in changes)
@@ -72,7 +72,7 @@ def _action_summary(
         return lines
 
     lines = [
-        "Action today: NO ACTION NEEDED",
+        "🟩 Action today: NO ACTION NEEDED",
         f"- Same execution allocation as previous signal date {previous_signal.date.date()}.",
     ]
     if signal_changes:

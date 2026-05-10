@@ -50,7 +50,7 @@ jobs:
       - name: Run daily signal
         if: steps.delivery-time.outputs.should_send == 'true'
         run: |
-          python -m trend_system daily --config config/settings.toml > daily-report.txt
+          python -m trend_system daily --config config/profiles/Leo.toml > daily-report.txt
           cat daily-report.txt
 
       - name: Send Telegram message

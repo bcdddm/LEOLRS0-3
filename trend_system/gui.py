@@ -1414,6 +1414,21 @@ def _settings_tab(settings: dict[str, Any], config_path: str) -> None:
             st.success(f"{_tr(language, '已另存为', 'Saved as')}: {target}")
     st.json(settings, expanded=False)
     st.info(_tr(language, "保存前，当前修改只影响本次界面运行。", "Until saved, changes only affect the current app session."))
+    st.markdown(f"**{_tr(language, 'GitHub 推送策略', 'GitHub Push Strategy')}**")
+    st.info(
+        _tr(
+            language,
+            "左侧选择配置文件包只会影响本地 App 当前会话。GitHub 定时推送由 `.github/workflows/daily-signal.yml` 决定；"
+            "目前 workflow 已设置为运行 `python -m trend_system daily --config config/profiles/Leo.toml`，所以 GitHub 推送会使用 Leo。"
+            "如果以后要改回默认配置，可以把 workflow 改为 `--config config/settings.toml`。"
+            "本地改完后需要执行 `git add .`、`git commit -m \"Use Leo profile for daily signal\"`、"
+            "`git push`，GitHub 上的定时推送才会更新。",
+            "Selecting a profile in the sidebar only affects the current local App session. GitHub scheduled pushes are controlled by `.github/workflows/daily-signal.yml`; "
+            "the workflow is currently set to `python -m trend_system daily --config config/profiles/Leo.toml`, so GitHub pushes will use Leo. "
+            "To switch back to the default config later, change the workflow to `--config config/settings.toml`. After changing files locally, run `git add .`, "
+            "`git commit -m \"Use Leo profile for daily signal\"`, and `git push` before GitHub's scheduled push will update.",
+        )
+    )
     st.markdown(f"**{_tr(language, '系统版本', 'System Version')}**")
     st.metric(_tr(language, "当前版本", "Current version"), f"v{__version__}")
     _render_release_notes(language)
