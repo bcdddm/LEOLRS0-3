@@ -759,8 +759,28 @@ def _daily_tab(settings: dict[str, Any]) -> None:
     cols = st.columns([1, 1, 1, 1, 1])
     start = cols[0].date_input(_tr(language, "数据起始日期", "Data start date"), value=date(2024, 1, 1), key="daily_start")
     run = _aligned_button(cols[1], _tr(language, "更新今日信号", "Update daily signal"), type="primary", use_container_width=True)
+    timeline_mode_labels = _daily_timeline_mode_labels(language)
+    current_timeline_mode = "nz_close_us_open"
+    selected_timeline_mode_label = cols[2].selectbox(
+        _tr(language, "交易时间轴模式", "Timeline mode"),
+        list(timeline_mode_labels.keys()),
+        index=_option_index(
+            list(timeline_mode_labels.keys()),
+            next(
+                (
+                    label
+                    for label, value in timeline_mode_labels.items()
+                    if value == current_timeline_mode
+                ),
+                list(timeline_mode_labels.keys())[0],
+            ),
+        ),
+        key="daily_timeline_mode",
+    )
+    timeline_mode = timeline_mode_labels[selected_timeline_mode_label]
+    settings.setdefault("backtest", {})["execution_timing"] = timeline_mode
 
-    _market_windows(settings)
+    _market_windows(settings, timeline_mode)
 
     if not run and "daily_result" not in st.session_state:
         _disabled_pdf_button(language, _tr(language, "打印/下载今日信号 PDF", "Print/Download Daily Signal PDF"), key="daily_pdf_disabled")
@@ -1925,6 +1945,13 @@ def _execution_timing_labels(language: str) -> dict[str, str]:
     }
 
 
+def _daily_timeline_mode_labels(language: str) -> dict[str, str]:
+    return {
+        _tr(language, "下一交易日", "Next session"): "next_session",
+        _tr(language, "NZ 盘末 / 美股开盘", "NZ close / US open"): "nz_close_us_open",
+    }
+
+
 def _trend_ma_labels(settings: dict[str, Any]) -> tuple[str, str, str]:
     trend = settings["trend"]
     return (
@@ -1977,7 +2004,7 @@ def _save_config(path: Path, settings: dict[str, Any]) -> None:
     path.write_text(toml.dumps(settings), encoding="utf-8")
 
 
-def _market_windows(settings: dict[str, Any]) -> None:
+def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) -> None:
     language = _ui_language(settings)
     st.subheader(_tr(language, "新西兰本地交易窗口", "Local Trading Windows"))
     now = pd.Timestamp.now(tz=settings["profile"]["home_timezone"]).to_pydatetime()
@@ -1988,68 +2015,417 @@ def _market_windows(settings: dict[str, Any]) -> None:
     cols[0].metric(_tr(language, "美股常规时段", "US regular session"), f"{us_open:%H:%M} - {us_close:%H:%M}", f"{us_open:%Y-%m-%d}")
     cols[1].metric(_tr(language, "ASX 常规时段", "ASX regular session"), f"{asx_open:%H:%M} - {asx_close:%H:%M}", f"{asx_open:%Y-%m-%d}")
     cols[2].metric(_tr(language, "NZX 常规时段", "NZX regular session"), f"{nzx_open:%H:%M} - {nzx_close:%H:%M}", f"{nzx_open:%Y-%m-%d}")
-    _market_timeline(_tr(language, "美股", "US market"), us_open, us_close, now, language)
-    _market_timeline("ASX", asx_open, asx_close, now, language)
-    _market_timeline("NZX", nzx_open, nzx_close, now, language)
-    _trade_deadline_timeline(settings, now, language)
+    market_windows = [
+        {"key": "nzx", "label": "NZ", "open": nzx_open, "close": nzx_close, "color": "#111111"},
+        {"key": "asx", "label": "AU", "open": asx_open, "close": asx_close, "color": "#d7263d"},
+        {"key": "us", "label": "US", "open": us_open, "close": us_close, "color": "#2563eb"},
+    ]
+    selected_timeline_mode = timeline_mode or settings.get("backtest", {}).get("execution_timing", "next_session")
+    if selected_timeline_mode not in {"next_session", "nz_close_us_open"}:
+        selected_timeline_mode = "next_session"
+    trade_items = [
+        item
+        for item in trade_timeline_items(settings, now)
+        if item.strategy_key == selected_timeline_mode
+    ]
+    _parallel_market_trade_timeline(market_windows, trade_items, now, language)
+    _timeline_countdowns(market_windows, trade_items, now, language)
 
 
 def _relevant_local_window(settings: dict[str, Any], market: str, now: datetime) -> tuple[datetime, datetime]:
     return market_window(settings, market).relevant_local_trading_window(now)
 
 
-def _market_timeline(label: str, open_dt: datetime, close_dt: datetime, now: datetime, language: str) -> None:
-    total_seconds = max((close_dt - open_dt).total_seconds(), 1)
-    if now < open_dt:
-        status = _tr(language, "未开盘", "Closed")
-        progress = 0.0
-        distance = open_dt - now
-        detail = f"{_tr(language, '距离开盘', 'Opens in')} {_format_duration(distance, language)}"
-    elif now > close_dt:
-        status = _tr(language, "已收盘", "Closed")
-        progress = 1.0
-        distance = now - close_dt
-        detail = f"{_tr(language, '收盘后', 'Closed for')} {_format_duration(distance, language)}"
-    else:
-        status = _tr(language, "交易中", "Open")
-        progress = (now - open_dt).total_seconds() / total_seconds
-        distance = close_dt - now
-        detail = f"{_tr(language, '距离收盘', 'Closes in')} {_format_duration(distance, language)}"
-
-    st.markdown(f"**{label} {_tr(language, '交易时间轴', 'timeline')}**")
-    st.progress(
-        progress,
-        text=(
-            f"{status} · {_tr(language, '现在', 'Now')} {now:%Y-%m-%d %H:%M} · "
-            f"{_tr(language, '开盘', 'Open')} {open_dt:%Y-%m-%d %H:%M} · "
-            f"{_tr(language, '收盘', 'Close')} {close_dt:%Y-%m-%d %H:%M} · {detail}"
-        ),
+def _parallel_market_trade_timeline(
+    market_windows: list[dict[str, Any]],
+    trade_items: list[Any],
+    now: datetime,
+    language: str,
+) -> None:
+    start, end = _timeline_bounds(market_windows, trade_items, now)
+    total_seconds = max((end - start).total_seconds(), 1)
+    market_segments = _market_segments(market_windows, start, end)
+    market_html = "\n".join(
+        _market_segment_html(segment, start, total_seconds)
+        for segment in market_segments
+    )
+    marker_html = _now_marker_html(now, start, end, total_seconds, language)
+    visible_trade_items = [
+        item
+        for item in trade_items
+        if start <= item.deadline <= end
+    ]
+    deadline_html = "\n".join(
+        _trade_deadline_html(item, start, total_seconds, language)
+        for item in visible_trade_items
+    )
+    action_list_html = "\n".join(
+        _trade_action_item_html(item, language)
+        for item in visible_trade_items
+    )
+    warning_html = "\n".join(
+        _trade_warning_window_html(item, start, end, total_seconds)
+        for item in trade_items
+    )
+    legend_html = "\n".join(
+        f'<span class="timeline-legend-item"><span style="background:{window["color"]}"></span>{html.escape(window["label"])}</span>'
+        for window in market_windows
+    )
+    st.markdown(
+        f"""
+<style>
+.trade-timeline-wrap {{
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 14px 14px 10px;
+  margin: 10px 0 12px;
+  background: #ffffff;
+}}
+.trade-timeline-head {{
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #4b5563;
+  font-size: 13px;
+  margin-bottom: 8px;
+}}
+.trade-timeline-row {{
+  display: grid;
+  grid-template-columns: minmax(96px, 140px) 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}}
+.trade-timeline-label {{
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+}}
+.trade-timeline-track {{
+  position: relative;
+  height: 34px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  overflow: visible;
+}}
+.trade-timeline-segment {{
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.42);
+}}
+.trade-timeline-segment span {{
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0,0,0,.35);
+  white-space: nowrap;
+}}
+.trade-timeline-marker {{
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  width: 2px;
+  background: #111827;
+  z-index: 4;
+}}
+.trade-timeline-marker span {{
+  position: absolute;
+  top: -20px;
+  transform: translateX(-50%);
+  color: #111827;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}}
+.trade-deadline-warning {{
+  position: absolute;
+  top: 9px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(220, 38, 38, .18);
+}}
+.trade-deadline-marker {{
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 3px;
+  background: #dc2626;
+  border-radius: 999px;
+  z-index: 3;
+}}
+.trade-deadline-marker span {{
+  position: absolute;
+  left: 50%;
+  top: -18px;
+  transform: translateX(-50%);
+  max-width: 72px;
+  color: #991b1b;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}}
+.trade-action-list {{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}}
+.trade-action-item {{
+  border-left: 3px solid #dc2626;
+  padding: 5px 8px;
+  background: #fff7f7;
+  border-radius: 6px;
+  color: #374151;
+  font-size: 12px;
+  line-height: 1.35;
+}}
+.trade-action-item strong {{
+  color: #991b1b;
+  margin-right: 4px;
+}}
+.timeline-legend {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #4b5563;
+  font-size: 12px;
+  margin-top: 8px;
+}}
+.timeline-legend-item {{
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}}
+.timeline-legend-item span {{
+  width: 18px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}}
+.timeline-countdown-grid {{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 10px 0 2px;
+}}
+.timeline-countdown-card {{
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #ffffff;
+  color: #111827;
+}}
+.timeline-countdown-card.urgent {{
+  border-color: #dc2626;
+  background: #dc2626;
+  color: #ffffff;
+}}
+.timeline-countdown-title {{
+  font-size: 12px;
+  font-weight: 700;
+  opacity: .82;
+}}
+.timeline-countdown-time {{
+  font-size: 18px;
+  font-weight: 800;
+  margin-top: 2px;
+}}
+.timeline-countdown-meta {{
+  font-size: 12px;
+  opacity: .82;
+  margin-top: 2px;
+}}
+</style>
+<div class="trade-timeline-wrap">
+  <div class="trade-timeline-head">
+    <span>{html.escape(start.strftime("%Y-%m-%d %H:%M"))}</span>
+    <span>{html.escape(_tr(language, "合并市场与当前交易模式", "Merged markets and selected mode"))}</span>
+    <span>{html.escape(end.strftime("%Y-%m-%d %H:%M"))}</span>
+  </div>
+  <div class="trade-timeline-row">
+    <div class="trade-timeline-label">{html.escape(_tr(language, "市场时间轴", "Market timeline"))}</div>
+    <div class="trade-timeline-track">{market_html}{marker_html}</div>
+  </div>
+  <div class="trade-timeline-row">
+    <div class="trade-timeline-label">{html.escape(_tr(language, "交易模式时间轴", "Mode timeline"))}</div>
+    <div>
+      <div class="trade-timeline-track">{warning_html}{deadline_html}{marker_html}</div>
+      <div class="trade-action-list">{action_list_html}</div>
+    </div>
+  </div>
+  <div class="timeline-legend">{legend_html}</div>
+</div>
+""",
+        unsafe_allow_html=True,
     )
 
 
-def _trade_deadline_timeline(settings: dict[str, Any], now: datetime, language: str) -> None:
-    st.markdown(f"**{_tr(language, '策略交易时间轴', 'Strategy trading timeline')}**")
-    for item in trade_timeline_items(settings, now):
-        deadline = item.deadline
-        window_start = deadline - timedelta(hours=24)
-        total_seconds = max((deadline - window_start).total_seconds(), 1)
-        progress = min(max((now - window_start).total_seconds() / total_seconds, 0.0), 1.0)
-        if now <= deadline:
-            status = _tr(language, "待完成", "Due")
-            distance = _format_duration(deadline - now, language)
-            detail = _tr(language, f"剩余 {distance}", f"{distance} left")
-        else:
-            status = _tr(language, "已过截止点", "Past deadline")
-            distance = _format_duration(now - deadline, language)
-            detail = _tr(language, f"已过 {distance}", f"{distance} ago")
-        st.progress(
-            progress,
-            text=(
-                f"{item.strategy_label(language)} · {item.market_label} · {status} · "
-                f"{item.action(language)} · "
-                f"{_tr(language, '截止', 'Deadline')} {deadline:%Y-%m-%d %H:%M} · {detail}"
+def _timeline_bounds(
+    market_windows: list[dict[str, Any]],
+    trade_items: list[Any],
+    now: datetime,
+) -> tuple[datetime, datetime]:
+    return now, now + timedelta(hours=24)
+
+
+def _market_segments(
+    market_windows: list[dict[str, Any]],
+    start: datetime,
+    end: datetime,
+) -> list[dict[str, Any]]:
+    boundaries = {start, end}
+    for window in market_windows:
+        boundaries.add(max(start, window["open"]))
+        boundaries.add(min(end, window["close"]))
+    ordered = sorted(boundaries)
+    segments: list[dict[str, Any]] = []
+    for segment_start, segment_end in zip(ordered, ordered[1:]):
+        if segment_start >= segment_end:
+            continue
+        active = [
+            window
+            for window in market_windows
+            if window["open"] < segment_end and window["close"] > segment_start
+        ]
+        if active:
+            segments.append({"start": segment_start, "end": segment_end, "active": active})
+    return segments
+
+
+def _market_segment_html(segment: dict[str, Any], start: datetime, total_seconds: float) -> str:
+    left = _timeline_pct(segment["start"], start, total_seconds)
+    width = max(_timeline_pct(segment["end"], start, total_seconds) - left, 0.3)
+    active = segment["active"]
+    label = " / ".join(window["label"] for window in active)
+    if len(active) == 1:
+        background = active[0]["color"]
+    else:
+        stripe_parts = []
+        stripe_width = 12
+        for index, window in enumerate(active):
+            stripe_parts.append(f'{window["color"]} {index * stripe_width}px {(index + 1) * stripe_width}px')
+        period = len(active) * stripe_width
+        background = f"repeating-linear-gradient(135deg, {', '.join(stripe_parts)}, {active[0]['color']} {period}px {period + stripe_width}px)"
+    return (
+        f'<div class="trade-timeline-segment" style="left:{left:.4f}%;width:{width:.4f}%;background:{background};" '
+        f'title="{html.escape(label)}"><span>{html.escape(label)}</span></div>'
+    )
+
+
+def _now_marker_html(now: datetime, start: datetime, end: datetime, total_seconds: float, language: str) -> str:
+    if not start <= now <= end:
+        return ""
+    left = _timeline_pct(now, start, total_seconds)
+    label = _tr(language, "现在", "Now")
+    return f'<div class="trade-timeline-marker" style="left:{left:.4f}%;"><span>{html.escape(label)}</span></div>'
+
+
+def _trade_deadline_html(item: Any, start: datetime, total_seconds: float, language: str) -> str:
+    left = _timeline_pct(item.deadline, start, total_seconds)
+    label = f"{item.market_label} {item.deadline:%H:%M}"
+    title = f"{label} · {item.action(language)}"
+    return (
+        f'<div class="trade-deadline-marker" style="left:{left:.4f}%;" '
+        f'title="{html.escape(title)}"><span>{html.escape(label)}</span></div>'
+    )
+
+
+def _trade_action_item_html(item: Any, language: str) -> str:
+    label = f"{item.market_label} {item.deadline:%Y-%m-%d %H:%M}"
+    return (
+        '<div class="trade-action-item">'
+        f"<strong>{html.escape(label)}</strong>"
+        f"{html.escape(item.action(language))}"
+        "</div>"
+    )
+
+
+def _trade_warning_window_html(item: Any, start: datetime, end: datetime, total_seconds: float) -> str:
+    warning_start = max(start, item.deadline - timedelta(hours=3))
+    warning_end = min(end, item.deadline)
+    if warning_start >= warning_end:
+        return ""
+    left = _timeline_pct(warning_start, start, total_seconds)
+    width = max(_timeline_pct(warning_end, start, total_seconds) - left, 0.3)
+    return f'<div class="trade-deadline-warning" style="left:{left:.4f}%;width:{width:.4f}%;"></div>'
+
+
+def _timeline_pct(value: datetime, start: datetime, total_seconds: float) -> float:
+    return min(max((value - start).total_seconds() / total_seconds * 100, 0.0), 100.0)
+
+
+def _timeline_countdowns(
+    market_windows: list[dict[str, Any]],
+    trade_items: list[Any],
+    now: datetime,
+    language: str,
+) -> None:
+    countdowns: list[tuple[str, datetime, str]] = []
+    open_market_closes = sorted(
+        (
+            (window["label"], window["close"])
+            for window in market_windows
+            if window["open"] <= now <= window["close"]
+        ),
+        key=lambda item: item[1],
+    )
+    if open_market_closes:
+        label, close_dt = open_market_closes[0]
+        countdowns.append((_tr(language, f"当前市场 {label} 收盘", f"Current market {label} close"), close_dt, close_dt.strftime("%Y-%m-%d %H:%M")))
+
+    future_trade_items = sorted(
+        (item for item in trade_items if item.deadline >= now),
+        key=lambda item: item.deadline,
+    )
+    if future_trade_items:
+        item = future_trade_items[0]
+        countdowns.append((
+            _tr(language, f"当前模式操作时间 · {item.market_label}", f"Current mode action · {item.market_label}"),
+            item.deadline,
+            f"{item.deadline:%Y-%m-%d %H:%M} · {item.action(language)}",
+        ))
+
+    if not countdowns:
+        future_opens = sorted(
+            (
+                (window["label"], window["open"])
+                for window in market_windows
+                if window["open"] >= now
             ),
+            key=lambda item: item[1],
         )
+        if future_opens:
+            label, open_dt = future_opens[0]
+            countdowns.append((_tr(language, f"下个市场 {label} 开盘", f"Next market {label} open"), open_dt, open_dt.strftime("%Y-%m-%d %H:%M")))
+
+    cards = "\n".join(
+        _countdown_card_html(title, target, meta, now, language)
+        for title, target, meta in countdowns
+    )
+    if cards:
+        st.markdown(f'<div class="timeline-countdown-grid">{cards}</div>', unsafe_allow_html=True)
+
+
+def _countdown_card_html(title: str, target: datetime, meta: str, now: datetime, language: str) -> str:
+    remaining = target - now
+    urgent = timedelta(0) <= remaining <= timedelta(hours=3)
+    class_name = "timeline-countdown-card urgent" if urgent else "timeline-countdown-card"
+    return (
+        f'<div class="{class_name}">'
+        f'<div class="timeline-countdown-title">{html.escape(title)}</div>'
+        f'<div class="timeline-countdown-time">{html.escape(_format_duration(remaining, language))}</div>'
+        f'<div class="timeline-countdown-meta">{html.escape(meta)}</div>'
+        "</div>"
+    )
 
 
 def _format_duration(delta: timedelta, language: str = "zh") -> str:

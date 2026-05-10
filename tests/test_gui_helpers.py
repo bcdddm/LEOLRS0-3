@@ -1,7 +1,8 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 import re
 import tomllib
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -17,6 +18,7 @@ from trend_system.gui import (
     _config_options,
     _exposure_columns_for_timing,
     _format_duration,
+    _market_segments,
     _parameter_ui_name,
     _pdf_filename,
     _price_series,
@@ -68,6 +70,25 @@ def test_english_ui_helpers_translate_labels():
     assert _format_duration(timedelta(minutes=65), "en") == "1h 5m"
     assert _state_label("risk_off", "en") == "Risk off"
     assert _rebalance_action("SPY", 10.0, "en") == "Buy"
+
+
+def test_market_segments_split_overlapping_windows():
+    tz = ZoneInfo("Pacific/Auckland")
+    start = datetime(2026, 1, 5, 9, 0, tzinfo=tz)
+    end = datetime(2026, 1, 5, 13, 0, tzinfo=tz)
+    windows = [
+        {"label": "NZ", "open": datetime(2026, 1, 5, 10, 0, tzinfo=tz), "close": datetime(2026, 1, 5, 12, 0, tzinfo=tz)},
+        {"label": "AU", "open": datetime(2026, 1, 5, 11, 0, tzinfo=tz), "close": datetime(2026, 1, 5, 13, 0, tzinfo=tz)},
+    ]
+
+    segments = _market_segments(windows, start, end)
+
+    assert [segment["start"].hour for segment in segments] == [10, 11, 12]
+    assert [[window["label"] for window in segment["active"]] for segment in segments] == [
+        ["NZ"],
+        ["NZ", "AU"],
+        ["AU"],
+    ]
 
 
 def test_leveraged_ma120_timing_label_describes_cash_switch():
