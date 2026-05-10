@@ -3,9 +3,11 @@ name: Daily Signal
 on:
   workflow_dispatch:
   schedule:
-    # GitHub cron uses UTC. Run at both NZST and NZDT candidates, then gate
-    # below so messages send at 08:30 and 20:30 Pacific/Auckland year-round.
-    - cron: "30 7,8,19,20 * * *"
+    # GitHub cron uses UTC. Run at the NZST/NZDT and EST/EDT candidates,
+    # then gate below so messages send one hour before each market close:
+    # 15:45 Pacific/Auckland and 15:00 America/New_York year-round.
+    - cron: "45 2,3 * * *"
+    - cron: "0 20,21 * * *"
 
 jobs:
   send-daily-signal:
@@ -15,12 +17,14 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
     steps:
-      - name: Check New Zealand delivery time
+      - name: Check market delivery time
         id: delivery-time
         run: |
-          local_time="$(TZ=Pacific/Auckland date +%H:%M)"
-          echo "local_time=$local_time" >> "$GITHUB_OUTPUT"
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" || "$local_time" == "08:30" || "$local_time" == "20:30" ]]; then
+          nz_time="$(TZ=Pacific/Auckland date +%H:%M)"
+          ny_time="$(TZ=America/New_York date +%H:%M)"
+          echo "nz_time=$nz_time" >> "$GITHUB_OUTPUT"
+          echo "ny_time=$ny_time" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" || "$nz_time" == "15:45" || "$ny_time" == "15:00" ]]; then
             echo "should_send=true" >> "$GITHUB_OUTPUT"
           else
             echo "should_send=false" >> "$GITHUB_OUTPUT"
