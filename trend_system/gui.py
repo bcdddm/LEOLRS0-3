@@ -2049,7 +2049,7 @@ def _parallel_market_trade_timeline(
         _market_segment_html(segment, start, total_seconds)
         for segment in market_segments
     )
-    now_marker_html = _now_marker_html(now, start, end, total_seconds, language)
+    marker_html = _now_marker_html(now, start, end, total_seconds, language)
     visible_trade_items = [
         item
         for item in trade_items
@@ -2084,24 +2084,22 @@ def _parallel_market_trade_timeline(
 .trade-timeline-head {{
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
   gap: 12px;
   color: #4b5563;
   font-size: 13px;
   margin-bottom: 8px;
 }}
 .trade-timeline-row {{
-  margin: 14px 0 16px;
-}}
-.trade-timeline-row.mode-row {{
-  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: minmax(96px, 140px) 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
 }}
 .trade-timeline-label {{
   color: #111827;
   font-size: 13px;
   font-weight: 700;
-  margin-bottom: 6px;
 }}
 .trade-timeline-track {{
   position: relative;
@@ -2138,8 +2136,7 @@ def _parallel_market_trade_timeline(
 }}
 .trade-timeline-marker span {{
   position: absolute;
-  top: auto;
-  bottom: -20px;
+  top: -20px;
   transform: translateX(-50%);
   color: #111827;
   font-size: 11px;
@@ -2148,26 +2145,27 @@ def _parallel_market_trade_timeline(
 }}
 .trade-deadline-warning {{
   position: absolute;
-  top: 0;
-  bottom: 0;
-  border-radius: 5px;
-  opacity: .5;
+  top: 9px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(220, 38, 38, .18);
 }}
 .trade-deadline-marker {{
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  border-radius: 0;
+  top: -3px;
+  bottom: -3px;
+  width: 3px;
+  background: #dc2626;
+  border-radius: 999px;
   z-index: 3;
 }}
 .trade-deadline-marker span {{
   position: absolute;
   left: 50%;
-  top: auto;
-  bottom: -20px;
+  top: -18px;
   transform: translateX(-50%);
   max-width: 72px;
+  color: #991b1b;
   font-size: 11px;
   font-weight: 700;
   line-height: 1.2;
@@ -2175,40 +2173,23 @@ def _parallel_market_trade_timeline(
   overflow: hidden;
   text-overflow: ellipsis;
 }}
-.trade-mode-label-below {{
-  color: #111827;
-  font-size: 13px;
-  font-weight: 700;
-  margin-top: 24px;
-  margin-bottom: 6px;
-}}
 .trade-action-list {{
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 6px;
   margin-top: 8px;
 }}
 .trade-action-item {{
-  position: relative;
-  overflow: hidden;
-  padding: 5px 8px 5px 18px;
+  border-left: 3px solid #dc2626;
+  padding: 5px 8px;
   background: #fff7f7;
   border-radius: 6px;
   color: #374151;
   font-size: 12px;
   line-height: 1.35;
 }}
-.trade-action-item::before {{
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 10px;
-  background: var(--trade-action-color);
-}}
 .trade-action-item strong {{
-  color: var(--trade-action-color);
+  color: #991b1b;
   margin-right: 4px;
 }}
 .timeline-legend {{
@@ -2263,51 +2244,6 @@ def _parallel_market_trade_timeline(
   opacity: .82;
   margin-top: 2px;
 }}
-@media (max-width: 640px) {{
-  .trade-timeline-wrap {{
-    padding: 12px 10px 10px;
-  }}
-  .trade-timeline-head {{
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 2px;
-    font-size: 12px;
-  }}
-  .trade-timeline-head span:nth-child(2) {{
-    order: -1;
-    color: #111827;
-    font-weight: 700;
-  }}
-  .trade-timeline-row {{
-    margin: 16px 0 18px;
-  }}
-  .trade-timeline-row.mode-row {{
-    margin-bottom: 22px;
-  }}
-  .trade-timeline-track {{
-    height: 38px;
-  }}
-  .trade-timeline-segment span {{
-    left: 6px;
-    font-size: 11px;
-  }}
-  .trade-timeline-marker span {{
-    bottom: -22px;
-    font-size: 10px;
-  }}
-  .trade-deadline-marker span {{
-    bottom: -22px;
-    max-width: 56px;
-    font-size: 10px;
-  }}
-  .trade-mode-label-below {{
-    margin-top: 26px;
-  }}
-  .trade-action-list,
-  .timeline-countdown-grid {{
-    grid-template-columns: 1fr;
-  }}
-}}
 </style>
 <div class="trade-timeline-wrap">
   <div class="trade-timeline-head">
@@ -2317,12 +2253,12 @@ def _parallel_market_trade_timeline(
   </div>
   <div class="trade-timeline-row">
     <div class="trade-timeline-label">{html.escape(_tr(language, "市场时间轴", "Market timeline"))}</div>
-    <div class="trade-timeline-track">{market_html}</div>
+    <div class="trade-timeline-track">{market_html}{marker_html}</div>
   </div>
-  <div class="trade-timeline-row mode-row">
+  <div class="trade-timeline-row">
+    <div class="trade-timeline-label">{html.escape(_tr(language, "交易模式时间轴", "Mode timeline"))}</div>
     <div>
-      <div class="trade-timeline-track">{warning_html}{deadline_html}{now_marker_html}</div>
-      <div class="trade-mode-label-below">{html.escape(_tr(language, "交易模式时间轴", "Mode timeline"))}</div>
+      <div class="trade-timeline-track">{warning_html}{deadline_html}{marker_html}</div>
       <div class="trade-action-list">{action_list_html}</div>
     </div>
   </div>
@@ -2395,50 +2331,22 @@ def _now_marker_html(now: datetime, start: datetime, end: datetime, total_second
 
 def _trade_deadline_html(item: Any, start: datetime, total_seconds: float, language: str) -> str:
     left = _timeline_pct(item.deadline, start, total_seconds)
-    color = _trade_marker_color(item)
     label = f"{item.market_label} {item.deadline:%H:%M}"
-    title = f"{label} · {_short_trade_action(item, language)}"
+    title = f"{label} · {item.action(language)}"
     return (
-        f'<div class="trade-deadline-marker" style="left:{left:.4f}%;background:{color};" '
-        f'title="{html.escape(title)}"><span style="color:{color};">{html.escape(label)}</span></div>'
+        f'<div class="trade-deadline-marker" style="left:{left:.4f}%;" '
+        f'title="{html.escape(title)}"><span>{html.escape(label)}</span></div>'
     )
 
 
 def _trade_action_item_html(item: Any, language: str) -> str:
-    color = _trade_marker_color(item)
     label = f"{item.market_label} {item.deadline:%Y-%m-%d %H:%M}"
     return (
-        f'<div class="trade-action-item" style="--trade-action-color:{color};">'
+        '<div class="trade-action-item">'
         f"<strong>{html.escape(label)}</strong>"
-        f"{html.escape(_short_trade_action(item, language))}"
+        f"{html.escape(item.action(language))}"
         "</div>"
     )
-
-
-def _trade_marker_color(item: Any) -> str:
-    action_en = item.action("en").lower()
-    if item.strategy_key == "next_session":
-        return "#059669"
-    if item.market_label == "NZX":
-        return "#f59e0b"
-    if "open" in action_en:
-        return "#2563eb"
-    if "close" in action_en:
-        return "#7c3aed"
-    return "#dc2626"
-
-
-def _short_trade_action(item: Any, language: str) -> str:
-    action_en = item.action("en").lower()
-    if item.strategy_key == "next_session":
-        return _tr(language, "下一交易日：开盘前调仓", "Next session: rebalance before open")
-    if item.market_label == "NZX":
-        return _tr(language, "NZX 收盘前：处理本地仓位", "Before NZX close: local sleeve")
-    if "open" in action_en:
-        return _tr(language, "美股开盘前：挂 3 倍买单", "Before US open: place 3x buy")
-    if "close" in action_en:
-        return _tr(language, "美股收盘前：卖 3 倍，准备买回 NZ", "Before US close: sell 3x, prep NZ buyback")
-    return item.action(language)
 
 
 def _trade_warning_window_html(item: Any, start: datetime, end: datetime, total_seconds: float) -> str:
@@ -2448,8 +2356,7 @@ def _trade_warning_window_html(item: Any, start: datetime, end: datetime, total_
         return ""
     left = _timeline_pct(warning_start, start, total_seconds)
     width = max(_timeline_pct(warning_end, start, total_seconds) - left, 0.3)
-    color = _trade_marker_color(item)
-    return f'<div class="trade-deadline-warning" style="left:{left:.4f}%;width:{width:.4f}%;background:{color};"></div>'
+    return f'<div class="trade-deadline-warning" style="left:{left:.4f}%;width:{width:.4f}%;"></div>'
 
 
 def _timeline_pct(value: datetime, start: datetime, total_seconds: float) -> float:
@@ -2484,7 +2391,7 @@ def _timeline_countdowns(
         countdowns.append((
             _tr(language, f"当前模式操作时间 · {item.market_label}", f"Current mode action · {item.market_label}"),
             item.deadline,
-            f"{item.deadline:%Y-%m-%d %H:%M} · {_short_trade_action(item, language)}",
+            f"{item.deadline:%Y-%m-%d %H:%M} · {item.action(language)}",
         ))
 
     if not countdowns:
