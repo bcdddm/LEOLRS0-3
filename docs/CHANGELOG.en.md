@@ -30,19 +30,7 @@ The merged timeline now includes a countdown area:
 - Inside the final 3-hour window, the countdown card switches to white text on a red background.
 - If there is no current market close and no selected-mode action, it shows the next market open countdown.
 
-### 4. UI improvement: mobile layout and trade-mode markers
-
-The merged timeline has been refined for mobile screens:
-
-- The market timeline title sits above the market track.
-- Trade-mode time labels and the trade-mode title sit below the trade track to avoid overlapping track content.
-- The `Now` marker is shown only once, in the trade-mode time-label area.
-- The three NZ close / US open action points now use distinct colors: orange for NZX close, blue for US open, and purple for US close.
-- Next session mode uses the same design language with a green action marker.
-- The 3-hour lead-in highlight before each action now fills the full track height, uses 50% opacity, and matches the action marker color.
-- Action copy has been shortened to reduce crowding on mobile screens.
-
-### 5. Verification
+### 4. Verification
 
 Verification commands:
 
