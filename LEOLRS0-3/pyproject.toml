@@ -1,0 +1,26 @@
+[project]
+name = "LEOLRS0-3"
+version = "0.2.2"
+description = "LEOLRS0-3 trend, volatility, and gradual exposure control system for NZ-based investors."
+requires-python = ">=3.11"
+dependencies = [
+  "exchange-calendars>=4.13",
+  "pandas>=2.2",
+  "reportlab>=4.2",
+  "streamlit>=1.42",
+  "toml>=0.10.2",
+  "watchdog>=6.0",
+  "yfinance>=0.2.50",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.setuptools]
+packages = ["trend_system"]

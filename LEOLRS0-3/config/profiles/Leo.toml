@@ -1,0 +1,163 @@
+[profile]
+name = "Leo"
+home_timezone = "Pacific/Auckland"
+base_currency = "NZD"
+
+[ui]
+language = "zh"
+
+[signals]
+primary = "SPY"
+confirm = [ "QQQ", "DIA",]
+volatility = "^VIX"
+defensive = [ "SGOV", "GLD", "TLT",]
+price_field = "Close"
+
+[trend]
+short_window = 20
+medium_window = 60
+long_window = 120
+confirmation_days = 4
+
+[vix]
+[[vix.rules]]
+label = "low"
+max_exclusive = 30.0
+multiplier = 5.0
+
+[[vix.rules]]
+label = "normal"
+min_inclusive = 30.0
+max_exclusive = 35.0
+multiplier = 1.0
+
+[[vix.rules]]
+label = "danger"
+min_inclusive = 35.0
+max_exclusive = 40.0
+multiplier = 0.5
+
+[[vix.rules]]
+label = "crisis"
+min_inclusive = 40.0
+multiplier = 0.5
+
+[position]
+min_exposure = 100.0
+max_exposure = 300.0
+rebalance_threshold = 15.0
+max_rebalances_per_week = 1
+fixed_exposure_tiers_enabled = false
+fixed_exposure_tiers = [ 0.0, 100.0, 300.0,]
+vix_exposure_cap_enabled = false
+drawdown_exposure_cap_enabled = false
+drawdown_lookback_days = 252
+no_new_high_cap_enabled = false
+no_new_high_days = 20
+no_new_high_high_window = 200
+no_new_high_max_exposure = 200.0
+trend_quality_cap_enabled = false
+trend_quality_ma_cross_slow_decline_enabled = false
+trend_quality_ma_window = 120
+trend_quality_slope_lookback_days = 20
+trend_quality_rising_slope_min_pct = 0.5
+trend_quality_falling_slope_max_pct = 0.0
+trend_quality_rising_max_exposure = 300.0
+trend_quality_flat_max_exposure = 220.0
+trend_quality_falling_max_exposure = 150.0
+trend_quality_below_ma_max_exposure = 100.0
+trend_quality_slow_decline_zero_floor_enabled = false
+[[position.vix_exposure_caps]]
+max_exclusive = 20.0
+max_exposure = 300.0
+
+[[position.vix_exposure_caps]]
+min_inclusive = 20.0
+max_exclusive = 22.0
+max_exposure = 250.0
+
+[[position.vix_exposure_caps]]
+min_inclusive = 22.0
+max_exclusive = 24.0
+max_exposure = 200.0
+
+[[position.vix_exposure_caps]]
+min_inclusive = 24.0
+max_exclusive = 30.0
+max_exposure = 150.0
+
+[[position.vix_exposure_caps]]
+min_inclusive = 30.0
+max_exposure = 100.0
+
+[[position.drawdown_exposure_caps]]
+max_exclusive = 5.0
+max_exposure = 300.0
+
+[[position.drawdown_exposure_caps]]
+min_inclusive = 5.0
+max_exclusive = 10.0
+max_exposure = 250.0
+
+[[position.drawdown_exposure_caps]]
+min_inclusive = 10.0
+max_exclusive = 15.0
+max_exposure = 200.0
+
+[[position.drawdown_exposure_caps]]
+min_inclusive = 15.0
+max_exclusive = 20.0
+max_exposure = 150.0
+
+[[position.drawdown_exposure_caps]]
+min_inclusive = 20.0
+max_exposure = 100.0
+
+[execution]
+mode = "manual"
+default_market = "us"
+core_asset = "VOO"
+asx_core_asset = "IVV.AX"
+cash_asset = "cash"
+defensive_asset = "NZC.NZ"
+nz_defensive_asset = "NZC.NZ"
+au_defensive_asset = "BILL.AX"
+leveraged_asset = "SPXL"
+leveraged_alternative = "UPRO"
+leverage_multiple = 3.0
+allow_leverage = true
+limit_foreign_assets_nzd_value = false
+foreign_assets_nzd_limit = 50000.0
+leverage_only_when_vix_below = 35.0
+clear_leverage_when_vix_at_or_above = 50.0
+
+[backtest]
+start = "2010-01-01"
+initial_capital = 1000000.0
+weekly_contribution = 0.0
+annual_cash_return = 0.0
+annual_leveraged_fee = 0.009
+use_adjusted_close = true
+signal_effective_next_day = true
+execution_timing = "next_session"
+
+[trend.exposure]
+below_long = 0.0
+above_long = 60.0
+medium_above_long = 88.0
+short_above_medium_above_long = 100.0
+
+[markets.us]
+timezone = "America/New_York"
+regular_open = "09:30"
+regular_close = "16:00"
+
+[markets.asx]
+timezone = "Australia/Sydney"
+regular_open = "10:00"
+regular_close = "16:00"
+
+[markets.nzx]
+timezone = "Pacific/Auckland"
+regular_open = "10:00"
+regular_close = "16:45"

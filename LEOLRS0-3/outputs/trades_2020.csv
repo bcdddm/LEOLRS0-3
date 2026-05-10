@@ -1,0 +1,7 @@
+date,target_exposure,core_percent,leveraged_percent,cash_percent,trend_label,vix
+2020-10-15,50.0,50.0,0.0,50.0,allowed,26.969999313354492
+2020-10-19,100.0,100.0,0.0,0.0,accelerating_bull,29.18000030517578
+2020-10-26,60.0,60.0,0.0,40.0,accelerating_bull,32.459999084472656
+2020-11-02,48.0,48.0,0.0,52.0,confirmed_bull,37.130001068115234
+2020-11-09,80.0,80.0,0.0,20.0,confirmed_bull,25.75
+2020-11-16,100.0,100.0,0.0,0.0,accelerating_bull,22.450000762939453
