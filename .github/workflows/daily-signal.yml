@@ -25,11 +25,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e LEOLRS0-3
+          python -m pip install -e .
 
       - name: Run daily signal
         run: |
-          python -m trend_system daily --config LEOLRS0-3/config/settings.toml > daily-report.txt
+          python -m trend_system daily --config config/settings.toml > daily-report.txt
           cat daily-report.txt
 
       - name: Send Telegram message
