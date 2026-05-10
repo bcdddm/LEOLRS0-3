@@ -2,6 +2,44 @@
 
 This English changelog is a translation of the Chinese source changelog. The Chinese file `docs/CHANGELOG.md` remains the source of truth; this file is shown when the UI language is English.
 
+## v0.2.3 - 2026-05-11
+
+### 1. Feature improvement: merged market and trade-mode timeline
+
+The Daily Signal page now shows trading windows on a merged 24-hour timeline. NZX, ASX, and US market sessions are no longer shown as separate progress bars. They now share one market timeline:
+
+- NZ is black.
+- Australia / ASX is red.
+- US is blue.
+- Overlapping market windows use alternating thick diagonal stripes so overlaps are easy to spot.
+
+The trade-mode timeline now runs in parallel beneath the market timeline and uses the same 24-hour scale.
+
+### 2. Feature improvement: trade-mode switch on the Daily Signal page
+
+The Daily Signal page now includes a trade timeline mode selector. The default mode is now `NZ close / US open`, and the trade-mode timeline only displays the currently selected mode instead of showing multiple execution styles at once.
+
+For NZ close / US open mode, timeline markers now use short labels, while full action text is shown in a responsive list below the timeline. This prevents action text from overlapping when multiple deadlines are close together.
+
+### 3. Feature: market and action countdowns
+
+The merged timeline now includes a countdown area:
+
+- If a market is currently open, it shows the current market close countdown.
+- If the selected trade mode has an upcoming action, it shows the selected mode action countdown.
+- Inside the final 3-hour window, the countdown card switches to white text on a red background.
+- If there is no current market close and no selected-mode action, it shows the next market open countdown.
+
+### 4. Verification
+
+Verification commands:
+
+```bash
+uv run python -m py_compile trend_system/gui.py
+uv run pytest tests/test_timezones.py tests/test_gui_helpers.py -q
+uv run pytest -q
+```
+
 ## v0.2.2 - 2026-05-10
 
 ### 1. Feature: debug parameter sweep upgraded to a 50% recommendation report

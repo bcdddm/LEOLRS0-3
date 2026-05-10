@@ -1,6 +1,6 @@
 [project]
 name = "LEOLRS0-3"
-version = "0.2.2"
+version = "0.2.3"
 description = "LEOLRS0-3 trend, volatility, and gradual exposure control system for NZ-based investors."
 requires-python = ">=3.11"
 dependencies = [
