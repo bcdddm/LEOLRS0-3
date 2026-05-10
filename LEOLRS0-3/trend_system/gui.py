@@ -36,10 +36,11 @@ from trend_system.trade_timeline import trade_timeline_items
 from trend_system.timezones import market_window
 
 
-DEFAULT_CONFIG = "config/settings.toml"
-PROFILE_DIR = Path("config/profiles")
-CHANGELOG_PATH = Path("docs/CHANGELOG.md")
-CHANGELOG_EN_PATH = Path("docs/CHANGELOG.en.md")
+APP_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CONFIG = APP_ROOT / "config/settings.toml"
+PROFILE_DIR = APP_ROOT / "config/profiles"
+CHANGELOG_PATH = APP_ROOT / "docs/CHANGELOG.md"
+CHANGELOG_EN_PATH = APP_ROOT / "docs/CHANGELOG.en.md"
 BACKTEST_MIN_DATE = date(1990, 1, 1)
 BACKTEST_MAX_DATE = date(2036, 12, 31)
 BACKTEST_PRESETS = {
@@ -92,7 +93,7 @@ def main() -> None:
         format_func=lambda name: f"{name} ({config_options[name]})" if name == "自定义路径" else name,
     )
     if selected_config == "自定义路径":
-        config_path = st.sidebar.text_input("配置文件路径", DEFAULT_CONFIG)
+        config_path = st.sidebar.text_input("配置文件路径", str(DEFAULT_CONFIG))
     else:
         config_path = str(config_options[selected_config])
     st.sidebar.caption(f"当前配置：{Path(config_path).resolve()}")
