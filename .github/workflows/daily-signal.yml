@@ -1,0 +1,39 @@
+name: Daily Signal
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub cron uses UTC. These run around 08:30 and 20:30 in New Zealand
+    # standard time, and one hour later during daylight saving.
+    - cron: "30 20,8 * * *"
+
+jobs:
+  send-daily-signal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e LEOLRS0-3
+
+      - name: Run daily signal
+        run: |
+          python -m trend_system daily --config LEOLRS0-3/config/settings.toml > daily-report.txt
+          cat daily-report.txt
+
+      - name: Send Telegram message
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m trend_system.notify --message-file daily-report.txt
