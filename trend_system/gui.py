@@ -780,7 +780,21 @@ def _daily_tab(settings: dict[str, Any]) -> None:
     timeline_mode = timeline_mode_labels[selected_timeline_mode_label]
     settings.setdefault("backtest", {})["execution_timing"] = timeline_mode
 
-    _market_windows(settings, timeline_mode)
+    transition: str | None = None
+    if timeline_mode == "nz_close_us_open":
+        transition_labels = {
+            _tr(language, "无调仓", "No change"): None,
+            _tr(language, "1x → 3x（加杠杆）", "1x → 3x (add leverage)"): "1x_to_3x",
+            _tr(language, "3x → 1x（去杠杆）", "3x → 1x (remove leverage)"): "3x_to_1x",
+        }
+        selected_transition_label = cols[3].selectbox(
+            _tr(language, "调仓方向", "Transition"),
+            list(transition_labels.keys()),
+            key="daily_transition_direction",
+        )
+        transition = transition_labels[selected_transition_label]
+
+    _market_windows(settings, timeline_mode, transition=transition)
 
     if not run and "daily_result" not in st.session_state:
         _disabled_pdf_button(language, _tr(language, "打印/下载今日信号 PDF", "Print/Download Daily Signal PDF"), key="daily_pdf_disabled")
@@ -1146,8 +1160,8 @@ def _backtest_tab(settings: dict[str, Any]) -> None:
         st.info(
             _tr(
                 language,
-                "NZ 盘末 / 美股开盘模式：模型假设 3 倍美股资产只持有美股开盘到收盘这一段；美股收盘前卖出 3 倍资产，并把这部分资金买回新西兰 S&P 500 头寸隔夜。下一交易日收益会拆成隔夜段和开盘到收盘段：隔夜段按 NZ 头寸的 1 倍风险计算，日内段按目标美股仓位计算。",
-                "NZ close / US open mode: the model assumes 3x US exposure is held only from the US open to the US close. Before the US close, the 3x asset is sold and that sleeve is bought back into the NZ S&P 500 position overnight. The next session is split into overnight and open-to-close segments: the overnight leg uses 1x NZ exposure, and the intraday leg uses the target US allocation.",
+                "NZ 盘末 / 美股开盘模式：SPXL 在非调仓日维持 3 倍过夜杠杆。每日收益拆成隔夜段和日内段：隔夜段按当前持仓（含 SPXL 全额杠杆）计算，日内段按当日生效仓位计算。仅在从 1x 切换至 3x 的过渡夜间，过渡夜按调仓前旧仓位计算（SPXL 于下一美股开盘买入）；3x 切回 1x 的调仓当天美股收盘后即生效，次日起过夜段按新仓位（无杠杆）计算。",
+                "NZ close / US open mode: SPXL is held at full 3x leverage overnight in steady state. Each session's return is split into overnight and intraday legs: the overnight leg uses the current position (including full SPXL leverage), and the intraday leg uses the position in effect that day. On the transition night when switching 1x→3x, the pre-switch position is held overnight (SPXL buy executes at the next US open). Switching 3x→1x takes effect at the US close, so the following overnight uses the unleveraged position.",
             )
         )
 
@@ -2004,7 +2018,11 @@ def _save_config(path: Path, settings: dict[str, Any]) -> None:
     path.write_text(toml.dumps(settings), encoding="utf-8")
 
 
-def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) -> None:
+def _market_windows(
+    settings: dict[str, Any],
+    timeline_mode: str | None = None,
+    transition: str | None = None,
+) -> None:
     language = _ui_language(settings)
     st.subheader(_tr(language, "新西兰本地交易窗口", "Local Trading Windows"))
     now = pd.Timestamp.now(tz=settings["profile"]["home_timezone"]).to_pydatetime()
@@ -2023,9 +2041,10 @@ def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) 
     selected_timeline_mode = timeline_mode or settings.get("backtest", {}).get("execution_timing", "next_session")
     if selected_timeline_mode not in {"next_session", "nz_close_us_open"}:
         selected_timeline_mode = "next_session"
+    effective_transition = transition if selected_timeline_mode == "nz_close_us_open" else None
     trade_items = [
         item
-        for item in trade_timeline_items(settings, now)
+        for item in trade_timeline_items(settings, now, transition=effective_transition)
         if item.strategy_key == selected_timeline_mode
     ]
     _parallel_market_trade_timeline(market_windows, trade_items, now, language)
