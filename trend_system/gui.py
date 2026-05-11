@@ -770,31 +770,21 @@ def _daily_tab(settings: dict[str, Any]) -> None:
     start = cols[0].date_input(_tr(language, "数据起始日期", "Data start date"), value=date(2024, 1, 1), key="daily_start")
     run = _aligned_button(cols[1], _tr(language, "更新今日信号", "Update daily signal"), type="primary", use_container_width=True)
     timeline_mode_labels = _daily_timeline_mode_labels(language)
-    current_timeline_mode = "nz_close_us_open"
+    _nz_label = _tr(language, "NZ 盘末 / 美股开盘", "NZ close / US open")
+    if "daily_timeline_mode" not in st.session_state:
+        st.session_state["daily_timeline_mode"] = _nz_label
     selected_timeline_mode_label = cols[2].selectbox(
         _tr(language, "交易时间轴模式", "Timeline mode"),
         list(timeline_mode_labels.keys()),
-        index=_option_index(
-            list(timeline_mode_labels.keys()),
-            next(
-                (
-                    label
-                    for label, value in timeline_mode_labels.items()
-                    if value == current_timeline_mode
-                ),
-                list(timeline_mode_labels.keys())[0],
-            ),
-        ),
         key="daily_timeline_mode",
     )
     timeline_mode = timeline_mode_labels[selected_timeline_mode_label]
     settings.setdefault("backtest", {})["execution_timing"] = timeline_mode
 
-    _market_windows(settings, timeline_mode)
-
     if not run and "daily_result" not in st.session_state:
         _disabled_pdf_button(language, _tr(language, "打印/下载今日信号 PDF", "Print/Download Daily Signal PDF"), key="daily_pdf_disabled")
         st.info(_tr(language, "今日信号尚未加载。", "Daily signal has not been loaded yet."))
+        _market_windows(settings, timeline_mode)
         return
 
     if run:
@@ -883,6 +873,7 @@ def _daily_tab(settings: dict[str, Any]) -> None:
     )
     st.bar_chart(ma_frame)
     _portfolio_adjustment_section(settings, allocation, st.session_state.get("daily_prices", {}), signal.date)
+    _market_windows(settings, timeline_mode)
 
 
 def _market_health_tab(settings: dict[str, Any]) -> None:
