@@ -204,8 +204,8 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
         execution["leverage_only_when_vix_below"] = st.number_input(
             _tr(language, "杠杆允许 VIX 上限", "Leverage allowed below VIX"),
             0.0,
-            100.0,
-            float(execution.get("leverage_only_when_vix_below", 20.0)),
+            80.0,
+            min(float(execution.get("leverage_only_when_vix_below", 20.0)), 80.0),
             0.5,
             help=_tr(
                 language,
@@ -217,10 +217,13 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
         execution["clear_leverage_when_vix_at_or_above"] = st.number_input(
             _tr(language, "杠杆清退 VIX 水平", "Clear leverage at or above VIX"),
             float(execution["leverage_only_when_vix_below"]),
-            100.0,
-            max(
-                float(execution["leverage_only_when_vix_below"]),
-                float(execution.get("clear_leverage_when_vix_at_or_above", 30.0)),
+            80.0,
+            min(
+                80.0,
+                max(
+                    float(execution["leverage_only_when_vix_below"]),
+                    float(execution.get("clear_leverage_when_vix_at_or_above", 30.0)),
+                ),
             ),
             0.5,
             help=_tr(
@@ -348,66 +351,66 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             cap_1 = st.number_input(
                 _tr(language, "VIX 仓位上限边界 1", "VIX exposure cap boundary 1"),
                 0.0,
-                100.0,
-                float(cap_rules[0].get("max_exclusive", 18.0)),
+                80.0,
+                min(80.0, float(cap_rules[0].get("max_exclusive", 18.0))),
                 0.5,
             )
             cap_2 = st.number_input(
                 _tr(language, "VIX 仓位上限边界 2", "VIX exposure cap boundary 2"),
                 cap_1 + 0.5,
-                100.0,
-                max(cap_1 + 0.5, float(cap_rules[1].get("max_exclusive", 22.0))),
+                80.0,
+                min(80.0, max(cap_1 + 0.5, float(cap_rules[1].get("max_exclusive", 22.0)))),
                 0.5,
             )
             cap_3 = st.number_input(
                 _tr(language, "VIX 仓位上限边界 3", "VIX exposure cap boundary 3"),
                 cap_2 + 0.5,
-                100.0,
-                max(cap_2 + 0.5, float(cap_rules[2].get("max_exclusive", 26.0))),
+                80.0,
+                min(80.0, max(cap_2 + 0.5, float(cap_rules[2].get("max_exclusive", 26.0)))),
                 0.5,
             )
             cap_4 = st.number_input(
                 _tr(language, "VIX 仓位上限边界 4", "VIX exposure cap boundary 4"),
                 cap_3 + 0.5,
-                100.0,
-                max(cap_3 + 0.5, float(cap_rules[3].get("max_exclusive", 30.0))),
+                80.0,
+                min(80.0, max(cap_3 + 0.5, float(cap_rules[3].get("max_exclusive", 30.0)))),
                 0.5,
             )
             cap_cols = st.columns(5)
             cap_exposures = [
                 cap_cols[0].number_input(
                     _tr(language, f"VIX < {cap_1:g}", f"VIX < {cap_1:g}"),
-                    float(position["min_exposure"]),
-                    float(position["max_exposure"]),
-                    min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(cap_rules[0].get("max_exposure", 300.0)))),
+                    0.0,
+                    300.0,
+                    min(300.0, max(0.0, float(cap_rules[0].get("max_exposure", 300.0)))),
                     5.0,
                 ),
                 cap_cols[1].number_input(
                     _tr(language, f"{cap_1:g}-{cap_2:g}", f"{cap_1:g}-{cap_2:g}"),
-                    float(position["min_exposure"]),
-                    float(position["max_exposure"]),
-                    min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(cap_rules[1].get("max_exposure", 250.0)))),
+                    0.0,
+                    300.0,
+                    min(300.0, max(0.0, float(cap_rules[1].get("max_exposure", 250.0)))),
                     5.0,
                 ),
                 cap_cols[2].number_input(
                     _tr(language, f"{cap_2:g}-{cap_3:g}", f"{cap_2:g}-{cap_3:g}"),
-                    float(position["min_exposure"]),
-                    float(position["max_exposure"]),
-                    min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(cap_rules[2].get("max_exposure", 200.0)))),
+                    0.0,
+                    300.0,
+                    min(300.0, max(0.0, float(cap_rules[2].get("max_exposure", 200.0)))),
                     5.0,
                 ),
                 cap_cols[3].number_input(
                     _tr(language, f"{cap_3:g}-{cap_4:g}", f"{cap_3:g}-{cap_4:g}"),
-                    float(position["min_exposure"]),
-                    float(position["max_exposure"]),
-                    min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(cap_rules[3].get("max_exposure", 150.0)))),
+                    0.0,
+                    300.0,
+                    min(300.0, max(0.0, float(cap_rules[3].get("max_exposure", 150.0)))),
                     5.0,
                 ),
                 cap_cols[4].number_input(
                     _tr(language, f"VIX ≥ {cap_4:g}", f"VIX >= {cap_4:g}"),
-                    float(position["min_exposure"]),
-                    float(position["max_exposure"]),
-                    min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(cap_rules[4].get("max_exposure", 100.0)))),
+                    0.0,
+                    300.0,
+                    min(300.0, max(0.0, float(cap_rules[4].get("max_exposure", 100.0)))),
                     5.0,
                 ),
             ]
@@ -493,37 +496,37 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             drawdown_exposures = [
                 drawdown_cols[0].number_input(
                     _tr(language, f"回撤 < {dd_1:g}%", f"Drawdown < {dd_1:g}%"),
-                    float(position["min_exposure"]),
-                    float(position["max_exposure"]),
-                    min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(drawdown_rules[0].get("max_exposure", 300.0)))),
+                    0.0,
+                    300.0,
+                    min(300.0, max(0.0, float(drawdown_rules[0].get("max_exposure", 300.0)))),
                     5.0,
                 ),
                 drawdown_cols[1].number_input(
                     _tr(language, f"{dd_1:g}%-{dd_2:g}%", f"{dd_1:g}%-{dd_2:g}%"),
-                    float(position["min_exposure"]),
-                    float(position["max_exposure"]),
-                    min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(drawdown_rules[1].get("max_exposure", 250.0)))),
+                    0.0,
+                    300.0,
+                    min(300.0, max(0.0, float(drawdown_rules[1].get("max_exposure", 250.0)))),
                     5.0,
                 ),
                 drawdown_cols[2].number_input(
                     _tr(language, f"{dd_2:g}%-{dd_3:g}%", f"{dd_2:g}%-{dd_3:g}%"),
-                    float(position["min_exposure"]),
-                    float(position["max_exposure"]),
-                    min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(drawdown_rules[2].get("max_exposure", 200.0)))),
+                    0.0,
+                    300.0,
+                    min(300.0, max(0.0, float(drawdown_rules[2].get("max_exposure", 200.0)))),
                     5.0,
                 ),
                 drawdown_cols[3].number_input(
                     _tr(language, f"{dd_3:g}%-{dd_4:g}%", f"{dd_3:g}%-{dd_4:g}%"),
-                    float(position["min_exposure"]),
-                    float(position["max_exposure"]),
-                    min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(drawdown_rules[3].get("max_exposure", 150.0)))),
+                    0.0,
+                    300.0,
+                    min(300.0, max(0.0, float(drawdown_rules[3].get("max_exposure", 150.0)))),
                     5.0,
                 ),
                 drawdown_cols[4].number_input(
                     _tr(language, f"回撤 ≥ {dd_4:g}%", f"Drawdown >= {dd_4:g}%"),
-                    float(position["min_exposure"]),
-                    float(position["max_exposure"]),
-                    min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(drawdown_rules[4].get("max_exposure", 100.0)))),
+                    0.0,
+                    300.0,
+                    min(300.0, max(0.0, float(drawdown_rules[4].get("max_exposure", 100.0)))),
                     5.0,
                 ),
             ]
@@ -560,9 +563,9 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             no_new_high_cols = st.columns(3)
             position["no_new_high_max_exposure"] = no_new_high_cols[0].number_input(
                 _tr(language, "锁定仓位比例", "Locked exposure cap"),
-                float(position["min_exposure"]),
-                float(position["max_exposure"]),
-                min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(position.get("no_new_high_max_exposure", 100.0)))),
+                0.0,
+                300.0,
+                min(300.0, max(0.0, float(position.get("no_new_high_max_exposure", 100.0)))),
                 5.0,
                 help=_tr(language, "触发锁仓后允许的最高等效仓位，默认 100%，可按策略调整。", "Maximum equivalent exposure after the lock triggers. Default is 100% and can be adjusted."),
             )
@@ -587,6 +590,56 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
                     language,
                     "逻辑：如果“无新高观察天数”内没有创出“日期区段新高”，则目标等效仓位不超过锁定仓位比例；它和 VIX、回撤、趋势质量上限共同取更保守的结果。",
                     "Logic: if the observation period contains no new high over the configured high window, target equivalent exposure is capped to the locked exposure cap; it combines conservatively with VIX, drawdown, and trend-quality caps.",
+                )
+            )
+
+        st.divider()
+        with st.expander(_tr(language, "周期涨幅锁仓模块", "Period Rise Lock Module"), expanded=bool(position.get("period_rise_cap_enabled", False))):
+            position["period_rise_cap_enabled"] = st.toggle(
+                _tr(
+                    language,
+                    "当双月周期内涨幅达到触发比例时锁定仓位",
+                    "Lock exposure when bi-monthly period rise reaches threshold",
+                ),
+                bool(position.get("period_rise_cap_enabled", False)),
+                help=_tr(
+                    language,
+                    "开启后，当当前双月周期（1-2月、3-4月等）内指数涨幅达到触发比例，目标等效仓位将被限制到锁定比例。",
+                    "When enabled, if the index rises by the trigger percentage within the current bi-monthly period (Jan-Feb, Mar-Apr, etc.), target exposure is capped to the lock ratio.",
+                ),
+            )
+            period_cols = st.columns(2)
+            position["period_rise_threshold"] = period_cols[0].number_input(
+                _tr(language, "触发涨幅比例 (%)", "Trigger rise threshold (%)"),
+                0.0,
+                100.0,
+                float(position.get("period_rise_threshold", 15.0)),
+                0.5,
+                help=_tr(
+                    language,
+                    "当前双月周期内指数涨幅达到此比例时触发锁仓，例如 15 表示周期内涨幅 ≥ 15%。",
+                    "Lock triggers when the period rise reaches this percentage, e.g. 15 means ≥ 15% rise in the period.",
+                ),
+                key=f"{key_prefix}_period_rise_threshold",
+            )
+            position["period_rise_max_exposure"] = period_cols[1].number_input(
+                _tr(language, "触发后锁定仓位比例 (%)", "Locked exposure cap after trigger (%)"),
+                0.0,
+                300.0,
+                float(position.get("period_rise_max_exposure", 200.0)),
+                5.0,
+                help=_tr(
+                    language,
+                    "触发锁仓后允许的最高等效仓位，例如 200 或 100。",
+                    "Maximum equivalent exposure after the lock triggers, e.g. 200 or 100.",
+                ),
+                key=f"{key_prefix}_period_rise_max_exposure",
+            )
+            st.caption(
+                _tr(
+                    language,
+                    "双月周期定义：1-2月、3-4月、5-6月、7-8月、9-10月、11-12月，以每个周期第一个交易日收盘价为基准。",
+                    "Bi-monthly periods: Jan-Feb, Mar-Apr, May-Jun, Jul-Aug, Sep-Oct, Nov-Dec. Rise is measured from the first trading day close of each period.",
                 )
             )
 
@@ -665,30 +718,30 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             quality_cols = st.columns(4)
             position["trend_quality_rising_max_exposure"] = quality_cols[0].number_input(
                 _tr(language, "均线上行上限", "Rising MA cap"),
-                float(position["min_exposure"]),
-                float(position["max_exposure"]),
-                min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(position.get("trend_quality_rising_max_exposure", 300.0)))),
+                0.0,
+                300.0,
+                min(300.0, max(0.0, float(position.get("trend_quality_rising_max_exposure", 300.0)))),
                 5.0,
             )
             position["trend_quality_flat_max_exposure"] = quality_cols[1].number_input(
                 _tr(language, "均线走平上限", "Flat MA cap"),
-                float(position["min_exposure"]),
-                float(position["max_exposure"]),
-                min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(position.get("trend_quality_flat_max_exposure", 220.0)))),
+                0.0,
+                300.0,
+                min(300.0, max(0.0, float(position.get("trend_quality_flat_max_exposure", 220.0)))),
                 5.0,
             )
             position["trend_quality_falling_max_exposure"] = quality_cols[2].number_input(
                 _tr(language, "均线下行上限", "Falling MA cap"),
-                float(position["min_exposure"]),
-                float(position["max_exposure"]),
-                min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(position.get("trend_quality_falling_max_exposure", 150.0)))),
+                0.0,
+                300.0,
+                min(300.0, max(0.0, float(position.get("trend_quality_falling_max_exposure", 150.0)))),
                 5.0,
             )
             position["trend_quality_below_ma_max_exposure"] = quality_cols[3].number_input(
                 _tr(language, "跌破均线上限", "Below MA cap"),
-                float(position["min_exposure"]),
-                float(position["max_exposure"]),
-                min(float(position["max_exposure"]), max(float(position["min_exposure"]), float(position.get("trend_quality_below_ma_max_exposure", 100.0)))),
+                0.0,
+                300.0,
+                min(300.0, max(0.0, float(position.get("trend_quality_below_ma_max_exposure", 100.0)))),
                 5.0,
             )
             st.caption(
@@ -710,24 +763,24 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
         low_vix_upper = st.number_input(
             _tr(language, "低波动上限", "Low VIX upper bound"),
             0.0,
-            100.0,
-            float(low_rule.get("max_exclusive", 20.0)),
+            80.0,
+            min(80.0, float(low_rule.get("max_exclusive", 20.0))),
             0.5,
             key=f"{key_prefix}_vix_low_upper",
         )
         normal_vix_upper = st.number_input(
             _tr(language, "正常波动上限", "Normal VIX upper bound"),
             low_vix_upper + 0.5,
-            100.0,
-            max(low_vix_upper + 0.5, float(normal_rule.get("max_exclusive", 30.0))),
+            80.0,
+            min(80.0, max(low_vix_upper + 0.5, float(normal_rule.get("max_exclusive", 30.0)))),
             0.5,
             key=f"{key_prefix}_vix_normal_upper",
         )
         danger_vix_upper = st.number_input(
             _tr(language, "高风险上限", "Danger VIX upper bound"),
             normal_vix_upper + 0.5,
-            100.0,
-            max(normal_vix_upper + 0.5, float(danger_rule.get("max_exclusive", 40.0))),
+            80.0,
+            min(80.0, max(normal_vix_upper + 0.5, float(danger_rule.get("max_exclusive", 40.0)))),
             0.5,
             key=f"{key_prefix}_vix_danger_upper",
         )

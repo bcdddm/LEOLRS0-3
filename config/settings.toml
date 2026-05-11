@@ -67,6 +67,9 @@ trend_quality_rising_max_exposure = 300.0
 trend_quality_flat_max_exposure = 220.0
 trend_quality_falling_max_exposure = 150.0
 trend_quality_below_ma_max_exposure = 100.0
+period_rise_cap_enabled = false
+period_rise_threshold = 15.0
+period_rise_max_exposure = 200.0
 
 [[position.vix_exposure_caps]]
 max_exclusive = 18.0
