@@ -57,8 +57,6 @@ def run_backtest(
     cash_daily = float(settings_raw["backtest"]["annual_cash_return"]) / 252.0
     ma120_timing_targets = _ma120_timing_targets(signals["price"])
     leveraged_ma120_timing_targets = _price_above_ma120_targets(signals["price"])
-    intraday_returns = _intraday_returns(signals["price"], open_price)
-    overnight_returns = ((1.0 + daily_returns) / (1.0 + intraday_returns) - 1.0).fillna(0.0)
     initial_capital = float(settings_raw["backtest"]["initial_capital"])
     leveraged_fee_daily = float(settings_raw["backtest"]["annual_leveraged_fee"]) / 252.0
     leveraged_daily_returns = _leveraged_returns(
@@ -67,23 +65,6 @@ def run_backtest(
         settings_raw,
         leveraged_fee_daily,
         leveraged_price,
-    )
-    leveraged_intraday_returns = (
-        _actual_intraday_returns(
-            signals.index,
-            leveraged_price,
-            leveraged_open_price,
-            intraday_returns,
-            settings_raw,
-            leveraged_fee_daily,
-        )
-        if leveraged_price is not None
-        else None
-    )
-    leveraged_overnight_returns = (
-        ((1.0 + leveraged_daily_returns) / (1.0 + leveraged_intraday_returns) - 1.0).fillna(0.0)
-        if leveraged_intraday_returns is not None
-        else None
     )
     threshold = float(settings_raw["position"]["rebalance_threshold"])
     execution_timing = _execution_timing(settings_raw)
@@ -100,9 +81,7 @@ def run_backtest(
     current_local = 0.0
     last_rebalance_week: tuple[int, int] | None = None
     ma120_timing_invested = True
-    ma120_pending_open_invested: bool | None = None
     leveraged_ma120_timing_invested = True
-    leveraged_ma120_pending_open_invested: bool | None = None
     rows = []
     trades = []
     result_has_started = False
@@ -147,12 +126,6 @@ def run_backtest(
             settings_raw["execution"]["leverage_multiple"]
         )
         local_defensive_for_return = current_local
-        overnight_exposure_for_return = (
-            _nz_close_us_open_overnight_equivalent_exposure(current_core, current_lev)
-            if execution_timing == "nz_close_us_open"
-            else equivalent_exposure_for_return
-        )
-        intraday_exposure_for_return = equivalent_exposure_for_return
         r = float(daily_returns.loc[dt])
         leveraged_return = float(leveraged_daily_returns.loc[dt])
         leveraged_buy_hold_return = leveraged_return
@@ -161,84 +134,19 @@ def run_backtest(
         if execution_timing == "same_close":
             ma120_timing_invested = ma120_timing_target
             leveraged_ma120_timing_invested = leveraged_ma120_timing_target
-        if execution_timing == "nz_close_us_open":
-            overnight_return = float(overnight_returns.loc[dt])
-            intraday_return = float(intraday_returns.loc[dt])
-            leveraged_overnight_return = (
-                float(leveraged_overnight_returns.loc[dt])
-                if leveraged_overnight_returns is not None
-                else leveraged_fee_daily
-            )
-            leveraged_intraday_return = (
-                float(leveraged_intraday_returns.loc[dt])
-                if leveraged_intraday_returns is not None
-                else leveraged_fee_daily
-            )
-            overnight_portfolio_return = _portfolio_return(
-                current_core + current_lev,
-                0.0,
-                current_local,
-                current_cash,
-                overnight_return,
-                leveraged_overnight_return,
-                cash_daily,
-                settings_raw,
-                leveraged_return_is_actual=leveraged_overnight_returns is not None,
-            )
-            intraday_portfolio_return = _portfolio_return(
-                current_core,
-                current_lev,
-                current_local,
-                current_cash,
-                intraday_return,
-                leveraged_intraday_return,
-                cash_daily,
-                settings_raw,
-                leveraged_return_is_actual=leveraged_intraday_returns is not None,
-            )
-            portfolio_return = (1.0 + overnight_portfolio_return) * (1.0 + intraday_portfolio_return) - 1.0
-        else:
-            portfolio_return = _portfolio_return(
-                current_core,
-                current_lev,
-                current_local,
-                current_cash,
-                r,
-                leveraged_return if leveraged_price is not None else leveraged_fee_daily,
-                cash_daily,
-                settings_raw,
-                leveraged_return_is_actual=leveraged_price is not None,
-            )
-        ma120_timing_return = _ma120_timing_return(
-            ma120_timing_invested,
-            ma120_pending_open_invested,
+        portfolio_return = _portfolio_return(
+            current_core,
+            current_lev,
+            current_local,
+            current_cash,
             r,
-            float(overnight_returns.loc[dt]),
-            float(intraday_returns.loc[dt]),
+            leveraged_return if leveraged_price is not None else leveraged_fee_daily,
             cash_daily,
-            execution_timing,
+            settings_raw,
+            leveraged_return_is_actual=leveraged_price is not None,
         )
-        leveraged_overnight_for_timing = (
-            float(leveraged_overnight_returns.loc[dt])
-            if leveraged_overnight_returns is not None
-            else float(overnight_returns.loc[dt]) * float(settings_raw["execution"]["leverage_multiple"])
-            - leveraged_fee_daily
-        )
-        leveraged_intraday_for_timing = (
-            float(leveraged_intraday_returns.loc[dt])
-            if leveraged_intraday_returns is not None
-            else float(intraday_returns.loc[dt]) * float(settings_raw["execution"]["leverage_multiple"])
-            - leveraged_fee_daily
-        )
-        leveraged_ma120_timing_return = _timing_return(
-            leveraged_ma120_timing_invested,
-            leveraged_ma120_pending_open_invested,
-            leveraged_return,
-            leveraged_overnight_for_timing,
-            leveraged_intraday_for_timing,
-            cash_daily,
-            execution_timing,
-        )
+        ma120_timing_return = _ma120_timing_return(ma120_timing_invested, r, cash_daily)
+        leveraged_ma120_timing_return = _timing_return(leveraged_ma120_timing_invested, leveraged_return, cash_daily)
         if include_result and not first_result_row:
             capital *= 1.0 + portfolio_return
             benchmark_capital *= 1.0 + r
@@ -264,41 +172,6 @@ def run_backtest(
                 settings_raw,
                 trades if include_result else [],
             )
-        elif execution_timing == "nz_close_us_open":
-            if ma120_pending_open_invested is not None:
-                ma120_timing_invested = ma120_pending_open_invested
-                ma120_pending_open_invested = None
-            if leveraged_ma120_pending_open_invested is not None:
-                leveraged_ma120_timing_invested = leveraged_ma120_pending_open_invested
-                leveraged_ma120_pending_open_invested = None
-            if ma120_timing_target and not ma120_timing_invested:
-                ma120_pending_open_invested = True
-            elif not ma120_timing_target and ma120_timing_invested:
-                ma120_timing_invested = False
-            if leveraged_ma120_timing_target and not leveraged_ma120_timing_invested:
-                leveraged_ma120_pending_open_invested = True
-            elif not leveraged_ma120_timing_target and leveraged_ma120_timing_invested:
-                leveraged_ma120_timing_invested = False
-            rebalance = _rebalance_target_if_needed(
-                dt,
-                row,
-                target,
-                capital,
-                current_core,
-                current_lev,
-                current_local,
-                current_cash,
-                last_rebalance_week,
-                week_key,
-                threshold,
-                settings_raw,
-                execution_timing,
-            )
-            if rebalance is not None:
-                current_core, current_lev, current_local, current_cash = rebalance[:4]
-                last_rebalance_week = week_key
-                if include_result:
-                    trades.append(rebalance[4])
 
         if include_result:
             row_portfolio_return = 0.0 if first_result_row else portfolio_return
@@ -322,13 +195,10 @@ def run_backtest(
                     "weekly_contribution": contribution_applied,
                     "target_exposure": target,
                     "actual_equivalent_exposure": equivalent_exposure_for_return,
-                    "overnight_equivalent_exposure": overnight_exposure_for_return,
-                    "intraday_equivalent_exposure": intraday_exposure_for_return,
                     "post_close_equivalent_exposure": _post_close_equivalent_exposure(
                         current_core,
                         current_lev,
                         settings_raw,
-                        execution_timing,
                     ),
                     "pending_next_open_equivalent_exposure": _next_open_equivalent_exposure(
                         current_core,
@@ -630,21 +500,9 @@ def _parameter_maximum(path: str, settings_raw: dict) -> float | None:
 def _execution_timing(settings_raw: dict) -> str:
     backtest = settings_raw.get("backtest", {})
     timing = backtest.get("execution_timing")
-    if timing in {"next_session", "same_close", "nz_close_us_open"}:
+    if timing in {"next_session", "same_close"}:
         return timing
     return "next_session" if backtest.get("signal_effective_next_day", True) else "same_close"
-
-
-def _nz_close_us_open_overnight_equivalent_exposure(current_core: float, current_lev: float) -> float:
-    return current_core + current_lev
-
-
-def _intraday_returns(close: pd.Series, open_price: pd.Series | None) -> pd.Series:
-    if open_price is None:
-        return close.pct_change().fillna(0.0)
-    aligned_open = open_price.reindex(close.index).astype(float)
-    returns = (close.astype(float) / aligned_open - 1.0).replace([float("inf"), float("-inf")], pd.NA)
-    return returns.fillna(close.pct_change().fillna(0.0))
 
 
 def _leveraged_returns(
@@ -662,26 +520,6 @@ def _leveraged_returns(
     actual_returns = aligned_price.pct_change(fill_method=None)
     has_actual_return = aligned_price.notna() & aligned_price.shift(1).notna()
     return actual_returns.where(has_actual_return, synthetic_returns).fillna(0.0).astype(float)
-
-
-def _actual_intraday_returns(
-    index: pd.Index,
-    close: pd.Series | None,
-    open_price: pd.Series | None,
-    market_intraday_returns: pd.Series,
-    settings_raw: dict,
-    leveraged_fee_daily: float,
-) -> pd.Series:
-    synthetic_returns = (
-        market_intraday_returns * float(settings_raw["execution"]["leverage_multiple"]) - leveraged_fee_daily
-    )
-    if close is None or open_price is None:
-        return synthetic_returns.reindex(index).fillna(0.0).astype(float)
-    aligned_close = close.astype(float).reindex(index)
-    aligned_open = open_price.astype(float).reindex(index)
-    returns = (aligned_close / aligned_open - 1.0).replace([float("inf"), float("-inf")], pd.NA)
-    has_actual_return = aligned_close.notna() & aligned_open.notna()
-    return returns.where(has_actual_return, synthetic_returns).fillna(0.0).astype(float)
 
 
 def _ma120_timing_targets(price: pd.Series) -> pd.Series:
@@ -703,39 +541,11 @@ def _price_above_ma120_targets(price: pd.Series) -> pd.Series:
     return (price >= ma120).astype(bool)
 
 
-def _ma120_timing_return(
-    invested: bool,
-    pending_open_invested: bool | None,
-    daily_return: float,
-    overnight_return: float,
-    intraday_return: float,
-    cash_daily: float,
-    execution_timing: str,
-) -> float:
-    return _timing_return(
-        invested,
-        pending_open_invested,
-        daily_return,
-        overnight_return,
-        intraday_return,
-        cash_daily,
-        execution_timing,
-    )
+def _ma120_timing_return(invested: bool, daily_return: float, cash_daily: float) -> float:
+    return _timing_return(invested, daily_return, cash_daily)
 
 
-def _timing_return(
-    invested: bool,
-    pending_open_invested: bool | None,
-    daily_return: float,
-    overnight_return: float,
-    intraday_return: float,
-    cash_daily: float,
-    execution_timing: str,
-) -> float:
-    if execution_timing == "nz_close_us_open" and pending_open_invested is not None:
-        overnight_leg = overnight_return if invested else cash_daily
-        intraday_leg = intraday_return if pending_open_invested else cash_daily
-        return (1.0 + overnight_leg) * (1.0 + intraday_leg) - 1.0
+def _timing_return(invested: bool, daily_return: float, cash_daily: float) -> float:
     return daily_return if invested else cash_daily
 
 
@@ -792,7 +602,6 @@ def _rebalance_if_needed(
         week_key,
         threshold,
         settings_raw,
-        _execution_timing(settings_raw),
     )
     if rebalance is None:
         return current_core, current_lev, current_local, current_cash, last_rebalance_week
@@ -813,12 +622,10 @@ def _rebalance_target_if_needed(
     week_key: tuple[int, int],
     threshold: float,
     settings_raw: dict,
-    execution_timing: str,
 ) -> tuple[float, float, float, float, dict] | None:
     current_equivalent = current_core + current_lev * float(settings_raw["execution"]["leverage_multiple"])
     change = abs(target - current_equivalent)
-    frequency_allows_rebalance = execution_timing == "nz_close_us_open" or last_rebalance_week != week_key
-    may_rebalance = frequency_allows_rebalance and change >= threshold
+    may_rebalance = last_rebalance_week != week_key and change >= threshold
 
     if not may_rebalance:
         return None
@@ -841,7 +648,6 @@ def _rebalance_target_if_needed(
     current_cash = max(0.0, 100.0 - sum(target_weights.values()))
     trade = {
         "date": dt,
-        "execution_timing": execution_timing,
         "target_exposure": target,
         "core_percent": current_core,
         "leveraged_percent": current_lev,
@@ -858,10 +664,7 @@ def _post_close_equivalent_exposure(
     current_core: float,
     current_lev: float,
     settings_raw: dict,
-    execution_timing: str,
 ) -> float:
-    if execution_timing == "nz_close_us_open":
-        return _nz_close_us_open_overnight_equivalent_exposure(current_core, current_lev)
     return current_core + current_lev * float(settings_raw["execution"]["leverage_multiple"])
 
 
