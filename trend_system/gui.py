@@ -780,7 +780,21 @@ def _daily_tab(settings: dict[str, Any]) -> None:
     timeline_mode = timeline_mode_labels[selected_timeline_mode_label]
     settings.setdefault("backtest", {})["execution_timing"] = timeline_mode
 
-    _market_windows(settings, timeline_mode)
+    transition: str | None = None
+    if timeline_mode == "nz_close_us_open":
+        transition_labels = {
+            _tr(language, "无调仓", "No change"): None,
+            _tr(language, "1x → 3x（加杠杆）", "1x → 3x (add leverage)"): "1x_to_3x",
+            _tr(language, "3x → 1x（去杠杆）", "3x → 1x (remove leverage)"): "3x_to_1x",
+        }
+        selected_transition_label = cols[3].selectbox(
+            _tr(language, "调仓方向", "Transition"),
+            list(transition_labels.keys()),
+            key="daily_transition_direction",
+        )
+        transition = transition_labels[selected_transition_label]
+
+    _market_windows(settings, timeline_mode, transition=transition)
 
     if not run and "daily_result" not in st.session_state:
         _disabled_pdf_button(language, _tr(language, "打印/下载今日信号 PDF", "Print/Download Daily Signal PDF"), key="daily_pdf_disabled")
@@ -2004,7 +2018,11 @@ def _save_config(path: Path, settings: dict[str, Any]) -> None:
     path.write_text(toml.dumps(settings), encoding="utf-8")
 
 
-def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) -> None:
+def _market_windows(
+    settings: dict[str, Any],
+    timeline_mode: str | None = None,
+    transition: str | None = None,
+) -> None:
     language = _ui_language(settings)
     st.subheader(_tr(language, "新西兰本地交易窗口", "Local Trading Windows"))
     now = pd.Timestamp.now(tz=settings["profile"]["home_timezone"]).to_pydatetime()
@@ -2023,9 +2041,10 @@ def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) 
     selected_timeline_mode = timeline_mode or settings.get("backtest", {}).get("execution_timing", "next_session")
     if selected_timeline_mode not in {"next_session", "nz_close_us_open"}:
         selected_timeline_mode = "next_session"
+    effective_transition = transition if selected_timeline_mode == "nz_close_us_open" else None
     trade_items = [
         item
-        for item in trade_timeline_items(settings, now)
+        for item in trade_timeline_items(settings, now, transition=effective_transition)
         if item.strategy_key == selected_timeline_mode
     ]
     _parallel_market_trade_timeline(market_windows, trade_items, now, language)
