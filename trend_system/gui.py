@@ -1938,6 +1938,7 @@ def _execution_timing_labels(language: str) -> dict[str, str]:
 def _daily_timeline_mode_labels(language: str) -> dict[str, str]:
     return {
         _tr(language, "下一交易日", "Next session"): "next_session",
+        _tr(language, "NZ 盘末 / 美股开盘", "NZ close / US open"): "nz_close_us_open",
     }
 
 
@@ -2010,7 +2011,7 @@ def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) 
         {"key": "us", "label": "US", "open": us_open, "close": us_close, "color": "#2563eb"},
     ]
     selected_timeline_mode = timeline_mode or settings.get("backtest", {}).get("execution_timing", "next_session")
-    if selected_timeline_mode != "next_session":
+    if selected_timeline_mode not in {"next_session", "nz_close_us_open"}:
         selected_timeline_mode = "next_session"
     trade_items = [
         item
