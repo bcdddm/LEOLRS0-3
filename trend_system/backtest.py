@@ -855,7 +855,7 @@ def _rebalance_target_if_needed(
 ) -> tuple[float, float, float, float, dict] | None:
     current_equivalent = current_core + current_lev * float(settings_raw["execution"]["leverage_multiple"])
     change = abs(target - current_equivalent)
-    frequency_allows_rebalance = execution_timing == "nz_close_us_open" or last_rebalance_week != week_key
+    frequency_allows_rebalance = last_rebalance_week != week_key
     may_rebalance = frequency_allows_rebalance and change >= threshold
 
     if not may_rebalance:
