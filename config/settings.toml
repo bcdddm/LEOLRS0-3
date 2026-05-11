@@ -14,26 +14,26 @@ defensive = [ "SGOV", "GLD", "TLT",]
 price_field = "Close"
 
 [trend]
-short_window = 20
-medium_window = 50
-long_window = 120
+short_window = 10
+medium_window = 60
+long_window = 150
 confirmation_days = 2
 
 [vix]
 [[vix.rules]]
 label = "low"
-max_exclusive = 25.0
+max_exclusive = 30.0
 multiplier = 4.0
 
 [[vix.rules]]
 label = "normal"
-min_inclusive = 25.0
-max_exclusive = 30.0
-multiplier = 1.0
+min_inclusive = 30.0
+max_exclusive = 35.0
+multiplier = 1.25
 
 [[vix.rules]]
 label = "danger"
-min_inclusive = 30.0
+min_inclusive = 35.0
 max_exclusive = 40.0
 multiplier = 0.5
 
@@ -43,7 +43,7 @@ min_inclusive = 40.0
 multiplier = 0.2
 
 [position]
-min_exposure = 100.0
+min_exposure = 150.0
 max_exposure = 300.0
 rebalance_threshold = 30.0
 max_rebalances_per_week = 1
@@ -131,7 +131,7 @@ leverage_multiple = 3.0
 allow_leverage = true
 limit_foreign_assets_nzd_value = false
 foreign_assets_nzd_limit = 50000.0
-leverage_only_when_vix_below = 30.0
+leverage_only_when_vix_below = 35.0
 clear_leverage_when_vix_at_or_above = 40.0
 
 [backtest]
