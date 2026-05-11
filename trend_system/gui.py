@@ -2388,8 +2388,8 @@ def _trade_deadline_html(item: Any, start: datetime, total_seconds: float, langu
     label = f"{item.market_label} {item.deadline:%H:%M}"
     title = f"{label} · {_short_trade_action(item, language)}"
     return (
-        f'<div class="trade-deadline-marker" style="left:{left:.4f}%;background:rgba(128,128,128,0.5);" '
-        f'title="{html.escape(title)}"><span style="color:inherit;">{html.escape(label)}</span></div>'
+        f'<div class="trade-deadline-marker" style="left:{left:.4f}%;background:{color};" '
+        f'title="{html.escape(title)}"><span style="color:{color};">{html.escape(label)}</span></div>'
     )
 
 
@@ -2438,7 +2438,7 @@ def _trade_warning_window_html(item: Any, start: datetime, end: datetime, total_
     left = _timeline_pct(warning_start, start, total_seconds)
     width = max(_timeline_pct(warning_end, start, total_seconds) - left, 0.3)
     color = _trade_marker_color(item)
-    return f'<div class="trade-deadline-warning" style="left:{left:.4f}%;width:{width:.4f}%;background:rgba(128,128,128,0.5);"></div>'
+    return f'<div class="trade-deadline-warning" style="left:{left:.4f}%;width:{width:.4f}%;background:{color};"></div>'
 
 
 def _timeline_pct(value: datetime, start: datetime, total_seconds: float) -> float:
