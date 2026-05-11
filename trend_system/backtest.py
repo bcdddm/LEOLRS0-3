@@ -98,12 +98,6 @@ def run_backtest(
     current_lev = 0.0
     current_cash = 100.0
     current_local = 0.0
-    # When going 1x→3x the SPXL buy executes at the next US open (not overnight).
-    # These pending_* fields hold the post-buy allocation until that open arrives.
-    pending_core: float | None = None
-    pending_lev: float | None = None
-    pending_local: float | None = None
-    pending_cash: float | None = None
     last_rebalance_week: tuple[int, int] | None = None
     ma120_timing_invested = True
     ma120_pending_open_invested: bool | None = None
@@ -149,27 +143,16 @@ def run_backtest(
                 trades if include_result else [],
             )
 
-        leverage_multiple_float = float(settings_raw["execution"]["leverage_multiple"])
-
-        # For nz_close_us_open, a pending 1x→3x rebalance takes effect at the US open
-        # (intraday), not overnight.  Resolve it here so overnight uses pre-buy positions
-        # and intraday uses post-buy positions.
-        if execution_timing == "nz_close_us_open" and pending_core is not None:
-            intraday_core = pending_core
-            intraday_lev = pending_lev
-            intraday_local = pending_local
-            intraday_cash = pending_cash
-        else:
-            intraday_core = current_core
-            intraday_lev = current_lev
-            intraday_local = current_local
-            intraday_cash = current_cash
-
-        overnight_exposure_for_return = current_core + current_lev * leverage_multiple_float
-        intraday_exposure_for_return = intraday_core + intraday_lev * leverage_multiple_float
-        equivalent_exposure_for_return = intraday_exposure_for_return
-        local_defensive_for_return = intraday_local
-
+        equivalent_exposure_for_return = current_core + current_lev * float(
+            settings_raw["execution"]["leverage_multiple"]
+        )
+        local_defensive_for_return = current_local
+        overnight_exposure_for_return = (
+            _nz_close_us_open_overnight_equivalent_exposure(current_core, current_lev)
+            if execution_timing == "nz_close_us_open"
+            else equivalent_exposure_for_return
+        )
+        intraday_exposure_for_return = equivalent_exposure_for_return
         r = float(daily_returns.loc[dt])
         leveraged_return = float(leveraged_daily_returns.loc[dt])
         leveraged_buy_hold_return = leveraged_return
@@ -191,11 +174,9 @@ def run_backtest(
                 if leveraged_intraday_returns is not None
                 else leveraged_fee_daily
             )
-            # Overnight: SPXL held at full leverage (steady-state 3x is maintained
-            # overnight; only the transition night uses pre-buy positions via pending).
             overnight_portfolio_return = _portfolio_return(
-                current_core,
-                current_lev,
+                current_core + current_lev,
+                0.0,
                 current_local,
                 current_cash,
                 overnight_return,
@@ -204,12 +185,11 @@ def run_backtest(
                 settings_raw,
                 leveraged_return_is_actual=leveraged_overnight_returns is not None,
             )
-            # Intraday: post-pending positions (SPXL bought at US open on transition day).
             intraday_portfolio_return = _portfolio_return(
-                intraday_core,
-                intraday_lev,
-                intraday_local,
-                intraday_cash,
+                current_core,
+                current_lev,
+                current_local,
+                current_cash,
                 intraday_return,
                 leveraged_intraday_return,
                 cash_daily,
@@ -266,13 +246,6 @@ def run_backtest(
             ma120_timing_capital *= 1.0 + ma120_timing_return
             leveraged_ma120_timing_capital *= 1.0 + leveraged_ma120_timing_return
 
-        # After intraday returns are applied, promote the pending positions to current
-        # so that the rebalance check and future overnights use the correct state.
-        if execution_timing == "nz_close_us_open" and pending_core is not None:
-            current_core, current_lev = pending_core, pending_lev
-            current_local, current_cash = pending_local, pending_cash
-            pending_core = pending_lev = pending_local = pending_cash = None
-
         if execution_timing == "next_session":
             ma120_timing_invested = ma120_timing_target
             leveraged_ma120_timing_invested = leveraged_ma120_timing_target
@@ -322,19 +295,10 @@ def run_backtest(
                 execution_timing,
             )
             if rebalance is not None:
-                new_core, new_lev, new_local, new_cash = rebalance[:4]
+                current_core, current_lev, current_local, current_cash = rebalance[:4]
                 last_rebalance_week = week_key
                 if include_result:
                     trades.append(rebalance[4])
-                if new_lev > current_lev:
-                    # Buying SPXL: order placed at next US open → pending until intraday.
-                    pending_core, pending_lev = new_core, new_lev
-                    pending_local, pending_cash = new_local, new_cash
-                else:
-                    # Selling SPXL (or no leverage change): executed at US close →
-                    # new positions are in effect from the next overnight onward.
-                    current_core, current_lev = new_core, new_lev
-                    current_local, current_cash = new_local, new_cash
 
         if include_result:
             row_portfolio_return = 0.0 if first_result_row else portfolio_return
@@ -367,8 +331,8 @@ def run_backtest(
                         execution_timing,
                     ),
                     "pending_next_open_equivalent_exposure": _next_open_equivalent_exposure(
-                        pending_core if pending_core is not None else current_core,
-                        pending_lev if pending_lev is not None else current_lev,
+                        current_core,
+                        current_lev,
                         settings_raw,
                     ),
                     "local_defensive_percent": local_defensive_for_return,
@@ -672,8 +636,6 @@ def _execution_timing(settings_raw: dict) -> str:
 
 
 def _nz_close_us_open_overnight_equivalent_exposure(current_core: float, current_lev: float) -> float:
-    # Kept for backward-compatibility; callers inside the loop now compute this
-    # directly as current_core + current_lev * leverage_multiple.
     return current_core + current_lev
 
 
@@ -855,7 +817,7 @@ def _rebalance_target_if_needed(
 ) -> tuple[float, float, float, float, dict] | None:
     current_equivalent = current_core + current_lev * float(settings_raw["execution"]["leverage_multiple"])
     change = abs(target - current_equivalent)
-    frequency_allows_rebalance = last_rebalance_week != week_key
+    frequency_allows_rebalance = execution_timing == "nz_close_us_open" or last_rebalance_week != week_key
     may_rebalance = frequency_allows_rebalance and change >= threshold
 
     if not may_rebalance:
@@ -898,6 +860,8 @@ def _post_close_equivalent_exposure(
     settings_raw: dict,
     execution_timing: str,
 ) -> float:
+    if execution_timing == "nz_close_us_open":
+        return _nz_close_us_open_overnight_equivalent_exposure(current_core, current_lev)
     return current_core + current_lev * float(settings_raw["execution"]["leverage_multiple"])
 
 
