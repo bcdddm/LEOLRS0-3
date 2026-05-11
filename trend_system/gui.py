@@ -760,7 +760,7 @@ def _daily_tab(settings: dict[str, Any]) -> None:
     start = cols[0].date_input(_tr(language, "数据起始日期", "Data start date"), value=date(2024, 1, 1), key="daily_start")
     run = _aligned_button(cols[1], _tr(language, "更新今日信号", "Update daily signal"), type="primary", use_container_width=True)
     timeline_mode_labels = _daily_timeline_mode_labels(language)
-    current_timeline_mode = "nz_close_us_open"
+    current_timeline_mode = "next_session"
     selected_timeline_mode_label = cols[2].selectbox(
         _tr(language, "交易时间轴模式", "Timeline mode"),
         list(timeline_mode_labels.keys()),
@@ -1142,14 +1142,6 @@ def _backtest_tab(settings: dict[str, Any]) -> None:
                 "Aggressive mode is active: the same-day close signal applies before that day's return. This can include look-ahead bias and should only be used for comparison.",
             )
         )
-    else:
-        st.info(
-            _tr(
-                language,
-                "NZ 盘末 / 美股开盘模式：模型假设 3 倍美股资产只持有美股开盘到收盘这一段；美股收盘前卖出 3 倍资产，并把这部分资金买回新西兰 S&P 500 头寸隔夜。下一交易日收益会拆成隔夜段和开盘到收盘段：隔夜段按 NZ 头寸的 1 倍风险计算，日内段按目标美股仓位计算。",
-                "NZ close / US open mode: the model assumes 3x US exposure is held only from the US open to the US close. Before the US close, the 3x asset is sold and that sleeve is bought back into the NZ S&P 500 position overnight. The next session is split into overnight and open-to-close segments: the overnight leg uses 1x NZ exposure, and the intraday leg uses the target US allocation.",
-            )
-        )
 
     if end < start:
         st.error(_tr(language, "回测结束日期不能早于开始日期。", "Backtest end date cannot be earlier than the start date."))
@@ -1241,17 +1233,9 @@ def _backtest_tab(settings: dict[str, Any]) -> None:
         (_tr(language, "三倍持有：跌破 120 日均线转现金", "3x Hold: Cash Below 120MA"), f"{latest_curve.get('leveraged_ma120_timing_equity', 0):,.2f}"),
         (_tr(language, "目标等效仓位", "Target equivalent exposure"), f"{latest_curve.get('target_exposure', 0):.2f}%"),
     ]
-    if execution_timing == "nz_close_us_open":
-        curve_rows.extend(
-            [
-                (_tr(language, "隔夜等效仓位", "Overnight equivalent exposure"), f"{latest_curve.get('overnight_equivalent_exposure', 0):.2f}%"),
-                (_tr(language, "日内等效仓位", "Intraday equivalent exposure"), f"{latest_curve.get('intraday_equivalent_exposure', 0):.2f}%"),
-            ]
-        )
-    else:
-        curve_rows.append(
-            (_tr(language, "实际等效仓位", "Actual equivalent exposure"), f"{latest_curve.get('actual_equivalent_exposure', 0):.2f}%")
-        )
+    curve_rows.append(
+        (_tr(language, "实际等效仓位", "Actual equivalent exposure"), f"{latest_curve.get('actual_equivalent_exposure', 0):.2f}%")
+    )
     pdf_sections = [
         (_tr(language, "回测表现", "Backtest Performance"), backtest_rows),
         (_tr(language, "净值和仓位曲线摘要", "Equity and Exposure Summary"), curve_rows),
@@ -1802,8 +1786,6 @@ def equity_columns_for_pdf(
 
 
 def _exposure_columns_for_timing(execution_timing: str) -> list[str]:
-    if execution_timing == "nz_close_us_open":
-        return ["target_exposure", "overnight_equivalent_exposure", "intraday_equivalent_exposure"]
     return ["target_exposure", "actual_equivalent_exposure"]
 
 
@@ -1941,14 +1923,12 @@ def _execution_timing_labels(language: str) -> dict[str, str]:
     return {
         _tr(language, "下一交易日收盘生效", "Next session close-to-close"): "next_session",
         _tr(language, "同日收盘生效（激进）", "Same close, aggressive"): "same_close",
-        _tr(language, "NZ 盘末卖出 / 美股开盘挂单", "NZ close sell / US open order"): "nz_close_us_open",
     }
 
 
 def _daily_timeline_mode_labels(language: str) -> dict[str, str]:
     return {
         _tr(language, "下一交易日", "Next session"): "next_session",
-        _tr(language, "NZ 盘末 / 美股开盘", "NZ close / US open"): "nz_close_us_open",
     }
 
 
@@ -2021,7 +2001,7 @@ def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) 
         {"key": "us", "label": "US", "open": us_open, "close": us_close, "color": "#2563eb"},
     ]
     selected_timeline_mode = timeline_mode or settings.get("backtest", {}).get("execution_timing", "next_session")
-    if selected_timeline_mode not in {"next_session", "nz_close_us_open"}:
+    if selected_timeline_mode != "next_session":
         selected_timeline_mode = "next_session"
     trade_items = [
         item

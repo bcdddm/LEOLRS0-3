@@ -48,13 +48,11 @@ def test_asx_market_window_skips_weekend():
     assert close_dt == datetime(2026, 1, 5, 16, 0, tzinfo=ZoneInfo("Australia/Sydney"))
 
 
-def test_trade_timeline_lists_next_session_and_nz_close_us_open_deadlines():
+def test_trade_timeline_lists_next_session_deadline():
     settings = _settings("Pacific/Auckland")
     now = datetime(2026, 1, 5, 12, 0, tzinfo=ZoneInfo("Pacific/Auckland"))
 
     items = trade_timeline_items(settings, now)
 
-    assert [item.deadline for item in items] == sorted(item.deadline for item in items)
-    assert {item.strategy_key for item in items} == {"next_session", "nz_close_us_open"}
-    assert any("美股开盘前" in item.action("zh") for item in items)
-    assert any("US close" in item.action("en") for item in items)
+    assert {item.strategy_key for item in items} == {"next_session"}
+    assert any("下个美股交易日" in item.action("zh") for item in items)

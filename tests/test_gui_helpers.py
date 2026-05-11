@@ -96,16 +96,6 @@ def test_leveraged_ma120_timing_label_describes_cash_switch():
     assert _series_label("leveraged_ma120_timing_equity", "en") == "3x Hold: Cash Below 120MA"
 
 
-def test_nz_close_us_open_exposure_chart_uses_intraday_and_overnight_series():
-    assert _exposure_columns_for_timing("nz_close_us_open") == [
-        "target_exposure",
-        "overnight_equivalent_exposure",
-        "intraday_equivalent_exposure",
-    ]
-    assert _series_label("overnight_equivalent_exposure", "zh") == "隔夜等效仓位"
-    assert _series_label("intraday_equivalent_exposure", "en") == "Intraday equivalent exposure"
-
-
 def test_backtest_presets_include_2021_to_2023_window():
     assert BACKTEST_PRESETS["2021-01-01 到 2023-12-31"] == (
         pd.Timestamp("2021-01-01").date(),
