@@ -14,10 +14,10 @@ defensive = [ "SGOV", "GLD", "TLT",]
 price_field = "Close"
 
 [trend]
-short_window = 20
+short_window = 10
 medium_window = 60
-long_window = 120
-confirmation_days = 4
+long_window = 150
+confirmation_days = 2
 
 [vix]
 [[vix.rules]]
@@ -29,7 +29,7 @@ multiplier = 5.0
 label = "normal"
 min_inclusive = 30.0
 max_exclusive = 35.0
-multiplier = 1.0
+multiplier = 1.25
 
 [[vix.rules]]
 label = "danger"
@@ -43,7 +43,7 @@ min_inclusive = 40.0
 multiplier = 0.5
 
 [position]
-min_exposure = 100.0
+min_exposure = 150.0
 max_exposure = 300.0
 rebalance_threshold = 15.0
 max_rebalances_per_week = 1
@@ -67,6 +67,9 @@ trend_quality_flat_max_exposure = 220.0
 trend_quality_falling_max_exposure = 150.0
 trend_quality_below_ma_max_exposure = 100.0
 trend_quality_slow_decline_zero_floor_enabled = false
+period_rise_cap_enabled = true
+period_rise_threshold = 15.0
+period_rise_max_exposure = 100.0
 [[position.vix_exposure_caps]]
 max_exclusive = 20.0
 max_exposure = 300.0
