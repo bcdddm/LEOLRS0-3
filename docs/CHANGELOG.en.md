@@ -2,6 +2,29 @@
 
 This English changelog is a translation of the Chinese source changelog. The Chinese file `docs/CHANGELOG.md` remains the source of truth; this file is shown when the UI language is English.
 
+## v0.2.4 - 2026-05-12
+
+### 1. Feature: delete profile
+
+A "Delete Profile" section has been added to the Settings tab:
+
+- A dropdown lists all deletable profiles, automatically excluding the default config and the currently active profile.
+- Clicking "Delete" triggers a two-step confirmation to prevent accidental deletion.
+- On confirmation, the local file is deleted first, then the file is removed from the GitHub repository via the GitHub API.
+- Shows a green success message when `GITHUB_TOKEN` is configured; shows a yellow warning and prompts for a manual git push otherwise.
+
+### 2. Fix: config saves not persisting on Streamlit.app
+
+Streamlit Community Cloud uses an ephemeral filesystem — locally written config files are lost on redeploy. "Save current settings" and "Save as profile" now write the file to GitHub via the REST API in addition to the local write, making saves truly persistent.
+
+- Enable by setting `GITHUB_TOKEN`, `GITHUB_REPO`, and `GITHUB_BRANCH` in Streamlit Secrets.
+- Without secrets, the app falls back to a yellow warning indicating the save is local only.
+- Local write failures now surface as a red error instead of failing silently.
+
+### 3. UI fix: release notes text box background set to transparent
+
+The background of the "Update and Fix Log" text box was changed from `#fafafa` to `transparent` to match the page theme.
+
 ## v0.2.3 - 2026-05-11
 
 ### 1. Feature improvement: merged market and trade-mode timeline

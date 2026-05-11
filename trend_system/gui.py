@@ -1467,8 +1467,21 @@ def _settings_tab(settings: dict[str, Any], config_path: str) -> None:
 
     save_cols = st.columns([1, 1, 2])
     if _aligned_button(save_cols[0], _tr(language, "保存当前设置", "Save current settings"), type="primary", use_container_width=True):
-        _save_config(Path(config_path), settings)
-        st.success(_tr(language, "设置已保存。", "Settings saved."))
+        try:
+            _save_config(Path(config_path), settings)
+        except Exception as exc:
+            st.error(f"{_tr(language, '本地写入失败', 'Local write failed')}: {exc}")
+        else:
+            toml_str = toml.dumps(settings)
+            rel = str(Path(config_path).relative_to(APP_ROOT))
+            ok, msg = _save_config_github(rel, toml_str)
+            if ok:
+                st.success(f"{_tr(language, '设置已保存。', 'Settings saved.')} {msg}")
+            else:
+                st.warning(
+                    f"{_tr(language, '设置已写入本地，但', 'Settings written locally, but')} {msg}"
+                    f"（{_tr(language, '重部署后配置将丢失，请手动 git push', "config will be lost on redeploy — please git push manually")}）"
+                )
     new_name = save_cols[1].text_input(_tr(language, "新配置名称", "New profile name"), placeholder=_tr(language, "例如：保守版", "Example: Conservative"))
     if _aligned_button(save_cols[2], _tr(language, "另存为配置文件包", "Save as profile"), use_container_width=True):
         if not new_name.strip():
@@ -1476,8 +1489,68 @@ def _settings_tab(settings: dict[str, Any], config_path: str) -> None:
         else:
             target = _profile_path_for_name(new_name)
             settings.setdefault("profile", {})["name"] = new_name.strip()
-            _save_config(target, settings)
-            st.success(f"{_tr(language, '已另存为', 'Saved as')}: {target}")
+            try:
+                _save_config(target, settings)
+            except Exception as exc:
+                st.error(f"{_tr(language, '本地写入失败', 'Local write failed')}: {exc}")
+            else:
+                toml_str = toml.dumps(settings)
+                rel = str(target.relative_to(APP_ROOT))
+                ok, msg = _save_config_github(rel, toml_str)
+                if ok:
+                    st.success(f"{_tr(language, '已另存为', 'Saved as')}: {target.name}。{msg}")
+                else:
+                    st.warning(
+                        f"{_tr(language, '已另存为', 'Saved as')} {target.name}（{_tr(language, '本地', 'local')}），"
+                        f"{_tr(language, '但', 'but')} {msg}"
+                        f"（{_tr(language, '刷新后配置将消失，请手动 git push', 'config will disappear on refresh — please git push manually')}）"
+                    )
+    # --- Delete profile section ---
+    deletable = {
+        name: path
+        for name, path in _config_options().items()
+        if path != Path(DEFAULT_CONFIG) and name not in ("默认配置", "自定义路径")
+        and path.resolve() != Path(config_path).resolve()
+    }
+    if deletable:
+        st.markdown(f"**{_tr(language, '删除配置文件包', 'Delete Profile')}**")
+        del_cols = st.columns([3, 1])
+        del_target_name = del_cols[0].selectbox(
+            _tr(language, "选择要删除的配置", "Select profile to delete"),
+            list(deletable.keys()),
+            key="delete_profile_select",
+            label_visibility="collapsed",
+        )
+        if _aligned_button(del_cols[1], _tr(language, "删除", "Delete"), use_container_width=True):
+            st.session_state["pending_delete"] = del_target_name
+        if st.session_state.get("pending_delete") == del_target_name:
+            st.warning(
+                f"⚠️ {_tr(language, '确认删除配置文件包', 'Confirm delete profile')}"
+                f" **{del_target_name}**？{_tr(language, '此操作不可撤销。', 'This cannot be undone.')}"
+            )
+            confirm_cols = st.columns(2)
+            if confirm_cols[0].button(_tr(language, "确认删除", "Confirm delete"), type="primary", key="confirm_delete_yes"):
+                del_path = deletable[del_target_name]
+                try:
+                    del_path.unlink(missing_ok=True)
+                except Exception as exc:
+                    st.error(f"{_tr(language, '本地删除失败', 'Local delete failed')}: {exc}")
+                else:
+                    rel = str(del_path.relative_to(APP_ROOT))
+                    ok, msg = _delete_config_github(rel)
+                    st.session_state.pop("pending_delete", None)
+                    if ok:
+                        st.success(f"{_tr(language, '已删除', 'Deleted')}: {del_target_name}。{msg}")
+                    else:
+                        st.warning(
+                            f"{_tr(language, '本地已删除，但', 'Deleted locally, but')} {msg}"
+                            f"（{_tr(language, '请手动 git push 同步到 GitHub', 'please git push to sync to GitHub')}）"
+                        )
+                    st.rerun()
+            if confirm_cols[1].button(_tr(language, "取消", "Cancel"), key="confirm_delete_no"):
+                st.session_state.pop("pending_delete", None)
+                st.rerun()
+
     st.json(settings, expanded=False)
     st.info(_tr(language, "保存前，当前修改只影响本次界面运行。", "Until saved, changes only affect the current app session."))
     st.markdown(f"**{_tr(language, 'GitHub 推送策略', 'GitHub Push Strategy')}**")
@@ -1506,7 +1579,7 @@ def _render_release_notes(language: str) -> None:
     escaped = html.escape(changelog)
     st.markdown(
         f"""
-<div style="height: 320px; overflow-y: auto; border: 1px solid #d9dde3; border-radius: 6px; padding: 12px; background: #fafafa; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; font-size: 13px; line-height: 1.45;">
+<div style="height: 320px; overflow-y: auto; border: 1px solid #d9dde3; border-radius: 6px; padding: 12px; background: transparent; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; font-size: 13px; line-height: 1.45;">
 {escaped}
 </div>
 """,
@@ -2045,6 +2118,97 @@ def _profile_path_for_name(name: str) -> Path:
 def _save_config(path: Path, settings: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(toml.dumps(settings), encoding="utf-8")
+
+
+def _save_config_github(relative_path: str, content: str) -> tuple[bool, str]:
+    """Push a config file to GitHub via REST API. Returns (success, message)."""
+    import base64
+    import json
+    import urllib.error
+    import urllib.request
+
+    try:
+        token = st.secrets.get("GITHUB_TOKEN", "")
+        repo = st.secrets.get("GITHUB_REPO", "")
+        branch = st.secrets.get("GITHUB_BRANCH", "main")
+        if not token or not repo:
+            return False, "未配置 GITHUB_TOKEN / GITHUB_REPO secrets"
+        api_url = f"https://api.github.com/repos/{repo}/contents/{relative_path}"
+        headers = {
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+        }
+        # GET current file SHA (required for updates)
+        req = urllib.request.Request(api_url, headers=headers)
+        try:
+            with urllib.request.urlopen(req) as resp:
+                current = json.loads(resp.read())
+            sha = current.get("sha", "")
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                sha = ""
+            else:
+                raise
+        # PUT new content
+        body: dict[str, Any] = {
+            "message": f"chore: update {relative_path} via Streamlit UI",
+            "content": base64.b64encode(content.encode()).decode(),
+            "branch": branch,
+        }
+        if sha:
+            body["sha"] = sha
+        put_req = urllib.request.Request(
+            api_url, data=json.dumps(body).encode(), headers=headers, method="PUT"
+        )
+        with urllib.request.urlopen(put_req):
+            pass
+        return True, "已推送到 GitHub"
+    except Exception as exc:
+        return False, f"GitHub 推送失败: {exc}"
+
+
+def _delete_config_github(relative_path: str) -> tuple[bool, str]:
+    """Delete a config file from GitHub via REST API. Returns (success, message)."""
+    import json
+    import urllib.error
+    import urllib.request
+
+    try:
+        token = st.secrets.get("GITHUB_TOKEN", "")
+        repo = st.secrets.get("GITHUB_REPO", "")
+        branch = st.secrets.get("GITHUB_BRANCH", "main")
+        if not token or not repo:
+            return False, "未配置 GITHUB_TOKEN / GITHUB_REPO secrets"
+        api_url = f"https://api.github.com/repos/{repo}/contents/{relative_path}"
+        headers = {
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+        }
+        # GET current file SHA (required for deletion)
+        req = urllib.request.Request(api_url, headers=headers)
+        try:
+            with urllib.request.urlopen(req) as resp:
+                current = json.loads(resp.read())
+            sha = current.get("sha", "")
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return True, "GitHub 上不存在该文件（已跳过）"
+            raise
+        body: dict[str, Any] = {
+            "message": f"chore: delete {relative_path} via Streamlit UI",
+            "sha": sha,
+            "branch": branch,
+        }
+        del_req = urllib.request.Request(
+            api_url, data=json.dumps(body).encode(), headers=headers, method="DELETE"
+        )
+        with urllib.request.urlopen(del_req):
+            pass
+        return True, "已从 GitHub 删除"
+    except Exception as exc:
+        return False, f"GitHub 删除失败: {exc}"
 
 
 def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) -> None:
