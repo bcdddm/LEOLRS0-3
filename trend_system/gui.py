@@ -2489,17 +2489,25 @@ def _timeline_countdowns(
     language: str,
 ) -> None:
     countdowns: list[tuple[str, datetime, str]] = []
-    open_market_closes = sorted(
-        (
-            (window["label"], window["close"])
-            for window in market_windows
-            if window["open"] <= now <= window["close"]
-        ),
-        key=lambda item: item[1],
-    )
-    if open_market_closes:
-        label, close_dt = open_market_closes[0]
-        countdowns.append((_tr(language, f"当前市场 {label} 收盘", f"Current market {label} close"), close_dt, close_dt.strftime("%Y-%m-%d %H:%M")))
+
+    market_event_candidates: list[tuple[str, datetime, str]] = []
+    for window in market_windows:
+        if window["open"] <= now <= window["close"]:
+            close_dt = window["close"]
+            market_event_candidates.append((
+                _tr(language, f"当前市场 {window['label']} 收盘", f"Current market {window['label']} close"),
+                close_dt,
+                close_dt.strftime("%Y-%m-%d %H:%M"),
+            ))
+        elif window["open"] > now:
+            open_dt = window["open"]
+            market_event_candidates.append((
+                _tr(language, f"下个市场 {window['label']} 开盘", f"Next market {window['label']} open"),
+                open_dt,
+                open_dt.strftime("%Y-%m-%d %H:%M"),
+            ))
+    if market_event_candidates:
+        countdowns.append(min(market_event_candidates, key=lambda x: x[1]))
 
     future_trade_items = sorted(
         (item for item in trade_items if item.deadline >= now),
@@ -2512,18 +2520,6 @@ def _timeline_countdowns(
             item.deadline,
             f"{item.deadline:%Y-%m-%d %H:%M} · {_short_trade_action(item, language)}",
         ))
-
-    future_opens = sorted(
-        (
-            (window["label"], window["open"])
-            for window in market_windows
-            if window["open"] >= now
-        ),
-        key=lambda item: item[1],
-    )
-    if future_opens:
-        label, open_dt = future_opens[0]
-        countdowns.append((_tr(language, f"下个市场 {label} 开盘", f"Next market {label} open"), open_dt, open_dt.strftime("%Y-%m-%d %H:%M")))
 
     cards = "\n".join(
         _countdown_card_html(title, target, meta, now, language)
