@@ -2016,8 +2016,8 @@ def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) 
     cols[1].metric(_tr(language, "ASX 常规时段", "ASX regular session"), f"{asx_open:%H:%M} - {asx_close:%H:%M}", f"{asx_open:%Y-%m-%d}")
     cols[2].metric(_tr(language, "NZX 常规时段", "NZX regular session"), f"{nzx_open:%H:%M} - {nzx_close:%H:%M}", f"{nzx_open:%Y-%m-%d}")
     market_windows = [
-        {"key": "nzx", "label": "NZ", "open": nzx_open, "close": nzx_close, "color": "#111111"},
-        {"key": "asx", "label": "AU", "open": asx_open, "close": asx_close, "color": "#d7263d"},
+        {"key": "nzx", "label": "NZ", "open": nzx_open, "close": nzx_close, "color": "#991b1b"},
+        {"key": "asx", "label": "AU", "open": asx_open, "close": asx_close, "color": "#166534"},
         {"key": "us", "label": "US", "open": us_open, "close": us_close, "color": "#2563eb"},
     ]
     selected_timeline_mode = timeline_mode or settings.get("backtest", {}).get("execution_timing", "next_session")
@@ -2079,7 +2079,7 @@ def _parallel_market_trade_timeline(
   border-radius: 8px;
   padding: 14px 14px 10px;
   margin: 10px 0 12px;
-  background: #ffffff;
+  background: transparent;
 }}
 .trade-timeline-head {{
   display: flex;
@@ -2240,8 +2240,8 @@ def _parallel_market_trade_timeline(
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 10px 12px;
-  background: #ffffff;
-  color: #111827;
+  background: transparent;
+  color: inherit;
 }}
 .timeline-countdown-card.urgent {{
   border-color: #dc2626;
@@ -2420,11 +2420,11 @@ def _trade_marker_color(item: Any) -> str:
     if item.strategy_key == "next_session":
         return "#059669"
     if item.market_label == "NZX":
-        return "#f59e0b"
+        return "#991b1b"
     if "open" in action_en:
-        return "#2563eb"
+        return "#93c5fd"
     if "close" in action_en:
-        return "#7c3aed"
+        return "#2563eb"
     return "#dc2626"
 
 
