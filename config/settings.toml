@@ -144,7 +144,7 @@ execution_timing = "next_session"
 show_leveraged_buy_hold = true
 show_ma120_timing = true
 show_leveraged_ma120_timing = true
-use_actual_leveraged_asset_returns = false
+use_actual_leveraged_asset_returns = true
 
 [trend.exposure]
 below_long = 0.0
