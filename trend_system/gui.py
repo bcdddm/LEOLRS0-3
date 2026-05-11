@@ -1512,7 +1512,7 @@ def _settings_tab(settings: dict[str, Any], config_path: str) -> None:
             key="delete_profile_select",
             label_visibility="collapsed",
         )
-        if _aligned_button(del_cols[1], _tr(language, "删除", "Delete"), use_container_width=True):
+        if del_cols[1].button(_tr(language, "删除", "Delete"), use_container_width=True):
             st.session_state["pending_delete"] = del_target_name
         if st.session_state.get("pending_delete") == del_target_name:
             st.warning(
@@ -1544,21 +1544,49 @@ def _settings_tab(settings: dict[str, Any], config_path: str) -> None:
 
     st.json(settings, expanded=False)
     st.info(_tr(language, "保存前，当前修改只影响本次界面运行。", "Until saved, changes only affect the current app session."))
-    st.markdown(f"**{_tr(language, 'GitHub 推送策略', 'GitHub Push Strategy')}**")
-    st.info(
-        _tr(
-            language,
-            "左侧选择配置文件包只会影响本地 App 当前会话。GitHub 定时推送由 `.github/workflows/daily-signal.yml` 决定；"
-            "目前 workflow 已设置为运行 `python -m trend_system daily --config config/profiles/Leo.toml`，所以 GitHub 推送会使用 Leo。"
-            "如果以后要改回默认配置，可以把 workflow 改为 `--config config/settings.toml`。"
-            "本地改完后需要执行 `git add .`、`git commit -m \"Use Leo profile for daily signal\"`、"
-            "`git push`，GitHub 上的定时推送才会更新。",
-            "Selecting a profile in the sidebar only affects the current local App session. GitHub scheduled pushes are controlled by `.github/workflows/daily-signal.yml`; "
-            "the workflow is currently set to `python -m trend_system daily --config config/profiles/Leo.toml`, so GitHub pushes will use Leo. "
-            "To switch back to the default config later, change the workflow to `--config config/settings.toml`. After changing files locally, run `git add .`, "
-            "`git commit -m \"Use Leo profile for daily signal\"`, and `git push` before GitHub's scheduled push will update.",
-        )
+    st.markdown(f"**{_tr(language, 'GitHub 推送设置', 'GitHub Push Settings')}**")
+    wf_config, wf_nz_time, wf_us_time = _read_workflow_push_config()
+    push_config_options = {name: path for name, path in _config_options().items() if name != "自定义路径"}
+    push_config_names = list(push_config_options.keys())
+    wf_config_name = next(
+        (name for name, path in push_config_options.items() if str(path.relative_to(APP_ROOT)) == wf_config),
+        push_config_names[0],
     )
+    push_cols = st.columns([2, 1, 1])
+    push_selected_name = push_cols[0].selectbox(
+        _tr(language, "推送配置", "Push config"),
+        push_config_names,
+        index=_option_index(push_config_names, wf_config_name),
+        key="push_config_select",
+    )
+    push_nz_time = push_cols[1].text_input(
+        _tr(language, "NZ 推送时间", "NZ push time"),
+        value=wf_nz_time,
+        placeholder="15:45",
+        key="push_nz_time",
+    )
+    push_us_time = push_cols[2].text_input(
+        _tr(language, "US 推送时间", "US push time"),
+        value=wf_us_time,
+        placeholder="15:00",
+        key="push_us_time",
+    )
+    st.caption(_tr(language, "时间格式 HH:MM（本地时间）。NZ 时间对应 Pacific/Auckland，US 时间对应 America/New_York。", "Format HH:MM (local time). NZ uses Pacific/Auckland, US uses America/New_York."))
+    push_action_cols = st.columns([1, 1, 2])
+    if push_action_cols[0].button(_tr(language, "保存推送设置", "Save push settings"), type="primary", use_container_width=True):
+        selected_path = push_config_options[push_selected_name]
+        rel = str(selected_path.relative_to(APP_ROOT)) if push_selected_name != "默认配置" else _DEFAULT_PUSH_CONFIG
+        ok, msg = _update_workflow_github(rel, push_nz_time.strip(), push_us_time.strip())
+        if ok:
+            st.success(f"{_tr(language, '推送设置已保存。', 'Push settings saved.')} {msg}")
+        else:
+            st.error(f"{_tr(language, '保存失败', 'Save failed')}: {msg}")
+    if push_action_cols[1].button(_tr(language, "恢复默认配置", "Restore defaults"), use_container_width=True):
+        ok, msg = _update_workflow_github(_DEFAULT_PUSH_CONFIG, _DEFAULT_NZ_TIME, _DEFAULT_US_TIME)
+        if ok:
+            st.success(f"{_tr(language, '已恢复为默认配置。', 'Restored to default config.')} {msg}")
+        else:
+            st.error(f"{_tr(language, '恢复失败', 'Restore failed')}: {msg}")
     st.markdown(f"**{_tr(language, '系统版本', 'System Version')}**")
     st.metric(_tr(language, "当前版本", "Current version"), f"v{__version__}")
     _render_release_notes(language)
@@ -2202,6 +2230,81 @@ def _delete_config_github(relative_path: str) -> tuple[bool, str]:
         return False, f"GitHub 删除失败: {exc}"
 
 
+_WORKFLOW_PATH = ".github/workflows/daily-signal.yml"
+_DEFAULT_PUSH_CONFIG = "config/settings.toml"
+_DEFAULT_NZ_TIME = "15:45"
+_DEFAULT_US_TIME = "15:00"
+
+
+def _read_workflow_push_config() -> tuple[str, str, str]:
+    """Read current push config/times from the GitHub Actions workflow via API.
+    Returns (config_rel_path, nz_time, us_time). Falls back to defaults on error."""
+    import base64
+    import json
+    import re
+    import urllib.request
+
+    try:
+        token = st.secrets.get("GITHUB_TOKEN", "")
+        repo = st.secrets.get("GITHUB_REPO", "")
+        branch = st.secrets.get("GITHUB_BRANCH", "main")
+        if not token or not repo:
+            return _DEFAULT_PUSH_CONFIG, _DEFAULT_NZ_TIME, _DEFAULT_US_TIME
+        api_url = f"https://api.github.com/repos/{repo}/contents/{_WORKFLOW_PATH}?ref={branch}"
+        req = urllib.request.Request(api_url, headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(req) as resp:
+            data = json.loads(resp.read())
+        content = base64.b64decode(data["content"]).decode()
+        nz = re.search(r'"\\$nz_time"\s*==\s*"(\d{2}:\d{2})"', content)
+        us = re.search(r'"\\$ny_time"\s*==\s*"(\d{2}:\d{2})"', content)
+        cfg = re.search(r'--config\s+(config/\S+\.toml)', content)
+        return (
+            cfg.group(1) if cfg else _DEFAULT_PUSH_CONFIG,
+            nz.group(1) if nz else _DEFAULT_NZ_TIME,
+            us.group(1) if us else _DEFAULT_US_TIME,
+        )
+    except Exception:
+        return _DEFAULT_PUSH_CONFIG, _DEFAULT_NZ_TIME, _DEFAULT_US_TIME
+
+
+def _update_workflow_github(config_rel: str, nz_time: str, us_time: str) -> tuple[bool, str]:
+    """Update push config/times in the GitHub Actions workflow via REST API."""
+    import base64
+    import json
+    import re
+    import urllib.error
+    import urllib.request
+
+    try:
+        token = st.secrets.get("GITHUB_TOKEN", "")
+        repo = st.secrets.get("GITHUB_REPO", "")
+        branch = st.secrets.get("GITHUB_BRANCH", "main")
+        if not token or not repo:
+            return False, "未配置 GITHUB_TOKEN / GITHUB_REPO secrets"
+        api_url = f"https://api.github.com/repos/{repo}/contents/{_WORKFLOW_PATH}"
+        headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json", "Content-Type": "application/json"}
+        req = urllib.request.Request(api_url, headers=headers)
+        with urllib.request.urlopen(req) as resp:
+            data = json.loads(resp.read())
+        content = base64.b64decode(data["content"]).decode()
+        sha = data["sha"]
+        content = re.sub(r'"(\$nz_time)"\s*==\s*"\d{2}:\d{2}"', f'"$nz_time" == "{nz_time}"', content)
+        content = re.sub(r'"(\$ny_time)"\s*==\s*"\d{2}:\d{2}"', f'"$ny_time" == "{us_time}"', content)
+        content = re.sub(r'--config\s+config/\S+\.toml', f'--config {config_rel}', content)
+        body: dict[str, Any] = {
+            "message": f"chore: update push config to {config_rel} ({nz_time} NZ / {us_time} US) via Streamlit UI",
+            "content": base64.b64encode(content.encode()).decode(),
+            "sha": sha,
+            "branch": branch,
+        }
+        put_req = urllib.request.Request(api_url, data=json.dumps(body).encode(), headers=headers, method="PUT")
+        with urllib.request.urlopen(put_req):
+            pass
+        return True, "Workflow 已更新并推送到 GitHub"
+    except Exception as exc:
+        return False, f"Workflow 更新失败: {exc}"
+
+
 def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) -> None:
     language = _ui_language(settings)
     st.subheader(_tr(language, "新西兰本地交易窗口", "Local Trading Windows"))
@@ -2209,10 +2312,6 @@ def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) 
     us_open, us_close = _relevant_local_window(settings, "us", now)
     asx_open, asx_close = _relevant_local_window(settings, "asx", now)
     nzx_open, nzx_close = _relevant_local_window(settings, "nzx", now)
-    cols = st.columns(3)
-    cols[0].metric(_tr(language, "美股常规时段", "US regular session"), f"{us_open:%H:%M} - {us_close:%H:%M}", f"{us_open:%Y-%m-%d}")
-    cols[1].metric(_tr(language, "ASX 常规时段", "ASX regular session"), f"{asx_open:%H:%M} - {asx_close:%H:%M}", f"{asx_open:%Y-%m-%d}")
-    cols[2].metric(_tr(language, "NZX 常规时段", "NZX regular session"), f"{nzx_open:%H:%M} - {nzx_close:%H:%M}", f"{nzx_open:%Y-%m-%d}")
     market_windows = [
         {"key": "nzx", "label": "NZ", "open": nzx_open, "close": nzx_close, "color": "#991b1b"},
         {"key": "asx", "label": "AU", "open": asx_open, "close": asx_close, "color": "#14532d"},
@@ -2228,6 +2327,10 @@ def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) 
     ]
     _parallel_market_trade_timeline(market_windows, trade_items, now, language)
     _timeline_countdowns(market_windows, trade_items, now, language)
+    cols = st.columns(3)
+    cols[0].metric(_tr(language, "美股常规时段", "US regular session"), f"{us_open:%H:%M} - {us_close:%H:%M}", f"{us_open:%Y-%m-%d}")
+    cols[1].metric(_tr(language, "ASX 常规时段", "ASX regular session"), f"{asx_open:%H:%M} - {asx_close:%H:%M}", f"{asx_open:%Y-%m-%d}")
+    cols[2].metric(_tr(language, "NZX 常规时段", "NZX regular session"), f"{nzx_open:%H:%M} - {nzx_close:%H:%M}", f"{nzx_open:%Y-%m-%d}")
 
 
 def _relevant_local_window(settings: dict[str, Any], market: str, now: datetime) -> tuple[datetime, datetime]:
@@ -2305,7 +2408,7 @@ def _parallel_market_trade_timeline(
   position: relative;
   height: 34px;
   border-radius: 6px;
-  background: rgba(128, 128, 128, 0.5);
+  background: rgba(128, 128, 128, 0.2);
   overflow: visible;
 }}
 .trade-timeline-segment {{
@@ -2349,7 +2452,7 @@ def _parallel_market_trade_timeline(
   top: 0;
   bottom: 0;
   border-radius: 5px;
-  opacity: .5;
+  opacity: .2;
 }}
 .trade-deadline-marker {{
   position: absolute;
@@ -2390,7 +2493,7 @@ def _parallel_market_trade_timeline(
   position: relative;
   overflow: hidden;
   padding: 5px 8px 5px 18px;
-  background: rgba(128, 128, 128, 0.5);
+  background: rgba(128, 128, 128, 0.2);
   border-radius: 6px;
   color: inherit;
   font-size: 12px;
