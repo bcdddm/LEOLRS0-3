@@ -85,6 +85,33 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="expanded",
     )
+    st.markdown(
+        """
+<style>
+@media (max-width: 768px) {
+  [data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+  }
+  [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
+    padding: 0 2px !important;
+  }
+  [data-testid="stMetricValue"] {
+    font-size: 14px !important;
+  }
+  [data-testid="stMetricLabel"] {
+    font-size: 10px !important;
+  }
+  [data-testid="stMetricDelta"] {
+    font-size: 10px !important;
+  }
+}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
 
     config_options = _config_options()
     selected_config = st.sidebar.selectbox(
@@ -2017,7 +2044,7 @@ def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) 
     cols[2].metric(_tr(language, "NZX 常规时段", "NZX regular session"), f"{nzx_open:%H:%M} - {nzx_close:%H:%M}", f"{nzx_open:%Y-%m-%d}")
     market_windows = [
         {"key": "nzx", "label": "NZ", "open": nzx_open, "close": nzx_close, "color": "#991b1b"},
-        {"key": "asx", "label": "AU", "open": asx_open, "close": asx_close, "color": "#166534"},
+        {"key": "asx", "label": "AU", "open": asx_open, "close": asx_close, "color": "#14532d"},
         {"key": "us", "label": "US", "open": us_open, "close": us_close, "color": "#2563eb"},
     ]
     selected_timeline_mode = timeline_mode or settings.get("backtest", {}).get("execution_timing", "next_session")
@@ -2087,7 +2114,7 @@ def _parallel_market_trade_timeline(
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  color: #4b5563;
+  color: inherit;
   font-size: 13px;
   margin-bottom: 8px;
 }}
@@ -2098,7 +2125,7 @@ def _parallel_market_trade_timeline(
   margin-bottom: 20px;
 }}
 .trade-timeline-label {{
-  color: #111827;
+  color: inherit;
   font-size: 13px;
   font-weight: 700;
   margin-bottom: 6px;
@@ -2107,7 +2134,7 @@ def _parallel_market_trade_timeline(
   position: relative;
   height: 34px;
   border-radius: 6px;
-  background: #f3f4f6;
+  background: rgba(128, 128, 128, 0.5);
   overflow: visible;
 }}
 .trade-timeline-segment {{
@@ -2141,7 +2168,7 @@ def _parallel_market_trade_timeline(
   top: auto;
   bottom: -20px;
   transform: translateX(-50%);
-  color: #111827;
+  color: inherit;
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
@@ -2176,7 +2203,7 @@ def _parallel_market_trade_timeline(
   text-overflow: ellipsis;
 }}
 .trade-mode-label-below {{
-  color: #111827;
+  color: inherit;
   font-size: 13px;
   font-weight: 700;
   margin-top: 24px;
@@ -2215,7 +2242,7 @@ def _parallel_market_trade_timeline(
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  color: #4b5563;
+  color: inherit;
   font-size: 12px;
   margin-top: 8px;
 }}
@@ -2377,8 +2404,7 @@ def _market_segment_html(segment: dict[str, Any], start: datetime, total_seconds
         stripe_width = 12
         for index, window in enumerate(active):
             stripe_parts.append(f'{window["color"]} {index * stripe_width}px {(index + 1) * stripe_width}px')
-        period = len(active) * stripe_width
-        background = f"repeating-linear-gradient(135deg, {', '.join(stripe_parts)}, {active[0]['color']} {period}px {period + stripe_width}px)"
+        background = f"repeating-linear-gradient(135deg, {', '.join(stripe_parts)})"
     return (
         f'<div class="trade-timeline-segment" style="left:{left:.4f}%;width:{width:.4f}%;background:{background};" '
         f'title="{html.escape(label)}"><span>{html.escape(label)}</span></div>'
@@ -2487,18 +2513,17 @@ def _timeline_countdowns(
             f"{item.deadline:%Y-%m-%d %H:%M} · {_short_trade_action(item, language)}",
         ))
 
-    if not countdowns:
-        future_opens = sorted(
-            (
-                (window["label"], window["open"])
-                for window in market_windows
-                if window["open"] >= now
-            ),
-            key=lambda item: item[1],
-        )
-        if future_opens:
-            label, open_dt = future_opens[0]
-            countdowns.append((_tr(language, f"下个市场 {label} 开盘", f"Next market {label} open"), open_dt, open_dt.strftime("%Y-%m-%d %H:%M")))
+    future_opens = sorted(
+        (
+            (window["label"], window["open"])
+            for window in market_windows
+            if window["open"] >= now
+        ),
+        key=lambda item: item[1],
+    )
+    if future_opens:
+        label, open_dt = future_opens[0]
+        countdowns.append((_tr(language, f"下个市场 {label} 开盘", f"Next market {label} open"), open_dt, open_dt.strftime("%Y-%m-%d %H:%M")))
 
     cards = "\n".join(
         _countdown_card_html(title, target, meta, now, language)
