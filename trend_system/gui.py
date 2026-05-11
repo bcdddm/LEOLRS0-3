@@ -88,45 +88,8 @@ def main() -> None:
     st.markdown(
         """
 <style>
-/* Prevent page-level horizontal overflow */
-section[data-testid="stMain"] > div,
-section[data-testid="stMain"] .block-container {
-  max-width: 100% !important;
+.block-container {
   overflow-x: hidden !important;
-}
-@media (max-width: 768px) {
-  /* Keep metric columns in a single scrollable row */
-  [data-testid="stHorizontalBlock"] {
-    flex-wrap: nowrap !important;
-    overflow-x: auto !important;
-    gap: 2px !important;
-    -webkit-overflow-scrolling: touch;
-  }
-  [data-testid="stHorizontalBlock"] > [data-testid="column"] {
-    min-width: 0 !important;
-    flex: 1 1 0 !important;
-    padding: 0 2px !important;
-    overflow: hidden !important;
-  }
-  /* Buttons: always full-width, no overflow */
-  [data-testid="stButton"] > button {
-    width: 100% !important;
-    white-space: normal !important;
-    word-break: break-word !important;
-    font-size: 12px !important;
-  }
-  [data-testid="stMetricValue"] {
-    font-size: 13px !important;
-    word-break: break-all !important;
-  }
-  [data-testid="stMetricLabel"] {
-    font-size: 9px !important;
-    word-break: break-word !important;
-    line-height: 1.2 !important;
-  }
-  [data-testid="stMetricDelta"] {
-    font-size: 9px !important;
-  }
 }
 </style>
 """,
