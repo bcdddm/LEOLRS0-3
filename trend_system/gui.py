@@ -823,7 +823,7 @@ def _daily_tab(settings: dict[str, Any]) -> None:
     start = cols[0].date_input(_tr(language, "数据起始日期", "Data start date"), value=date(2024, 1, 1), key="daily_start")
     run = _aligned_button(cols[1], _tr(language, "更新今日信号", "Update daily signal"), type="primary", use_container_width=True)
     timeline_mode_labels = _daily_timeline_mode_labels(language)
-    current_timeline_mode = "next_session"
+    current_timeline_mode = "nz_close_us_open"
     selected_timeline_mode_label = cols[2].selectbox(
         _tr(language, "交易时间轴模式", "Timeline mode"),
         list(timeline_mode_labels.keys()),
