@@ -119,13 +119,12 @@ def signal_frame(price: pd.Series, vix: pd.Series, settings_raw: dict) -> pd.Dat
         (frame["ma_short"] > frame["ma_medium"]) & (frame["ma_medium"] > frame["ma_long"]),
         confirmation_days,
     )
-    frame[["trend_label", "trend_exposure"]] = frame.apply(
-        lambda row: pd.Series(_trend_state(row, settings_raw)),
-        axis=1,
-    )
-    frame[["vix_label", "vix_multiplier"]] = frame["vix"].apply(
-        lambda value: pd.Series(_vix_state(float(value), settings_raw))
-    )
+    _trend_results = [_trend_state(row, settings_raw) for _, row in frame.iterrows()]
+    frame["trend_label"] = [r[0] for r in _trend_results]
+    frame["trend_exposure"] = [r[1] for r in _trend_results]
+    _vix_results = [_vix_state(float(v), settings_raw) for v in frame["vix"]]
+    frame["vix_label"] = [r[0] for r in _vix_results]
+    frame["vix_multiplier"] = [r[1] for r in _vix_results]
     frame["trend_quality_ma_120"] = trend_quality_ma_120.reindex(frame.index)
     frame["trend_quality_ma_200"] = trend_quality_ma_200.reindex(frame.index)
     frame["trend_quality_slow_decline"] = frame["trend_quality_ma_120"] < frame["trend_quality_ma_200"]
