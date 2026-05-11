@@ -88,24 +88,44 @@ def main() -> None:
     st.markdown(
         """
 <style>
+/* Prevent page-level horizontal overflow */
+section[data-testid="stMain"] > div,
+section[data-testid="stMain"] .block-container {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
 @media (max-width: 768px) {
+  /* Keep metric columns in a single scrollable row */
   [data-testid="stHorizontalBlock"] {
     flex-wrap: nowrap !important;
-    gap: 4px !important;
+    overflow-x: auto !important;
+    gap: 2px !important;
+    -webkit-overflow-scrolling: touch;
   }
   [data-testid="stHorizontalBlock"] > [data-testid="column"] {
     min-width: 0 !important;
     flex: 1 1 0 !important;
     padding: 0 2px !important;
+    overflow: hidden !important;
+  }
+  /* Buttons: always full-width, no overflow */
+  [data-testid="stButton"] > button {
+    width: 100% !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    font-size: 12px !important;
   }
   [data-testid="stMetricValue"] {
-    font-size: 14px !important;
+    font-size: 13px !important;
+    word-break: break-all !important;
   }
   [data-testid="stMetricLabel"] {
-    font-size: 10px !important;
+    font-size: 9px !important;
+    word-break: break-word !important;
+    line-height: 1.2 !important;
   }
   [data-testid="stMetricDelta"] {
-    font-size: 10px !important;
+    font-size: 9px !important;
   }
 }
 </style>
@@ -1322,8 +1342,7 @@ def _backtest_tab(settings: dict[str, Any]) -> None:
     benchmark_cols[4].metric("基准 Sharpe", f"{metrics.get('buy_hold_sharpe_no_rf', 0):.2f}")
     st.caption(_tr(language, "CAGR = 年化复合增长率，表示资金按复利计算后平均每年增长多少；它不是简单平均年收益。", "CAGR is compound annual growth rate. It is not a simple average annual return."))
 
-    col_reset_1, col_reset_2 = st.columns([1, 4])
-    if col_reset_1.button(_tr(language, "回正净值图", "Reset equity chart"), use_container_width=True):
+    if st.button(_tr(language, "回正净值图", "Reset equity chart")):
         st.session_state["equity_chart_reset"] = st.session_state.get("equity_chart_reset", 0) + 1
     equity_columns = ["equity", "buy_hold_equity"]
     equity_line_styles = {"equity": "solid", "buy_hold_equity": "solid"}
@@ -1344,7 +1363,7 @@ def _backtest_tab(settings: dict[str, Any]) -> None:
         language=language,
         line_styles=equity_line_styles,
     )
-    if col_reset_2.button(_tr(language, "回正仓位图", "Reset exposure chart"), use_container_width=True):
+    if st.button(_tr(language, "回正仓位图", "Reset exposure chart")):
         st.session_state["exposure_chart_reset"] = st.session_state.get("exposure_chart_reset", 0) + 1
     _zoomable_line_chart(
         result.equity_curve,
@@ -2199,9 +2218,9 @@ def _parallel_market_trade_timeline(
   position: relative;
   overflow: hidden;
   padding: 5px 8px 5px 18px;
-  background: #fff7f7;
+  background: rgba(128, 128, 128, 0.5);
   border-radius: 6px;
-  color: #374151;
+  color: inherit;
   font-size: 12px;
   line-height: 1.35;
 }}
@@ -2405,8 +2424,8 @@ def _trade_deadline_html(item: Any, start: datetime, total_seconds: float, langu
     label = f"{item.market_label} {item.deadline:%H:%M}"
     title = f"{label} · {_short_trade_action(item, language)}"
     return (
-        f'<div class="trade-deadline-marker" style="left:{left:.4f}%;background:{color};" '
-        f'title="{html.escape(title)}"><span style="color:{color};">{html.escape(label)}</span></div>'
+        f'<div class="trade-deadline-marker" style="left:{left:.4f}%;background:rgba(128,128,128,0.5);" '
+        f'title="{html.escape(title)}"><span style="color:inherit;">{html.escape(label)}</span></div>'
     )
 
 
@@ -2455,7 +2474,7 @@ def _trade_warning_window_html(item: Any, start: datetime, end: datetime, total_
     left = _timeline_pct(warning_start, start, total_seconds)
     width = max(_timeline_pct(warning_end, start, total_seconds) - left, 0.3)
     color = _trade_marker_color(item)
-    return f'<div class="trade-deadline-warning" style="left:{left:.4f}%;width:{width:.4f}%;background:{color};"></div>'
+    return f'<div class="trade-deadline-warning" style="left:{left:.4f}%;width:{width:.4f}%;background:rgba(128,128,128,0.5);"></div>'
 
 
 def _timeline_pct(value: datetime, start: datetime, total_seconds: float) -> float:
