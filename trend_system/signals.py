@@ -154,6 +154,9 @@ def signal_frame(price: pd.Series, vix: pd.Series, settings_raw: dict) -> pd.Dat
         frame["days_since_new_high"],
         position,
     )
+    frame["period_start_price"] = _period_start_price(frame["price"])
+    frame["period_rise_pct"] = (frame["price"] / frame["period_start_price"] - 1.0) * 100.0
+    target = _apply_period_rise_exposure_cap(target, frame["period_rise_pct"], position)
     frame["trend_quality_ma"] = frame["price"].rolling(
         int(position.get("trend_quality_ma_window", 120)),
         min_periods=1,
@@ -254,6 +257,26 @@ def _apply_no_new_high_exposure_cap(
     cap = float(position.get("no_new_high_max_exposure", 100.0))
     capped = target.where(days_since_new_high < window, target.clip(upper=cap))
     return capped
+
+
+def _period_start_price(price: pd.Series) -> pd.Series:
+    period_id = pd.Series(
+        price.index.year * 10 + (price.index.month - 1) // 2,
+        index=price.index,
+    )
+    return price.groupby(period_id).transform("first")
+
+
+def _apply_period_rise_exposure_cap(
+    target: pd.Series,
+    period_rise_pct: pd.Series,
+    position: dict,
+) -> pd.Series:
+    if not position.get("period_rise_cap_enabled", False):
+        return target
+    threshold = float(position.get("period_rise_threshold", 15.0))
+    cap = float(position.get("period_rise_max_exposure", 200.0))
+    return target.where(period_rise_pct < threshold, target.clip(upper=cap))
 
 
 def _apply_trend_quality_exposure_cap(
