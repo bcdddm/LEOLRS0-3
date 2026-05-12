@@ -70,6 +70,24 @@ trend_quality_slow_decline_zero_floor_enabled = false
 period_rise_cap_enabled = true
 period_rise_threshold = 15.0
 period_rise_max_exposure = 100.0
+
+# ── 模块开关 ──
+composite_module_enabled = true
+simple_module_enabled = false
+
+# ── 简单模块 ──
+simple_module_fast_ma_window = 120
+simple_module_slow_ma_window = 200
+simple_module_threshold_pct = 2.0
+simple_module_off_exposure = 0.0
+simple_module_on_exposure = 300.0
+
+# ── 极端风险模块 ──
+extreme_risk_cap_enabled = false
+extreme_risk_ma_window = 200
+extreme_risk_threshold_pct = 2.0
+extreme_risk_min_exposure = 0.0
+
 [[position.vix_exposure_caps]]
 max_exclusive = 20.0
 max_exposure = 300.0

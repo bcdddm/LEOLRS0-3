@@ -50,6 +50,23 @@ max_rebalances_per_week = 1
 fixed_exposure_tiers_enabled = false
 fixed_exposure_tiers = [ 0.0, 100.0, 300.0,]
 
+# ── 模块开关 ──
+composite_module_enabled = true
+simple_module_enabled = false
+
+# ── 简单模块 ──
+simple_module_fast_ma_window = 120
+simple_module_slow_ma_window = 200
+simple_module_threshold_pct = 2.0
+simple_module_off_exposure = 0.0
+simple_module_on_exposure = 300.0
+
+# ── 极端风险模块 ──
+extreme_risk_cap_enabled = false
+extreme_risk_ma_window = 200
+extreme_risk_threshold_pct = 2.0
+extreme_risk_min_exposure = 0.0
+
 [execution]
 mode = "manual"
 default_market = "us"

@@ -468,4 +468,237 @@ def test_latest_signal_allows_zero_exposure_floor_during_slow_decline():
     assert signal.trend_label == "risk_off"
     assert signal.trend_quality_slow_decline is True
     assert signal.trend_quality_ma_120 < signal.trend_quality_ma_200
+
+
+# ── Simple Module tests ───────────────────────────────────────────────────────
+
+def _simple_base_settings() -> dict:
+    """Minimal settings for simple module tests. Composite is off, simple is on."""
+    dates = pd.bdate_range("2024-01-01", periods=250)
+    return {
+        "trend": {
+            "short_window": 10,
+            "medium_window": 50,
+            "long_window": 200,
+            "confirmation_days": 1,
+            "exposure": {
+                "below_long": 0.0,
+                "above_long": 50.0,
+                "medium_above_long": 80.0,
+                "short_above_medium_above_long": 100.0,
+            },
+        },
+        "position": {
+            "min_exposure": 0.0,
+            "max_exposure": 300.0,
+            "composite_module_enabled": False,
+            "simple_module_enabled": True,
+            "simple_module_fast_ma_window": 10,
+            "simple_module_slow_ma_window": 20,
+            "simple_module_threshold_pct": 2.0,
+            "simple_module_on_exposure": 300.0,
+            "simple_module_off_exposure": 0.0,
+        },
+        "vix": {"rules": [{"label": "low", "max_exclusive": 80.0, "multiplier": 1.0}]},
+    }
+
+
+def test_simple_module_standalone_on_when_conditions_met():
+    dates = pd.bdate_range("2024-01-01", periods=250)
+    # Flat for 200 periods then steady rise: fast MA > slow MA and price > both MAs
+    price = pd.Series(
+        [100.0] * 200 + [100.0 + i * 2.0 for i in range(50)],
+        index=dates,
+        dtype=float,
+    )
+    vix = pd.Series(15.0, index=dates)
+    settings = _simple_base_settings()
+    settings["position"]["simple_module_threshold_pct"] = 0.0
+
+    signal = latest_signal(price, vix, settings)
+
+    assert signal.target_exposure == 300.0
+
+
+def test_simple_module_standalone_off_when_conditions_not_met():
+    dates = pd.bdate_range("2024-01-01", periods=250)
+    # Declining price: fast MA will be below slow MA
+    price = pd.Series([200.0 - i * 0.5 for i in range(250)], index=dates)
+    vix = pd.Series(15.0, index=dates)
+    settings = _simple_base_settings()
+
+    signal = latest_signal(price, vix, settings)
+
     assert signal.target_exposure == 0.0
+
+
+def test_simple_module_off_exposure_is_configurable():
+    dates = pd.bdate_range("2024-01-01", periods=250)
+    price = pd.Series([200.0 - i * 0.5 for i in range(250)], index=dates)
+    vix = pd.Series(15.0, index=dates)
+    settings = _simple_base_settings()
+    settings["position"]["simple_module_off_exposure"] = 100.0
+
+    signal = latest_signal(price, vix, settings)
+
+    assert signal.target_exposure == 100.0
+
+
+def test_both_modules_combined_uses_composite_when_simple_conditions_met():
+    dates = pd.bdate_range("2024-01-01", periods=250)
+    # Flat then jump: simple conditions will be met (threshold 0%)
+    price = pd.Series(
+        [100.0] * 200 + [100.0 + i * 2.0 for i in range(50)],
+        index=dates,
+        dtype=float,
+    )
+    vix = pd.Series(15.0, index=dates)
+    settings = _simple_base_settings()
+    settings["position"]["composite_module_enabled"] = True
+    settings["position"]["max_exposure"] = 120.0
+    settings["position"]["simple_module_threshold_pct"] = 0.0
+
+    signal = latest_signal(price, vix, settings)
+
+    # Combined mode: simple conditions met → composite result (100), NOT simple's on_exposure (300)
+    assert signal.target_exposure == 100.0
+    assert signal.target_exposure != 300.0
+
+
+def test_both_modules_combined_uses_off_exposure_when_simple_conditions_not_met():
+    dates = pd.bdate_range("2024-01-01", periods=250)
+    # Declining price: simple conditions will not be met
+    price = pd.Series([200.0 - i * 0.5 for i in range(250)], index=dates)
+    vix = pd.Series(15.0, index=dates)
+    settings = _simple_base_settings()
+    settings["position"]["composite_module_enabled"] = True
+    settings["position"]["min_exposure"] = 50.0  # composite's floor, but should be bypassed
+    settings["position"]["simple_module_off_exposure"] = 0.0
+
+    signal = latest_signal(price, vix, settings)
+
+    # Combined: simple conditions not met → off_exposure (0), bypasses composite floor of 50
+    assert signal.target_exposure == 0.0
+
+
+def test_neither_module_enabled_defaults_to_composite_behavior():
+    dates = pd.bdate_range("2024-01-01", periods=250)
+    price = pd.Series([100.0 + i * 0.5 for i in range(250)], index=dates)
+    vix = pd.Series(15.0, index=dates)
+    settings = _simple_base_settings()
+    settings["position"]["composite_module_enabled"] = False
+    settings["position"]["simple_module_enabled"] = False
+    settings["position"]["max_exposure"] = 150.0
+
+    signal = latest_signal(price, vix, settings)
+
+    # Falls back to composite (both=False guard): trend_exposure=100 * vix=1.0 = 100, below 150 cap
+    assert signal.target_exposure == 100.0
+
+
+def test_backward_compat_no_module_keys_uses_composite():
+    """Configs without composite_module_enabled should behave exactly as before."""
+    dates = pd.bdate_range("2024-01-01", periods=250)
+    price = pd.Series([100.0 + i * 0.5 for i in range(250)], index=dates)
+    vix = pd.Series(15.0, index=dates)
+    settings = {
+        "trend": {
+            "short_window": 10,
+            "medium_window": 50,
+            "long_window": 200,
+            "confirmation_days": 1,
+            "exposure": {
+                "below_long": 0.0,
+                "above_long": 50.0,
+                "medium_above_long": 80.0,
+                "short_above_medium_above_long": 100.0,
+            },
+        },
+        "position": {"min_exposure": 0.0, "max_exposure": 120.0},
+        "vix": {"rules": [{"label": "low", "max_exclusive": 80.0, "multiplier": 1.0}]},
+    }
+
+    signal = latest_signal(price, vix, settings)
+
+    assert signal.target_exposure == 100.0  # composite: trend_exposure=100, capped at 120
+
+
+def test_required_history_days_includes_simple_module_windows():
+    settings = {
+        "trend": {"short_window": 10, "medium_window": 50, "long_window": 100},
+        "position": {
+            "min_exposure": 0.0,
+            "max_exposure": 300.0,
+            "simple_module_enabled": True,
+            "simple_module_fast_ma_window": 120,
+            "simple_module_slow_ma_window": 250,
+        },
+    }
+    assert required_history_days(settings) == 250
+
+
+# ── Extreme Risk Module tests ─────────────────────────────────────────────────
+
+def _extreme_risk_settings(enabled: bool) -> dict:
+    return {
+        "trend": {
+            "short_window": 5,
+            "medium_window": 10,
+            "long_window": 20,
+            "confirmation_days": 1,
+            "exposure": {
+                "below_long": 0.0,
+                "above_long": 0.0,
+                "medium_above_long": 0.0,
+                "short_above_medium_above_long": 0.0,
+            },
+        },
+        "position": {
+            "min_exposure": 100.0,
+            "max_exposure": 300.0,
+            "extreme_risk_cap_enabled": enabled,
+            "extreme_risk_ma_window": 200,  # long window so MA stays high when price drops
+            "extreme_risk_threshold_pct": 2.0,
+            "extreme_risk_min_exposure": 0.0,
+        },
+        "vix": {"rules": [{"label": "low", "max_exclusive": 80.0, "multiplier": 1.0}]},
+    }
+
+
+def test_extreme_risk_module_overrides_floor_when_price_well_below_ma():
+    dates = pd.bdate_range("2024-01-01", periods=250)
+    # Price flat at 200 for most of series then drops to 100 at the end.
+    # The 200-day MA stays near 197+, so price (100) is ~49% below it — well past the 2% threshold.
+    base = [200.0] * 245 + [100.0] * 5
+    price = pd.Series(base, index=dates, dtype=float)
+    vix = pd.Series(15.0, index=dates)
+
+    signal = latest_signal(price, vix, _extreme_risk_settings(enabled=True))
+
+    # Price (100) is far below 200-day MA (~199); floor overridden from 100 to 0
+    assert signal.target_exposure == 0.0
+
+
+def test_extreme_risk_module_disabled_leaves_floor_unchanged():
+    dates = pd.bdate_range("2024-01-01", periods=250)
+    base = [200.0] * 245 + [100.0] * 5
+    price = pd.Series(base, index=dates, dtype=float)
+    vix = pd.Series(15.0, index=dates)
+
+    signal = latest_signal(price, vix, _extreme_risk_settings(enabled=False))
+
+    # Floor is not overridden; min_exposure=100 applies
+    assert signal.target_exposure == 100.0
+
+
+def test_required_history_days_includes_extreme_risk_ma_window():
+    settings = {
+        "trend": {"short_window": 10, "medium_window": 50, "long_window": 100},
+        "position": {
+            "min_exposure": 0.0,
+            "max_exposure": 300.0,
+            "extreme_risk_cap_enabled": True,
+            "extreme_risk_ma_window": 300,
+        },
+    }
+    assert required_history_days(settings) == 300
