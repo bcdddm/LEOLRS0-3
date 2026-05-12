@@ -267,7 +267,28 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
         st.caption(_tr(language, "备注：这是基于新西兰 FIF 50,000 NZD 门槛的辅助监控。部分 ASX 标的是否豁免需以 IRD 规则和实际标的为准。", "Note: this is a helper for New Zealand's 50,000 NZD FIF threshold. Confirm actual treatment with IRD rules and the fund details."))
 
         trend = settings["trend"]
+        position = settings["position"]
+
+        # ── 复合模块 ─────────────────────────────────────────────────────────
         st.divider()
+        st.subheader(_tr(language, "复合模块", "Composite Module"))
+        position["composite_module_enabled"] = st.toggle(
+            _tr(language, "启用复合模块", "Enable composite module"),
+            bool(position.get("composite_module_enabled", True)),
+            help=_tr(
+                language,
+                "开启后，系统使用趋势信号、VIX 乘数和高级模块的完整计算流程确定目标仓位。与简单模块同时开启时，复合模块在简单条件满足时运行。",
+                "When enabled, the full trend signal, VIX multiplier, and advanced module pipeline determines target exposure. When both modules are on, composite runs only when simple conditions are met.",
+            ),
+            key=f"{key_prefix}_composite_module_enabled",
+        )
+        st.caption(
+            _tr(
+                language,
+                "复合模块包含以下所有参数：趋势信号均线、基础仓位边界以及 VIX 分档乘数。",
+                "The composite module includes all parameters below: trend signal MAs, base exposure bounds, and VIX tier multipliers.",
+            )
+        )
         st.subheader(_tr(language, "趋势信号", "Trend Signal"))
         trend["short_window"] = st.number_input(_tr(language, "短期均线", "Short moving average"), 5, 100, int(trend["short_window"]))
         st.caption(_tr(language, "反映短期动能。数值越小越敏感，越容易提前加仓或减仓。", "Tracks short-term momentum. Smaller values react faster."))
@@ -277,9 +298,6 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
         st.caption(_tr(language, "判断牛熊环境的主过滤器。越长越保守，越短越容易频繁切换。", "Main bull/bear environment filter. Longer is more conservative."))
         trend["confirmation_days"] = st.number_input(_tr(language, "连续确认天数", "Confirmation days"), 1, 10, int(trend["confirmation_days"]))
         st.caption(_tr(language, "要求信号连续成立多少天才确认。调高可减少假突破，但会牺牲反应速度。", "Requires a signal to hold for this many days. Higher values reduce false breaks but react slower."))
-
-        position = settings["position"]
-        st.divider()
         st.subheader(_tr(language, "基础仓位边界", "Base Exposure Bounds"))
         position["min_exposure"] = st.slider(
             _tr(language, "最小等效仓位", "Minimum equivalent exposure"),
@@ -325,8 +343,168 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
                 "When enabled, target exposure maps to the nearest 0%, 100%, or 300% tier and never stays between tiers.",
             )
         )
+        st.subheader(_tr(language, "VIX 分档乘数", "VIX Tier Multipliers"))
+        vix_rules = settings["vix"]["rules"]
+        vix_rules_by_label = {rule["label"]: rule for rule in vix_rules}
+        low_rule = vix_rules_by_label.get("low", vix_rules[0])
+        normal_rule = vix_rules_by_label.get("normal", vix_rules[1])
+        danger_rule = vix_rules_by_label.get("danger", vix_rules[2])
+        crisis_rule = vix_rules_by_label.get("crisis", vix_rules[3])
+        low_vix_upper = st.number_input(
+            _tr(language, "低波动上限", "Low VIX upper bound"),
+            0.0,
+            80.0,
+            min(80.0, float(low_rule.get("max_exclusive", 20.0))),
+            0.5,
+            key=f"{key_prefix}_vix_low_upper",
+        )
+        normal_vix_upper = st.number_input(
+            _tr(language, "正常波动上限", "Normal VIX upper bound"),
+            low_vix_upper + 0.5,
+            80.0,
+            min(80.0, max(low_vix_upper + 0.5, float(normal_rule.get("max_exclusive", 30.0)))),
+            0.5,
+            key=f"{key_prefix}_vix_normal_upper",
+        )
+        danger_vix_upper = st.number_input(
+            _tr(language, "高风险上限", "Danger VIX upper bound"),
+            normal_vix_upper + 0.5,
+            80.0,
+            min(80.0, max(normal_vix_upper + 0.5, float(danger_rule.get("max_exclusive", 40.0)))),
+            0.5,
+            key=f"{key_prefix}_vix_danger_upper",
+        )
+        low_rule.pop("min_inclusive", None)
+        low_rule["max_exclusive"] = low_vix_upper
+        normal_rule["min_inclusive"] = low_vix_upper
+        normal_rule["max_exclusive"] = normal_vix_upper
+        danger_rule["min_inclusive"] = normal_vix_upper
+        danger_rule["max_exclusive"] = danger_vix_upper
+        crisis_rule["min_inclusive"] = danger_vix_upper
+        crisis_rule.pop("max_exclusive", None)
+        st.caption(
+            _tr(
+                language,
+                f"当前分档：VIX < {low_vix_upper:g} 为 low；{low_vix_upper:g} 到 {normal_vix_upper:g} 为 normal；{normal_vix_upper:g} 到 {danger_vix_upper:g} 为 danger；≥ {danger_vix_upper:g} 为 crisis。",
+                f"Current tiers: VIX < {low_vix_upper:g} is low; {low_vix_upper:g} to {normal_vix_upper:g} is normal; {normal_vix_upper:g} to {danger_vix_upper:g} is danger; >= {danger_vix_upper:g} is crisis.",
+            )
+        )
+        for rule in settings["vix"]["rules"]:
+            label = rule["label"]
+            rule["multiplier"] = st.number_input(
+                _tr(language, f"{label} 系数", f"{label} multiplier"),
+                0.0,
+                5.0,
+                float(rule["multiplier"]),
+                0.05,
+                key=f"{key_prefix}_vix_multiplier_{label}",
+            )
+            st.caption(_vix_multiplier_note(label, language))
+
+        # ── 简单模块 ─────────────────────────────────────────────────────────
         st.divider()
-        with st.expander(_tr(language, "VIX 风险模块", "VIX Risk Module"), expanded=bool(position.get("vix_exposure_cap_enabled", False))):
+        st.subheader(_tr(language, "简单模块", "Simple Module"))
+        position["simple_module_enabled"] = st.toggle(
+            _tr(language, "启用简单模块", "Enable simple module"),
+            bool(position.get("simple_module_enabled", False)),
+            help=_tr(
+                language,
+                "开启后，系统用双均线条件判断是否入场。可单独使用（纯简单模式），也可与复合模块同时开启（简单条件作为复合模块的入场门控）。",
+                "When enabled, the system uses dual-MA conditions to gate market entry. Can be used standalone or with the composite module as an entry gate.",
+            ),
+            key=f"{key_prefix}_simple_module_enabled",
+        )
+        _composite_on = bool(position.get("composite_module_enabled", True))
+        _simple_on = bool(position.get("simple_module_enabled", False))
+        simple_cols = st.columns(3)
+        position["simple_module_fast_ma_window"] = simple_cols[0].number_input(
+            _tr(language, "快速均线窗口", "Fast MA window"),
+            10,
+            300,
+            int(position.get("simple_module_fast_ma_window", 120)),
+            5,
+            help=_tr(language, "默认 120 日均线，用于判断短期方向。", "Default is 120-day MA for short-term direction."),
+            key=f"{key_prefix}_simple_module_fast_ma_window",
+        )
+        position["simple_module_slow_ma_window"] = simple_cols[1].number_input(
+            _tr(language, "慢速均线窗口", "Slow MA window"),
+            10,
+            300,
+            int(position.get("simple_module_slow_ma_window", 200)),
+            5,
+            help=_tr(language, "默认 200 日均线，用于判断长期趋势。", "Default is 200-day MA for long-term trend."),
+            key=f"{key_prefix}_simple_module_slow_ma_window",
+        )
+        position["simple_module_threshold_pct"] = simple_cols[2].number_input(
+            _tr(language, "超出均线阈值 (%)", "Above-MA threshold (%)"),
+            0.0,
+            20.0,
+            float(position.get("simple_module_threshold_pct", 2.0)),
+            0.5,
+            help=_tr(language, "收盘价须超出两条均线此百分比才触发。默认 2%。", "Close must exceed both MAs by this percentage to trigger. Default is 2%."),
+            key=f"{key_prefix}_simple_module_threshold_pct",
+        )
+        position["simple_module_off_exposure"] = st.slider(
+            _tr(language, "条件不满足时的目标仓位 (%)", "Off-state target exposure (%)"),
+            0.0,
+            300.0,
+            min(float(position.get("simple_module_off_exposure", 0.0)), 300.0),
+            5.0,
+            help=_tr(
+                language,
+                "简单模块条件不满足时（价格未超过均线阈值）使用的目标仓位。",
+                "Target exposure when simple module conditions are not met (price not above MA threshold).",
+            ),
+            key=f"{key_prefix}_simple_module_off_exposure",
+        )
+        if _simple_on and not _composite_on:
+            position["simple_module_on_exposure"] = st.slider(
+                _tr(language, "条件满足时的目标仓位 (%)", "On-state target exposure (%)"),
+                0.0,
+                300.0,
+                min(float(position.get("simple_module_on_exposure", 300.0)), 300.0),
+                5.0,
+                help=_tr(language, "仅简单模块模式：触发条件时的目标仓位。默认 300%。", "Simple-only mode: target exposure when conditions are met. Default is 300%."),
+                key=f"{key_prefix}_simple_module_on_exposure",
+            )
+        st.caption(
+            _tr(
+                language,
+                "触发条件：快速均线在慢速均线上方，且收盘价在两条均线上方超过阈值百分比。",
+                "Trigger: fast MA above slow MA, and close price more than threshold % above both MAs.",
+            )
+        )
+        if _simple_on and _composite_on:
+            st.caption(
+                _tr(
+                    language,
+                    "两个模块同时开启：简单条件满足 → 使用复合模块完整结果；简单条件不满足 → 使用上方【条件不满足时的目标仓位】。",
+                    "Both modules on: simple conditions met → full composite result; simple conditions not met → off-state target exposure above.",
+                )
+            )
+
+        # ── 高级模块 (折叠) ──────────────────────────────────────────────────
+        st.divider()
+        _any_advanced = any([
+            bool(position.get("vix_exposure_cap_enabled", False)),
+            bool(position.get("drawdown_exposure_cap_enabled", False)),
+            bool(position.get("no_new_high_cap_enabled", False)),
+            bool(position.get("period_rise_cap_enabled", False)),
+            bool(position.get("trend_quality_cap_enabled", False)),
+            bool(position.get("trend_quality_ma_cross_slow_decline_enabled", False)),
+            bool(position.get("extreme_risk_cap_enabled", False)),
+        ])
+        with st.expander(_tr(language, "高级模块", "Advanced Modules"), expanded=_any_advanced):
+            st.caption(
+                _tr(
+                    language,
+                    "高级模块在复合/简单模块的基础目标仓位之上进行额外的上限或地板调整，对两种基础模块同等适用。",
+                    "Advanced modules apply additional caps or floor adjustments on top of the composite/simple module base target, and apply equally to both base modules.",
+                )
+            )
+
+            # ── VIX 风险模块
+            st.subheader(_tr(language, "VIX 风险模块", "VIX Risk Module"))
             position["vix_exposure_cap_enabled"] = st.toggle(
                 _tr(language, "启用 VIX 仓位上限曲线", "Enable VIX exposure cap curve"),
                 bool(position.get("vix_exposure_cap_enabled", False)),
@@ -429,8 +607,8 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
                 )
             )
 
-        st.divider()
-        with st.expander(_tr(language, "回撤风险模块", "Drawdown Risk Module"), expanded=bool(position.get("drawdown_exposure_cap_enabled", False))):
+            st.divider()
+            st.subheader(_tr(language, "回撤风险模块", "Drawdown Risk Module"))
             position["drawdown_exposure_cap_enabled"] = st.toggle(
                 _tr(language, "启用回撤仓位上限曲线", "Enable drawdown exposure cap curve"),
                 bool(position.get("drawdown_exposure_cap_enabled", False)),
@@ -545,8 +723,8 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
                 )
             )
 
-        st.divider()
-        with st.expander(_tr(language, "区段无新高锁仓模块", "Windowed No-New-High Lock Module"), expanded=bool(position.get("no_new_high_cap_enabled", False))):
+            st.divider()
+            st.subheader(_tr(language, "区段无新高锁仓模块", "Windowed No-New-High Lock Module"))
             position["no_new_high_cap_enabled"] = st.toggle(
                 _tr(
                     language,
@@ -593,8 +771,8 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
                 )
             )
 
-        st.divider()
-        with st.expander(_tr(language, "周期涨幅锁仓模块", "Period Rise Lock Module"), expanded=bool(position.get("period_rise_cap_enabled", False))):
+            st.divider()
+            st.subheader(_tr(language, "周期涨幅锁仓模块", "Period Rise Lock Module"))
             position["period_rise_cap_enabled"] = st.toggle(
                 _tr(
                     language,
@@ -643,8 +821,8 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
                 )
             )
 
-        st.divider()
-        with st.expander(_tr(language, "趋势质量模块", "Trend Quality Module"), expanded=bool(position.get("trend_quality_cap_enabled", False) or position.get("trend_quality_ma_cross_slow_decline_enabled", False))):
+            st.divider()
+            st.subheader(_tr(language, "趋势质量模块", "Trend Quality Module"))
             position["trend_quality_cap_enabled"] = st.toggle(
                 _tr(language, "启用 120 日趋势质量上限", "Enable 120-day trend quality cap"),
                 bool(position.get("trend_quality_cap_enabled", False)),
@@ -752,64 +930,53 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
                 )
             )
 
-        st.divider()
-        st.subheader(_tr(language, "VIX 分档乘数", "VIX Tier Multipliers"))
-        vix_rules = settings["vix"]["rules"]
-        vix_rules_by_label = {rule["label"]: rule for rule in vix_rules}
-        low_rule = vix_rules_by_label.get("low", vix_rules[0])
-        normal_rule = vix_rules_by_label.get("normal", vix_rules[1])
-        danger_rule = vix_rules_by_label.get("danger", vix_rules[2])
-        crisis_rule = vix_rules_by_label.get("crisis", vix_rules[3])
-        low_vix_upper = st.number_input(
-            _tr(language, "低波动上限", "Low VIX upper bound"),
-            0.0,
-            80.0,
-            min(80.0, float(low_rule.get("max_exclusive", 20.0))),
-            0.5,
-            key=f"{key_prefix}_vix_low_upper",
-        )
-        normal_vix_upper = st.number_input(
-            _tr(language, "正常波动上限", "Normal VIX upper bound"),
-            low_vix_upper + 0.5,
-            80.0,
-            min(80.0, max(low_vix_upper + 0.5, float(normal_rule.get("max_exclusive", 30.0)))),
-            0.5,
-            key=f"{key_prefix}_vix_normal_upper",
-        )
-        danger_vix_upper = st.number_input(
-            _tr(language, "高风险上限", "Danger VIX upper bound"),
-            normal_vix_upper + 0.5,
-            80.0,
-            min(80.0, max(normal_vix_upper + 0.5, float(danger_rule.get("max_exclusive", 40.0)))),
-            0.5,
-            key=f"{key_prefix}_vix_danger_upper",
-        )
-        low_rule.pop("min_inclusive", None)
-        low_rule["max_exclusive"] = low_vix_upper
-        normal_rule["min_inclusive"] = low_vix_upper
-        normal_rule["max_exclusive"] = normal_vix_upper
-        danger_rule["min_inclusive"] = normal_vix_upper
-        danger_rule["max_exclusive"] = danger_vix_upper
-        crisis_rule["min_inclusive"] = danger_vix_upper
-        crisis_rule.pop("max_exclusive", None)
-        st.caption(
-            _tr(
-                language,
-                f"当前分档：VIX < {low_vix_upper:g} 为 low；{low_vix_upper:g} 到 {normal_vix_upper:g} 为 normal；{normal_vix_upper:g} 到 {danger_vix_upper:g} 为 danger；≥ {danger_vix_upper:g} 为 crisis。",
-                f"Current tiers: VIX < {low_vix_upper:g} is low; {low_vix_upper:g} to {normal_vix_upper:g} is normal; {normal_vix_upper:g} to {danger_vix_upper:g} is danger; >= {danger_vix_upper:g} is crisis.",
+            st.divider()
+            st.subheader(_tr(language, "极端风险模块", "Extreme Risk Module"))
+            position["extreme_risk_cap_enabled"] = st.toggle(
+                _tr(language, "启用极端风险最低仓位覆盖", "Enable extreme risk floor override"),
+                bool(position.get("extreme_risk_cap_enabled", False)),
+                help=_tr(
+                    language,
+                    "开启后，当价格跌至 200 日均线下方超过阈值百分比时，允许最低仓位下降到设定值（可低于正常最低仓位）。",
+                    "When enabled, if price falls more than the threshold % below the slow MA, the exposure floor is overridden to the configured minimum, which can go below the normal minimum exposure.",
+                ),
+                key=f"{key_prefix}_extreme_risk_cap_enabled",
             )
-        )
-        for rule in settings["vix"]["rules"]:
-            label = rule["label"]
-            rule["multiplier"] = st.number_input(
-                _tr(language, f"{label} 系数", f"{label} multiplier"),
+            extreme_risk_cols = st.columns(3)
+            position["extreme_risk_ma_window"] = extreme_risk_cols[0].number_input(
+                _tr(language, "均线窗口", "MA window"),
+                10,
+                300,
+                int(position.get("extreme_risk_ma_window", 200)),
+                5,
+                help=_tr(language, "用于极端风险判断的均线长度。默认 200 日。", "MA window for extreme risk detection. Default is 200 days."),
+                key=f"{key_prefix}_extreme_risk_ma_window",
+            )
+            position["extreme_risk_threshold_pct"] = extreme_risk_cols[1].number_input(
+                _tr(language, "触发阈值 (%)", "Trigger threshold (%)"),
                 0.0,
-                5.0,
-                float(rule["multiplier"]),
-                0.05,
-                key=f"{key_prefix}_vix_multiplier_{label}",
+                20.0,
+                float(position.get("extreme_risk_threshold_pct", 2.0)),
+                0.5,
+                help=_tr(language, "价格跌至均线下方超过此百分比时触发。默认 2%。", "Triggers when price falls more than this % below the MA. Default is 2%."),
+                key=f"{key_prefix}_extreme_risk_threshold_pct",
             )
-            st.caption(_vix_multiplier_note(label, language))
+            position["extreme_risk_min_exposure"] = extreme_risk_cols[2].number_input(
+                _tr(language, "强制最低仓位 (%)", "Override minimum exposure (%)"),
+                0.0,
+                300.0,
+                min(300.0, max(0.0, float(position.get("extreme_risk_min_exposure", 0.0)))),
+                5.0,
+                help=_tr(language, "极端风险条件触发时的最低仓位覆盖值。设为 0% 允许完全空仓。", "Floor override when extreme risk conditions are met. Set 0% to allow fully defensive positioning."),
+                key=f"{key_prefix}_extreme_risk_min_exposure",
+            )
+            st.caption(
+                _tr(
+                    language,
+                    "极端风险模块修改的是仓位地板，而非上限。它允许最低仓位在价格大幅低于均线时降到 0% 或更低的值。",
+                    "The extreme risk module overrides the exposure floor, not the cap. It allows minimum exposure to drop to 0% or a configured level when price is well below the MA.",
+                )
+            )
 
         st.form_submit_button(_tr(language, "应用设置", "Apply settings"), type="primary", use_container_width=True)
         st.caption(_tr(language, "调整多个参数后再应用，可减少页面重算和按钮卡顿。", "Apply several changes at once to reduce recalculation and UI pauses."))
@@ -820,7 +987,7 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
 def _daily_tab(settings: dict[str, Any]) -> None:
     language = _ui_language(settings)
     cols = st.columns([1, 1, 1, 1, 1])
-    start = cols[0].date_input(_tr(language, "数据起始日期", "Data start date"), value=date(2024, 1, 1), key="daily_start")
+    start = cols[0].date_input(_tr(language, "数据起始日期", "Data start date"), value=date.today(), key="daily_start")
     run = _aligned_button(cols[1], _tr(language, "更新今日信号", "Update daily signal"), type="primary", use_container_width=True)
     timeline_mode_labels = _daily_timeline_mode_labels(language)
     _nz_label = _tr(language, "NZ 盘末 / 美股开盘", "NZ close / US open")
@@ -942,7 +1109,7 @@ def _market_health_tab(settings: dict[str, Any]) -> None:
     cols = st.columns([1, 1, 1])
     start = cols[0].date_input(
         _tr(language, "健康度数据起始日期", "Health data start date"),
-        value=date(2023, 1, 1),
+        value=date.today(),
         key="market_health_start",
     )
     run = _aligned_button(cols[1], _tr(language, "更新市场健康度", "Update market health"), type="primary", use_container_width=True)

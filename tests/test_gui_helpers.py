@@ -289,10 +289,10 @@ def test_streamlit_page_title_uses_leolrs_name():
     source = open("trend_system/gui.py", encoding="utf-8").read()
 
     assert 'st.title("LEOLRS0-3")' in source
-    assert "st.expander(_tr(language, \"区段无新高锁仓模块\"" in source
-    assert "st.expander(_tr(language, \"趋势质量模块\"" in source
-    assert "st.expander(_tr(language, \"回撤风险模块\"" in source
-    assert "st.expander(_tr(language, \"VIX 风险模块\"" in source
+    assert "st.subheader(_tr(language, \"区段无新高锁仓模块\"" in source
+    assert "st.subheader(_tr(language, \"趋势质量模块\"" in source
+    assert "st.subheader(_tr(language, \"回撤风险模块\"" in source
+    assert "st.subheader(_tr(language, \"VIX 风险模块\"" in source
     assert "美股指数 0 到 3 倍动态交易系统" not in source
     assert "US Index 0x to 3x Dynamic Trading System" not in source
 

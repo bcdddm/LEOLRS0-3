@@ -75,6 +75,11 @@ def required_history_days(settings_raw: dict, *, include_market_health: bool = F
         )
     if position.get("trend_quality_ma_cross_slow_decline_enabled", False) or include_market_health:
         windows.extend([120, 200])
+    if position.get("simple_module_enabled", False):
+        windows.append(int(position.get("simple_module_fast_ma_window", 120)))
+        windows.append(int(position.get("simple_module_slow_ma_window", 200)))
+    if position.get("extreme_risk_cap_enabled", False):
+        windows.append(int(position.get("extreme_risk_ma_window", 200)))
     return max(windows, default=0)
 
 
@@ -128,6 +133,13 @@ def signal_frame(price: pd.Series, vix: pd.Series, settings_raw: dict) -> pd.Dat
     frame["trend_quality_ma_120"] = trend_quality_ma_120.reindex(frame.index)
     frame["trend_quality_ma_200"] = trend_quality_ma_200.reindex(frame.index)
     frame["trend_quality_slow_decline"] = frame["trend_quality_ma_120"] < frame["trend_quality_ma_200"]
+    composite_enabled = bool(position.get("composite_module_enabled", True))
+    simple_enabled = bool(position.get("simple_module_enabled", False))
+    if not composite_enabled and not simple_enabled:
+        composite_enabled = True
+    simple_conditions = None
+    if simple_enabled:
+        simple_conditions = _simple_module_conditions(full_price, position).reindex(frame.index).fillna(False)
     exposure_floor = _exposure_floor(frame, position)
     target = _apply_vix_exposure_caps(
         _apply_exposure_tiers(
@@ -171,10 +183,47 @@ def signal_frame(price: pd.Series, vix: pd.Series, settings_raw: dict) -> pd.Dat
         frame,
         position,
     )
-    frame["target_exposure"] = capped_target.where(capped_target >= exposure_floor, exposure_floor).clip(
-        upper=position["max_exposure"],
-    )
+    off_exposure = float(position.get("simple_module_off_exposure", 0.0))
+    on_exposure = float(position.get("simple_module_on_exposure", 300.0))
+    max_exp = float(position["max_exposure"])
+    if simple_enabled and simple_conditions is not None:
+        if composite_enabled:
+            composite_result = capped_target.where(capped_target >= exposure_floor, exposure_floor).clip(upper=max_exp)
+            frame["target_exposure"] = composite_result.where(simple_conditions, off_exposure).clip(upper=max_exp)
+        else:
+            frame["target_exposure"] = (
+                pd.Series(on_exposure, index=frame.index)
+                .where(simple_conditions, off_exposure)
+                .clip(upper=max_exp)
+            )
+    else:
+        frame["target_exposure"] = capped_target.where(capped_target >= exposure_floor, exposure_floor).clip(
+            upper=max_exp,
+        )
     return frame
+
+
+def _simple_module_conditions(price: pd.Series, position: dict) -> pd.Series:
+    fast_window = int(position.get("simple_module_fast_ma_window", 120))
+    slow_window = int(position.get("simple_module_slow_ma_window", 200))
+    threshold = 1.0 + float(position.get("simple_module_threshold_pct", 2.0)) / 100.0
+    fast_ma = price.rolling(fast_window, min_periods=1).mean()
+    slow_ma = price.rolling(slow_window, min_periods=1).mean()
+    return (fast_ma > slow_ma) & (price > fast_ma * threshold) & (price > slow_ma * threshold)
+
+
+def _apply_extreme_risk_floor_override(
+    floor: pd.Series,
+    price: pd.Series,
+    position: dict,
+) -> pd.Series:
+    if not position.get("extreme_risk_cap_enabled", False):
+        return floor
+    ma_window = int(position.get("extreme_risk_ma_window", 200))
+    threshold = 1.0 - float(position.get("extreme_risk_threshold_pct", 2.0)) / 100.0
+    extreme_min = float(position.get("extreme_risk_min_exposure", 0.0))
+    slow_ma = price.rolling(ma_window, min_periods=1).mean()
+    return floor.where(~(price < slow_ma * threshold), extreme_min)
 
 
 def _trend_state(row: pd.Series, settings_raw: dict) -> tuple[str, float]:
@@ -386,6 +435,7 @@ def _exposure_floor(frame: pd.DataFrame, position: dict) -> pd.Series:
         and position.get("trend_quality_slow_decline_zero_floor_enabled", False)
     ):
         floor = floor.where(~frame["trend_quality_slow_decline"], 0.0)
+    floor = _apply_extreme_risk_floor_override(floor, frame["price"], position)
     return floor
 
 
