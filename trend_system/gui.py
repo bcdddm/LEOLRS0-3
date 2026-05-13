@@ -794,7 +794,15 @@ def _daily_tab(settings: dict[str, Any]) -> None:
             primary = settings["signals"]["primary"]
             vix_symbol = settings["signals"]["volatility"]
             price_field = settings["signals"].get("price_field", "Close")
-            signal = latest_signal(prices[primary][price_field], prices[vix_symbol][price_field], settings)
+            try:
+                signal = latest_signal(prices[primary][price_field], prices[vix_symbol][price_field], settings)
+            except RuntimeError as exc:
+                st.error(
+                    f"{_tr(language, '信号计算失败，数据不足，请尝试将数据起始日期调早。', 'Signal calculation failed — not enough data. Try moving the data start date further back.')}"
+                    f"\n\n`{exc}`"
+                )
+                st.session_state.pop("daily_result", None)
+                return
             allocation = build_allocation(signal.target_exposure, signal.vix, settings)
             st.session_state["daily_result"] = (signal, allocation)
             st.session_state["daily_prices"] = prices
