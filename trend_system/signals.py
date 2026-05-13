@@ -83,6 +83,9 @@ def required_history_days(settings_raw: dict, *, include_market_health: bool = F
     return max(windows, default=0)
 
 
+_HOLIDAY_BUFFER = 20  # extra weekdays to cover ~9 US market holidays/year + margin
+
+
 def history_start_date(
     start: str | date | pd.Timestamp,
     settings_raw: dict,
@@ -92,7 +95,7 @@ def history_start_date(
     days = required_history_days(settings_raw, include_market_health=include_market_health)
     if days <= 0:
         return pd.Timestamp(start).date()
-    return (pd.Timestamp(start) - pd.tseries.offsets.BDay(days)).date()
+    return (pd.Timestamp(start) - pd.tseries.offsets.BDay(days + _HOLIDAY_BUFFER)).date()
 
 
 def signal_frame(price: pd.Series, vix: pd.Series, settings_raw: dict) -> pd.DataFrame:
