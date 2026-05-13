@@ -7,7 +7,7 @@ on:
     # then gate below so messages send one hour before each market close:
     # 15:45 Pacific/Auckland and 15:00 America/New_York year-round.
     - cron: "45 2,3 * * *"
-    - cron: "0 20,21 * * *"
+    - cron: "0 19,20 * * *"
 
 jobs:
   send-daily-signal:
