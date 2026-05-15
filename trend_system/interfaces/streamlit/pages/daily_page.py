@@ -96,13 +96,13 @@ def render_daily_page(
         (tr(language, "信号日期", "Signal date"), str(signal.date.date())),
         (tr(language, "核心价格", "Core price"), f"{signal.price:,.2f}"),
         (ma_summary_label, f"{signal.ma_short:,.2f} / {signal.ma_medium:,.2f} / {signal.ma_long:,.2f}"),
-        (tr(language, "趋势", "Trend"), f"{deps.state_label(signal.trend_label, language)} ({signal.trend_exposure:.0f}%)"),
+        (tr(language, "趋势", "Trend"), f"{deps.state_label(signal.trend_label, language)} ({signal.trend_exposure:,.0f}%)"),
         ("VIX", f"{signal.vix:.2f} ({deps.state_label(signal.vix_label, language)})"),
         (tr(language, "VIX 系数", "VIX multiplier"), f"x{signal.vix_multiplier:.2f}"),
-        (tr(language, "目标等效仓位", "Target equivalent exposure"), f"{signal.target_exposure:.0f}%"),
-        (allocation.core_asset, f"{allocation.core_percent:.2f}%"),
-        (allocation.leveraged_asset or tr(language, "无杠杆", "No leverage"), f"{allocation.leveraged_percent:.2f}%"),
-        (allocation.defensive_asset, f"{allocation.defensive_percent:.2f}%"),
+        (tr(language, "目标等效仓位", "Target equivalent exposure"), f"{signal.target_exposure:,.0f}%"),
+        (allocation.core_asset, f"{allocation.core_percent:,.2f}%"),
+        (allocation.leveraged_asset or tr(language, "无杠杆", "No leverage"), f"{allocation.leveraged_percent:,.2f}%"),
+        (allocation.defensive_asset, f"{allocation.defensive_percent:,.2f}%"),
     ]
     deps.pdf_download_button(
         language,
@@ -123,10 +123,10 @@ def render_daily_page(
     st.subheader(tr(language, "市场状态", "Market State"))
     metric_cols = st.columns(5)
     metric_cols[0].metric(tr(language, "SPY 收盘价", "SPY close"), f"{signal.price:,.2f}")
-    metric_cols[1].metric(tr(language, "趋势", "Trend"), deps.state_label(signal.trend_label, language), f"{signal.trend_exposure:.0f}%")
+    metric_cols[1].metric(tr(language, "趋势", "Trend"), deps.state_label(signal.trend_label, language), f"{signal.trend_exposure:,.0f}%")
     metric_cols[2].metric("VIX", f"{signal.vix:.2f}", deps.state_label(signal.vix_label, language))
     metric_cols[3].metric(tr(language, "VIX 系数", "VIX multiplier"), f"x{signal.vix_multiplier:.2f}")
-    metric_cols[4].metric(tr(language, "目标等效仓位", "Target equivalent exposure"), f"{signal.target_exposure:.0f}%")
+    metric_cols[4].metric(tr(language, "目标等效仓位", "Target equivalent exposure"), f"{signal.target_exposure:,.0f}%")
     if settings.get("position", {}).get("trend_quality_ma_cross_slow_decline_enabled", False) and signal.trend_quality_slow_decline:
         st.warning(
             tr(
@@ -138,10 +138,10 @@ def render_daily_page(
 
     st.subheader(tr(language, "执行仓位", "Execution Allocation"))
     alloc_cols = st.columns(4)
-    alloc_cols[0].metric(allocation.core_asset, f"{allocation.core_percent:.2f}%")
-    alloc_cols[1].metric(allocation.leveraged_asset or tr(language, "无杠杆", "No leverage"), f"{allocation.leveraged_percent:.2f}%")
-    alloc_cols[2].metric(allocation.defensive_asset, f"{allocation.defensive_percent:.2f}%")
-    alloc_cols[3].metric(tr(language, "等效仓位", "Equivalent exposure"), f"{allocation.equivalent_exposure:.2f}%")
+    alloc_cols[0].metric(allocation.core_asset, f"{allocation.core_percent:,.2f}%")
+    alloc_cols[1].metric(allocation.leveraged_asset or tr(language, "无杠杆", "No leverage"), f"{allocation.leveraged_percent:,.2f}%")
+    alloc_cols[2].metric(allocation.defensive_asset, f"{allocation.defensive_percent:,.2f}%")
+    alloc_cols[3].metric(tr(language, "等效仓位", "Equivalent exposure"), f"{allocation.equivalent_exposure:,.2f}%")
     if allocation.notes:
         st.warning("\n".join(allocation.notes))
 

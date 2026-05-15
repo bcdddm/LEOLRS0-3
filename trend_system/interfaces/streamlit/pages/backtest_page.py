@@ -149,13 +149,13 @@ def render_backtest_page(
         (tr(language, "初始资金", "Initial capital"), f"{initial:,.2f}"),
         (tr(language, "每周追加资金", "Weekly contribution"), f"{weekly_contribution:,.2f}"),
         (tr(language, "执行时点", "Execution timing"), execution_timing),
-        (tr(language, "策略总收益", "Strategy total return"), f"{metrics.get('total_return_pct', 0):.2f}%"),
-        ("CAGR", f"{metrics.get('cagr_pct', 0):.2f}%"),
-        (tr(language, "最大回撤", "Max drawdown"), f"{metrics.get('max_drawdown_pct', 0):.2f}%"),
-        (tr(language, "年化波动", "Annual volatility"), f"{metrics.get('annual_volatility_pct', 0):.2f}%"),
+        (tr(language, "策略总收益", "Strategy total return"), f"{metrics.get('total_return_pct', 0):,.2f}%"),
+        ("CAGR", f"{metrics.get('cagr_pct', 0):,.2f}%"),
+        (tr(language, "最大回撤", "Max drawdown"), f"{metrics.get('max_drawdown_pct', 0):,.2f}%"),
+        (tr(language, "年化波动", "Annual volatility"), f"{metrics.get('annual_volatility_pct', 0):,.2f}%"),
         ("Sharpe", f"{metrics.get('sharpe_no_rf', 0):.2f}"),
-        (tr(language, "基准总收益", "Benchmark total return"), f"{metrics.get('buy_hold_total_return_pct', 0):.2f}%"),
-        (tr(language, "基准 CAGR", "Benchmark CAGR"), f"{metrics.get('buy_hold_cagr_pct', 0):.2f}%"),
+        (tr(language, "基准总收益", "Benchmark total return"), f"{metrics.get('buy_hold_total_return_pct', 0):,.2f}%"),
+        (tr(language, "基准 CAGR", "Benchmark CAGR"), f"{metrics.get('buy_hold_cagr_pct', 0):,.2f}%"),
         (tr(language, "调仓次数", "Rebalances"), str(len(result.trades))),
     ]
     latest_curve = result.equity_curve.iloc[-1]
@@ -165,8 +165,8 @@ def render_backtest_page(
         (tr(language, "3 倍 S&P 500 买入持有", "3x S&P 500 buy & hold"), f"{latest_curve.get('leveraged_buy_hold_equity', 0):,.2f}"),
         (tr(language, "S&P 500 120 日择时", "S&P 500 120-day timing"), f"{latest_curve.get('ma120_timing_equity', 0):,.2f}"),
         (tr(language, "三倍持有：跌破 120 日均线转现金", "3x Hold: Cash Below 120MA"), f"{latest_curve.get('leveraged_ma120_timing_equity', 0):,.2f}"),
-        (tr(language, "目标等效仓位", "Target equivalent exposure"), f"{latest_curve.get('target_exposure', 0):.2f}%"),
-        (tr(language, "实际等效仓位", "Actual equivalent exposure"), f"{latest_curve.get('actual_equivalent_exposure', 0):.2f}%"),
+        (tr(language, "目标等效仓位", "Target equivalent exposure"), f"{latest_curve.get('target_exposure', 0):,.2f}%"),
+        (tr(language, "实际等效仓位", "Actual equivalent exposure"), f"{latest_curve.get('actual_equivalent_exposure', 0):,.2f}%"),
     ]
     pdf_sections = [
         (tr(language, "回测表现", "Backtest Performance"), backtest_rows),
@@ -198,19 +198,19 @@ def render_backtest_page(
     )
     st.markdown(f"**{tr(language, '策略表现', 'Strategy Performance')}**")
     metric_cols = st.columns(5)
-    metric_cols[0].metric(tr(language, "策略总收益", "Strategy total return"), f"{metrics.get('total_return_pct', 0):.2f}%")
-    metric_cols[1].metric("策略 CAGR", f"{metrics.get('cagr_pct', 0):.2f}%")
-    metric_cols[2].metric(tr(language, "策略最大回撤", "Strategy max drawdown"), f"{metrics.get('max_drawdown_pct', 0):.2f}%")
-    metric_cols[3].metric(tr(language, "策略年化波动", "Strategy annual volatility"), f"{metrics.get('annual_volatility_pct', 0):.2f}%")
+    metric_cols[0].metric(tr(language, "策略总收益", "Strategy total return"), f"{metrics.get('total_return_pct', 0):,.2f}%")
+    metric_cols[1].metric("策略 CAGR", f"{metrics.get('cagr_pct', 0):,.2f}%")
+    metric_cols[2].metric(tr(language, "策略最大回撤", "Strategy max drawdown"), f"{metrics.get('max_drawdown_pct', 0):,.2f}%")
+    metric_cols[3].metric(tr(language, "策略年化波动", "Strategy annual volatility"), f"{metrics.get('annual_volatility_pct', 0):,.2f}%")
     metric_cols[4].metric("策略 Sharpe", f"{metrics.get('sharpe_no_rf', 0):.2f}")
 
     benchmark_symbol = settings["signals"]["primary"]
     st.markdown(f"**{tr(language, '买入并持有基准', 'Buy-and-hold benchmark')}: {benchmark_symbol}**")
     benchmark_cols = st.columns(5)
-    benchmark_cols[0].metric(tr(language, "基准总收益", "Benchmark total return"), f"{metrics.get('buy_hold_total_return_pct', 0):.2f}%")
-    benchmark_cols[1].metric("基准 CAGR", f"{metrics.get('buy_hold_cagr_pct', 0):.2f}%")
-    benchmark_cols[2].metric(tr(language, "基准最大回撤", "Benchmark max drawdown"), f"{metrics.get('buy_hold_max_drawdown_pct', 0):.2f}%")
-    benchmark_cols[3].metric(tr(language, "基准年化波动", "Benchmark annual volatility"), f"{metrics.get('buy_hold_annual_volatility_pct', 0):.2f}%")
+    benchmark_cols[0].metric(tr(language, "基准总收益", "Benchmark total return"), f"{metrics.get('buy_hold_total_return_pct', 0):,.2f}%")
+    benchmark_cols[1].metric("基准 CAGR", f"{metrics.get('buy_hold_cagr_pct', 0):,.2f}%")
+    benchmark_cols[2].metric(tr(language, "基准最大回撤", "Benchmark max drawdown"), f"{metrics.get('buy_hold_max_drawdown_pct', 0):,.2f}%")
+    benchmark_cols[3].metric(tr(language, "基准年化波动", "Benchmark annual volatility"), f"{metrics.get('buy_hold_annual_volatility_pct', 0):,.2f}%")
     benchmark_cols[4].metric("基准 Sharpe", f"{metrics.get('buy_hold_sharpe_no_rf', 0):.2f}")
     st.caption(tr(language, "CAGR = 年化复合增长率，表示资金按复利计算后平均每年增长多少；它不是简单平均年收益。", "CAGR is compound annual growth rate. It is not a simple average annual return."))
 

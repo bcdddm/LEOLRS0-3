@@ -2452,7 +2452,7 @@ def _build_rebalance_advice(
                 _tr(language, "操作货币", "Trade currency"): trade_currency,
                 f"{_tr(language, '当前市值', 'Current value')}(NZD)": round(current_nzd, 2),
                 f"{_tr(language, '当前市值', 'Current value')}({trade_currency})": round(current_trade, 2),
-                _tr(language, "目标比例", "Target weight"): f"{target_percent:.2f}%",
+                _tr(language, "目标比例", "Target weight"): f"{target_percent:,.2f}%",
                 f"{_tr(language, '目标市值', 'Target value')}(NZD)": round(target_nzd, 2),
                 f"{_tr(language, '目标市值', 'Target value')}({trade_currency})": round(target_trade, 2),
                 f"{_tr(language, '差额', 'Delta')}(NZD)": round(delta_nzd, 2),
@@ -2948,10 +2948,10 @@ def _trade_summary_rows(trades: pd.DataFrame, language: str) -> list[tuple[str, 
     for _, trade in trades.tail(10).iterrows():
         label = str(trade.get("date", ""))
         value = (
-            f"{_tr(language, '目标', 'Target')} {float(trade.get('target_exposure', 0)):.0f}% | "
-            f"{_tr(language, '核心', 'Core')} {float(trade.get('core_percent', 0)):.1f}% | "
-            f"{_tr(language, '杠杆', 'Leverage')} {float(trade.get('leveraged_percent', 0)):.1f}% | "
-            f"{_tr(language, '防御', 'Defensive')} {float(trade.get('local_defensive_percent', 0)):.1f}%"
+            f"{_tr(language, '目标', 'Target')} {float(trade.get('target_exposure', 0)):,.0f}% | "
+            f"{_tr(language, '核心', 'Core')} {float(trade.get('core_percent', 0)):,.1f}% | "
+            f"{_tr(language, '杠杆', 'Leverage')} {float(trade.get('leveraged_percent', 0)):,.1f}% | "
+            f"{_tr(language, '防御', 'Defensive')} {float(trade.get('local_defensive_percent', 0)):,.1f}%"
         )
         rows.append((label, value))
     return rows
