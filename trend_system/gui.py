@@ -57,12 +57,10 @@ from trend_system.interfaces.streamlit.pages.settings_page import (
     render_settings_page as render_settings_page_module,
 )
 from trend_system.interfaces.streamlit.shared import (
-    build_lightweight_chart_payload,
     fingerprint as shared_fingerprint,
     is_stale as shared_is_stale,
     model_settings as shared_model_settings,
     option_index as shared_option_index,
-    render_lightweight_chart as shared_render_lightweight_chart,
     release_notes_path as shared_release_notes_path,
     release_notes_text as shared_release_notes_text,
     render_release_notes as shared_render_release_notes,
