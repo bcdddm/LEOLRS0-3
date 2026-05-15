@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Callable
 
 import pandas as pd
 import streamlit as st
 
+from trend_system.interfaces.streamlit.shared.preparing import render_preparing
 from trend_system.models import HealthcheckRequest
 from trend_system.services.healthcheck_service import run_healthcheck
 
@@ -43,7 +44,7 @@ def render_market_health_page(
     cols = st.columns([1, 1, 1])
     start = cols[0].date_input(
         tr(language, "健康度数据起始日期", "Health data start date"),
-        value=date.today(),
+        value=date.today() - timedelta(days=420),
         key="market_health_start",
     )
     run = deps.aligned_button(
@@ -53,35 +54,36 @@ def render_market_health_page(
         use_container_width=True,
     )
     primary = settings["signals"]["primary"]
-    if not run and "market_health_price" not in st.session_state:
-        deps.disabled_pdf_button(
+    should_prepare = run or "market_health_price" not in st.session_state
+    if should_prepare:
+        preparing = st.empty()
+        render_preparing(
+            preparing,
             language,
-            tr(language, "打印/下载市场健康度 PDF", "Print/Download Market Health PDF"),
-            "market_health_pdf_disabled",
+            title=tr(language, "准备中", "Preparing"),
+            detail=tr(language, "正在读取价格历史并校验市场健康结构。", "Reading price history and checking market-health structure."),
         )
-        st.info(tr(language, "市场健康度尚未加载。", "Market health has not been loaded yet."))
-        _market_health_strategy_notes(language, tr)
-        return
-    if run:
-        with st.spinner(tr(language, "正在下载价格并计算市场健康度...", "Downloading prices and calculating market health...")):
-            price_loader = lambda symbol_list, start, end=None, auto_adjust=True: deps.cached_prices(
-                tuple(symbol_list),
-                str(start),
-                end,
-                auto_adjust,
+        price_loader = lambda symbol_list, start, end=None, auto_adjust=True: deps.cached_prices(
+            tuple(symbol_list),
+            str(start),
+            end,
+            auto_adjust,
+        )
+        try:
+            result = run_healthcheck(
+                HealthcheckRequest(settings=deps.as_settings(settings), start=start),
+                price_loader=price_loader,
             )
-            try:
-                result = run_healthcheck(
-                    HealthcheckRequest(settings=deps.as_settings(settings), start=start),
-                    price_loader=price_loader,
-                )
-            except RuntimeError as exc:
-                st.error(f"{tr(language, '市场健康度计算失败。', 'Market health calculation failed.')}\n\n`{exc}`")
-                st.session_state.pop("market_health_price", None)
-                return
-            st.session_state["market_health_price"] = result.price
-            st.session_state["market_health_symbol"] = result.symbol
-            st.session_state["market_health_display_start"] = start
+        except RuntimeError as exc:
+            preparing.empty()
+            st.error(f"{tr(language, '市场健康度计算失败。', 'Market health calculation failed.')}\n\n`{exc}`")
+            st.session_state.pop("market_health_price", None)
+            _market_health_strategy_notes(language, tr)
+            return
+        st.session_state["market_health_price"] = result.price
+        st.session_state["market_health_symbol"] = result.symbol
+        st.session_state["market_health_display_start"] = start
+        preparing.empty()
 
     price = st.session_state["market_health_price"]
     ma120 = price.rolling(120, min_periods=1).mean()
@@ -163,7 +165,13 @@ def render_market_health_page(
 
 
 def _market_health_strategy_notes(language: str, tr: Callable[[str, str, str], str]) -> None:
-    st.markdown(f"**{tr(language, '操作纪律', 'Operating Rules')}**")
+    st.markdown(
+        f'<div class="leo-section-head leo-section-head--prussian">'
+        f'<span class="leo-section-dot"></span>'
+        f'<span class="leo-section-overline">{tr(language, "操作纪律", "Operating Rules")}</span>'
+        f'<span class="leo-section-rule"></span></div>',
+        unsafe_allow_html=True,
+    )
     st.markdown("\n".join(_market_health_note_lines(language)))
 
 

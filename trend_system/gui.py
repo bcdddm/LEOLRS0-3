@@ -116,6 +116,8 @@ def _apply_session_preferences(settings: dict[str, Any]) -> None:
     profile = settings.setdefault("profile", {})
     if "settings_ui_language" in st.session_state:
         st.session_state["ui_language"] = st.session_state["settings_ui_language"]
+    if "header_ui_language" in st.session_state:
+        st.session_state["ui_language"] = "en" if st.session_state["header_ui_language"] == "EN" else "zh"
     if "settings_home_timezone" in st.session_state:
         st.session_state["home_timezone"] = st.session_state["settings_home_timezone"]
     if "settings_base_currency" in st.session_state:
@@ -137,8 +139,436 @@ def main() -> None:
     st.markdown(
         """
 <style>
+/* ── Design tokens ─────────────────────────────────────── */
+:root {
+  --leo-ink:          #111214;
+  --leo-ink-sub:      rgba(17, 18, 20, 0.78);
+  --leo-kicker:       rgba(18, 57, 91, 0.85);
+  /* Pearl switch shell — 25% opacity */
+  --leo-sw-bg:        rgba(244, 240, 232, 0.25);
+  --leo-sw-rim:       rgba(174, 143, 84, 0.32);
+  --leo-sw-inner:     rgba(255, 255, 255, 0.62);
+  --leo-sw-shadow:    rgba(26, 29, 31, 0.10);
+  --leo-sw-text:      rgba(17, 18, 20, 0.72);
+  --leo-sw-text-on:   #111214;
+  /* Active beads */
+  --leo-bead-en:      rgba(18, 57, 91, 0.92);
+  --leo-bead-en-txt:  #F4F0E8;
+  --leo-bead-zh:      rgba(158, 47, 47, 0.92);
+  --leo-bead-zh-txt:  #F4F0E8;
+}
+/* ── Light mode — explicit black text ──────────────────── */
+[data-theme="light"] {
+  --leo-ink:      #0A0C0D;
+  --leo-ink-sub:  rgba(10, 12, 13, 0.82);
+  --leo-kicker:   rgb(18, 57, 91);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --leo-ink:        rgba(244, 240, 232, 0.92);
+    --leo-ink-sub:    rgba(244, 240, 232, 0.60);
+    --leo-kicker:     rgba(174, 143, 84, 0.80);
+    --leo-sw-bg:      rgba(26, 29, 31, 0.25);
+    --leo-sw-rim:     rgba(174, 143, 84, 0.22);
+    --leo-sw-inner:   rgba(255, 255, 255, 0.12);
+    --leo-sw-shadow:  rgba(0, 0, 0, 0.40);
+    --leo-sw-text:    rgba(244, 240, 232, 0.65);
+    --leo-sw-text-on: rgba(244, 240, 232, 0.95);
+  }
+}
+[data-theme="dark"] {
+  --leo-ink:        rgba(244, 240, 232, 0.92);
+  --leo-ink-sub:    rgba(244, 240, 232, 0.60);
+  --leo-kicker:     rgba(174, 143, 84, 0.80);
+  --leo-sw-bg:      rgba(26, 29, 31, 0.25);
+  --leo-sw-rim:     rgba(174, 143, 84, 0.22);
+  --leo-sw-inner:   rgba(255, 255, 255, 0.12);
+  --leo-sw-shadow:  rgba(0, 0, 0, 0.40);
+  --leo-sw-text:    rgba(244, 240, 232, 0.65);
+  --leo-sw-text-on: rgba(244, 240, 232, 0.95);
+}
+/* ── Shell layout ──────────────────────────────────────── */
 .block-container {
   overflow-x: hidden !important;
+}
+.shell-title-band {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  margin-bottom: 0.5rem;
+}
+.shell-kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--leo-kicker);
+}
+.shell-title {
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 1;
+  font-weight: 700;
+  color: var(--leo-ink);
+}
+.shell-subtitle {
+  font-size: 0.92rem;
+  color: var(--leo-ink-sub);
+}
+/* ── Pearl language switch ─────────────────────────────── */
+div[data-testid="stSegmentedControl"] > div {
+  background:      var(--leo-sw-bg)    !important;
+  border:          1px solid var(--leo-sw-rim) !important;
+  border-radius:   999px               !important;
+  padding:         3px                 !important;
+  box-shadow:
+    inset 0 1px 0 var(--leo-sw-inner),
+    0 1px 4px var(--leo-sw-shadow)     !important;
+  backdrop-filter: blur(6px)           !important;
+  gap:             2px                 !important;
+}
+div[data-testid="stSegmentedControl"] button {
+  border-radius:   999px       !important;
+  border:          none        !important;
+  background:      transparent !important;
+  color:           var(--leo-sw-text) !important;
+  font-size:       0.70rem     !important;
+  font-weight:     500         !important;
+  letter-spacing:  0.07em      !important;
+  padding:         3px 11px    !important;
+  transition:
+    background 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    color      120ms ease,
+    box-shadow 160ms ease      !important;
+}
+div[data-testid="stSegmentedControl"] button:nth-child(1)[aria-pressed="true"],
+div[data-testid="stSegmentedControl"] button:nth-child(1)[aria-selected="true"] {
+  background: var(--leo-bead-en)     !important;
+  color:      var(--leo-bead-en-txt) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.20),
+    0 1px 3px rgba(18,57,91,0.40)    !important;
+}
+div[data-testid="stSegmentedControl"] button:nth-child(2)[aria-pressed="true"],
+div[data-testid="stSegmentedControl"] button:nth-child(2)[aria-selected="true"] {
+  background: var(--leo-bead-zh)     !important;
+  color:      var(--leo-bead-zh-txt) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.16),
+    0 1px 3px rgba(158,47,47,0.40)   !important;
+}
+div[data-testid="stSegmentedControl"] button:not([aria-pressed="true"]):not([aria-selected="true"]):hover {
+  color:      var(--leo-sw-text-on)  !important;
+  background: rgba(174,143,84,0.10)  !important;
+}
+div[data-testid="stSegmentedControl"] button:focus-visible {
+  outline:        1.5px solid rgba(174,143,84,0.60) !important;
+  outline-offset: 1px !important;
+}
+.strategy-console-intro {
+  margin: 0.35rem 0 0.85rem;
+  padding: 0.8rem 0.85rem 0.75rem;
+  background: linear-gradient(145deg, rgba(255,255,255,0.78), rgba(231,223,209,0.88));
+  border: 1px solid rgba(174, 143, 84, 0.20);
+  clip-path: polygon(0.75rem 0, calc(100% - 0.75rem) 0, 100% 0.75rem, 100% calc(100% - 0.75rem), calc(100% - 0.75rem) 100%, 0.75rem 100%, 0 calc(100% - 0.75rem), 0 0.75rem);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.72), inset 0 -1px 0 rgba(174,143,84,0.14);
+}
+@media (prefers-color-scheme: dark) {
+  .strategy-console-intro {
+    background: linear-gradient(145deg, rgba(26,29,31,0.30), rgba(244,240,232,0.06));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(174,143,84,0.12);
+  }
+}
+[data-theme="dark"] .strategy-console-intro {
+  background: linear-gradient(145deg, rgba(26,29,31,0.30), rgba(244,240,232,0.06));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(174,143,84,0.12);
+}
+.strategy-console-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+  color: var(--leo-ink);
+}
+.strategy-console-note {
+  font-size: 0.73rem;
+  color: var(--leo-ink-sub);
+  margin-bottom: 0.5rem;
+}
+.strategy-console-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.strategy-console-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.6rem;
+  padding: 0.22rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(174, 143, 84, 0.22);
+  background: rgba(255,255,255,0.44);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.50);
+  font-size: 0.72rem;
+  color: var(--leo-ink);
+}
+@media (prefers-color-scheme: dark) {
+  .strategy-console-chip { background: rgba(255,255,255,0.06); }
+}
+[data-theme="dark"] .strategy-console-chip { background: rgba(255,255,255,0.06); }
+.sidebar-section-plate {
+  margin: 0.55rem 0 0.5rem;
+  padding: 0.55rem 0.7rem 0.5rem;
+  background: linear-gradient(145deg, rgba(18,57,91,0.06), rgba(255,255,255,0.66));
+  border: 1px solid rgba(174, 143, 84, 0.18);
+  clip-path: polygon(0.6rem 0, calc(100% - 0.6rem) 0, 100% 0.6rem, 100% calc(100% - 0.6rem), calc(100% - 0.6rem) 100%, 0.6rem 100%, 0 calc(100% - 0.6rem), 0 0.6rem);
+}
+@media (prefers-color-scheme: dark) {
+  .sidebar-section-plate {
+    background: linear-gradient(145deg, rgba(18,57,91,0.16), rgba(26,29,31,0.32));
+  }
+}
+[data-theme="dark"] .sidebar-section-plate {
+  background: linear-gradient(145deg, rgba(18,57,91,0.16), rgba(26,29,31,0.32));
+}
+.sidebar-section-overline {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--leo-kicker);
+  margin-bottom: 0.18rem;
+}
+.sidebar-section-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--leo-ink);
+}
+.sidebar-section-summary {
+  font-size: 0.72rem;
+  color: var(--leo-ink-sub);
+  margin-top: 0.18rem;
+}
+/* ── Section header ────────────────────────────────────── */
+.leo-section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 1.1rem 0 0.65rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(174, 143, 84, 0.22);
+}
+.leo-section-overline {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--leo-kicker);
+  white-space: nowrap;
+}
+.leo-section-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(174,143,84,0.20) 0%, transparent 100%);
+}
+/* ── Section dot markers ───────────────────────────────── */
+.leo-section-dot {
+  display:     inline-block;
+  width:       0.36rem;
+  height:      0.36rem;
+  background:  rgba(174, 143, 84, 0.80);
+  flex-shrink: 0;
+}
+.leo-section-head--prussian .leo-section-dot      { background:   rgba(18, 57, 91, 0.85); }
+.leo-section-head--prussian .leo-section-overline { color:        rgba(18, 57, 91, 0.80); }
+.leo-section-head--prussian                       { border-bottom-color: rgba(18, 57, 91, 0.18); }
+.leo-section-head--green .leo-section-dot         { background:   rgba(22, 74, 60, 0.85); }
+.leo-section-head--green .leo-section-overline    { color:        rgba(22, 74, 60, 0.80); }
+.leo-section-head--green                          { border-bottom-color: rgba(22, 74, 60, 0.18); }
+.leo-section-head--red .leo-section-dot           { background:   rgba(158, 47, 47, 0.85); }
+.leo-section-head--red .leo-section-overline      { color:        rgba(158, 47, 47, 0.80); }
+.leo-section-head--red                            { border-bottom-color: rgba(158, 47, 47, 0.18); }
+/* ── st.subheader override ─────────────────────────────── */
+[data-testid="stHeading"] h3 {
+  font-size: 0.66rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+  color: rgb(18, 57, 91) !important;
+  border-bottom: 1px solid rgba(174, 143, 84, 0.22);
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+[data-theme="dark"] [data-testid="stHeading"] h3 {
+  color: rgba(174, 143, 84, 0.88) !important;
+}
+@media (prefers-color-scheme: dark) {
+  [data-testid="stHeading"] h3 { color: rgba(174, 143, 84, 0.88) !important; }
+}
+/* ── Metric card — pearl plate ─────────────────────────── */
+[data-testid="stMetric"] {
+  background:  linear-gradient(
+                 145deg,
+                 rgba(255, 255, 255, 0.18) 0%,
+                 rgba(244, 240, 232, 0.10) 55%,
+                 rgba(174, 143, 84,  0.05) 100%
+               );
+  border:      1px solid rgba(174, 143, 84, 0.24);
+  clip-path:   polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
+               100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
+               0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
+  padding:     0.7rem 0.85rem 0.65rem;
+  box-shadow:  inset 0 1.5px 0 rgba(255,255,255,0.72),
+               inset 1px 0 0 rgba(255,255,255,0.18),
+               inset 0 -1px 0 rgba(174,143,84,0.24),
+               0 1px 3px rgba(26,29,31,0.07);
+}
+/* ── Metric text — light mode (default) ────────────────── */
+[data-testid="stMetricLabel"] > div {
+  font-size:      0.64rem !important;
+  letter-spacing: 0.10em !important;
+  text-transform: uppercase !important;
+  color:          #3D3F42 !important;
+}
+[data-testid="stMetricLabel"] > div::before {
+  content:        '▪';
+  font-size:      0.52rem;
+  color:          rgba(174, 143, 84, 0.80);
+  margin-right:   0.28rem;
+  vertical-align: middle;
+}
+[data-testid="stMetricValue"] > div {
+  font-size:            1.45rem !important;
+  font-weight:          700 !important;
+  color:                #0A0C0D !important;
+  font-variant-numeric: tabular-nums;
+}
+/* ── Metric card + text — dark mode ────────────────────── */
+@media (prefers-color-scheme: dark) {
+  [data-testid="stMetric"] {
+    background:  linear-gradient(
+                   145deg,
+                   rgba(255, 255, 255, 0.07) 0%,
+                   rgba(26, 29, 31, 0.20) 100%
+                 );
+    border-color: rgba(174, 143, 84, 0.18);
+    box-shadow:  inset 0 1px 0 rgba(255,255,255,0.10),
+                 inset 0 -1px 0 rgba(174,143,84,0.16),
+                 0 1px 3px rgba(0,0,0,0.28);
+  }
+  [data-testid="stMetricValue"] > div { color: rgba(244, 240, 232, 0.95) !important; }
+  [data-testid="stMetricLabel"] > div { color: rgba(244, 240, 232, 0.62) !important; }
+}
+[data-theme="dark"] [data-testid="stMetric"] {
+  background:  linear-gradient(
+                 145deg,
+                 rgba(255, 255, 255, 0.07) 0%,
+                 rgba(26, 29, 31, 0.20) 100%
+               );
+  border-color: rgba(174, 143, 84, 0.18);
+  box-shadow:  inset 0 1px 0 rgba(255,255,255,0.10),
+               inset 0 -1px 0 rgba(174,143,84,0.16),
+               0 1px 3px rgba(0,0,0,0.28);
+}
+[data-theme="dark"] [data-testid="stMetricValue"] > div {
+  color: rgba(244, 240, 232, 0.95) !important;
+}
+[data-theme="dark"] [data-testid="stMetricLabel"] > div {
+  color: rgba(244, 240, 232, 0.62) !important;
+}
+/* ── Expander ──────────────────────────────────────────── */
+[data-testid="stExpander"] {
+  border:        1px solid rgba(174, 143, 84, 0.20) !important;
+  border-radius: 0 !important;
+  clip-path:     polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
+                 100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
+                 0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
+  background:    rgba(244, 240, 232, 0.10);
+}
+[data-testid="stExpander"] summary {
+  font-size:      0.72rem !important;
+  font-weight:    600 !important;
+  letter-spacing: 0.08em !important;
+  color:          var(--leo-ink-sub) !important;
+}
+@media (prefers-color-scheme: dark) {
+  [data-testid="stExpander"] { background: rgba(26, 29, 31, 0.14); }
+}
+[data-theme="dark"] [data-testid="stExpander"] { background: rgba(26, 29, 31, 0.14); }
+/* ── Chart container ───────────────────────────────────── */
+[data-testid="stVegaLiteChart"],
+[data-testid="element-container"] > iframe {
+  border:        1px solid rgba(174, 143, 84, 0.18) !important;
+  border-radius: 0 !important;
+  clip-path:     polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
+                 100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
+                 0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
+}
+/* ── Responsive metric grid ────────────────────────────── */
+/* Desktop (> 1024px): up to 6 per row — Python layout controls column count */
+/* Tablet (≤ 1024px): wrap to 4 per row */
+@media (max-width: 1024px) {
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    min-width: 23% !important;
+    flex: 1 1 23% !important;
+  }
+}
+/* Mobile (≤ 480px): 2 per row, full-bleed padding */
+@media (max-width: 480px) {
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    min-width: 48% !important;
+    flex: 1 1 48% !important;
+  }
+  [data-testid="stMetric"] {
+    padding: 0.55rem 0.6rem 0.5rem;
+  }
+  [data-testid="stMetricValue"] > div {
+    font-size: 1.15rem !important;
+  }
+}
+/* ── Premium slider ────────────────────────────────────── */
+[data-baseweb="slider"] {
+  padding: 0.6rem 0 !important;
+}
+[data-baseweb="slider"] [data-testid="stThumbValue"] {
+  font-size:   0.68rem !important;
+  font-weight: 600 !important;
+  color:       var(--leo-ink) !important;
+}
+[role="slider"] {
+  width:   14px !important;
+  height:  14px !important;
+  background: linear-gradient(145deg, #F4F0E8 0%, #E0D8C8 100%) !important;
+  border:     1.5px solid rgba(174, 143, 84, 0.55) !important;
+  border-radius: 0 !important;
+  clip-path: polygon(
+    2px 0, calc(100% - 2px) 0, 100% 2px, 100% calc(100% - 2px),
+    calc(100% - 2px) 100%, 2px 100%, 0 calc(100% - 2px), 0 2px
+  ) !important;
+  box-shadow:
+    0 1px 3px rgba(26,29,31,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.80) !important;
+  transition: transform 130ms ease, box-shadow 130ms ease !important;
+}
+[role="slider"]:hover,
+[role="slider"]:focus {
+  transform:  scale(1.20) !important;
+  box-shadow:
+    0 2px 7px rgba(174,143,84,0.40),
+    inset 0 1px 0 rgba(255,255,255,0.80) !important;
+  outline: none !important;
+}
+@media (prefers-color-scheme: dark) {
+  [role="slider"] {
+    background: linear-gradient(145deg, rgba(244,240,232,0.18) 0%, rgba(26,29,31,0.55) 100%) !important;
+    border-color: rgba(174, 143, 84, 0.40) !important;
+    box-shadow:
+      0 1px 3px rgba(0,0,0,0.50),
+      inset 0 1px 0 rgba(255,255,255,0.12) !important;
+  }
+}
+[data-theme="dark"] [role="slider"] {
+  background: linear-gradient(145deg, rgba(244,240,232,0.18) 0%, rgba(26,29,31,0.55) 100%) !important;
+  border-color: rgba(174, 143, 84, 0.40) !important;
+  box-shadow:
+    0 1px 3px rgba(0,0,0,0.50),
+    inset 0 1px 0 rgba(255,255,255,0.12) !important;
 }
 </style>
 """,
@@ -161,15 +591,7 @@ def main() -> None:
     _apply_session_preferences(working_settings)
     working_settings = _settings_sidebar(working_settings, config_path)
     language = _ui_language(working_settings)
-
-    st.title("LEOLRS0-3")
-    st.caption(
-        _tr(
-            language,
-            "新西兰时区默认 · 日线级别 · 风险控制优先",
-            "New Zealand time zone defaults · Daily signals · Risk control first",
-        )
-    )
+    language = _render_shell_header(working_settings, language)
 
     render_app_shell(
         settings=working_settings,
@@ -182,13 +604,86 @@ def main() -> None:
     )
 
 
+def _render_shell_header(settings: dict[str, Any], language: str) -> str:
+    title_cols = st.columns([5, 1.15])
+    title_cols[0].markdown(
+        f"""
+<div class="shell-title-band">
+  <div class="shell-kicker">LEOLRS0-3</div>
+  <div class="shell-title">LEOLRS0-3</div>
+  <div class="shell-subtitle">{html.escape(_tr(language, "新西兰时区默认 · 日线级别 · 风险控制优先", "New Zealand time zone defaults · Daily signals · Risk control first"))}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+    current = "EN" if language == "en" else "中文"
+    selected = title_cols[1].segmented_control(
+        _tr(language, "界面语言", "Interface language"),
+        ["EN", "中文"],
+        default=current,
+        key="header_ui_language",
+        label_visibility="collapsed",
+        width="content",
+    )
+    resolved = "en" if selected == "EN" else "zh"
+    if resolved != language:
+        st.session_state["ui_language"] = resolved
+        settings.setdefault("ui", {})["language"] = resolved
+        st.rerun()
+    return resolved
+
+
+def _sidebar_section_plate(language: str, overline: str, title: str, summary: str) -> None:
+    st.markdown(
+        f"""
+<div class="sidebar-section-plate">
+  <div class="sidebar-section-overline">{html.escape(overline)}</div>
+  <div class="sidebar-section-title">{html.escape(title)}</div>
+  <div class="sidebar-section-summary">{html.escape(summary)}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_sidebar_console_intro(settings: dict[str, Any], language: str) -> None:
+    execution = settings["execution"]
+    position = settings["position"]
+    trend = settings["trend"]
+    chips = [
+        f"Market {str(execution.get('default_market', 'us')).upper()}",
+        _tr(language, f"{float(position.get('min_exposure', 0)):.0f}% -> {float(position.get('max_exposure', 0)):.0f}% 仓位", f"{float(position.get('min_exposure', 0)):.0f}% -> {float(position.get('max_exposure', 0)):.0f}% exposure"),
+        f"MA {trend.get('short_window')} / {trend.get('medium_window')} / {trend.get('long_window')}",
+        _tr(language, "杠杆开启" if execution.get("allow_leverage", False) else "杠杆关闭", "Leverage on" if execution.get("allow_leverage", False) else "Leverage off"),
+        _tr(language, "高级模块待命", "Advanced overlays ready"),
+    ]
+    chip_markup = "".join(f'<span class="strategy-console-chip">{html.escape(chip)}</span>' for chip in chips)
+    st.markdown(
+        f"""
+<div class="strategy-console-intro">
+  <div class="strategy-console-title">{html.escape(_tr(language, "策略控制台", "Strategy Console"))}</div>
+  <div class="strategy-console-note">{html.escape(_tr(language, "先看控制台，再深入每一组参数。这个面板开始按决策意图，而不是按原始配置文件来理解。", "Scan the control deck first, then dive into each parameter group. This panel now starts to read by decision intent, not by raw config order."))}</div>
+  <div class="strategy-console-grid">{chip_markup}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
 def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, Any]:
     key_prefix = _widget_key_prefix(config_path)
     with st.sidebar.form("settings_form"):
         language = _ui_language(settings)
         st.header(_tr(language, "策略参数", "Strategy Parameters"))
+        _render_sidebar_console_intro(settings, language)
 
         execution = settings["execution"]
+        _sidebar_section_plate(
+            language,
+            _tr(language, "第一组", "Group One"),
+            _tr(language, "Session & Market Context", "Session & Market Context"),
+            _tr(language, "先定义执行市场、账户资产和杠杆许可，再让系统解释后续所有信号。", "Define market, account assets, and leverage permission before the rest of the system interprets signals."),
+        )
         st.subheader(_tr(language, "执行资产与账户限制", "Execution Assets and Account Limits"))
         execution["default_market"] = st.radio(
             _tr(language, "执行市场", "Execution market"),
@@ -309,6 +804,12 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
 
         # ── 复合模块 ─────────────────────────────────────────────────────────
         st.divider()
+        _sidebar_section_plate(
+            language,
+            _tr(language, "第二组", "Group Two"),
+            _tr(language, "Core Position Engine", "Core Position Engine"),
+            _tr(language, "这里决定基础仓位边界、趋势引擎与简单模块如何共同形成主要仓位姿态。", "This group shapes the base exposure range and how the trend and simple engines form the primary posture."),
+        )
         st.subheader(_tr(language, "复合模块", "Composite Module"))
         position["composite_module_enabled"] = st.toggle(
             _tr(language, "启用复合模块", "Enable composite module"),
@@ -523,6 +1024,12 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
 
         # ── 高级模块 (折叠) ──────────────────────────────────────────────────
         st.divider()
+        _sidebar_section_plate(
+            language,
+            _tr(language, "第三组", "Group Three"),
+            _tr(language, "Advanced Safety Overlays", "Advanced Safety Overlays"),
+            _tr(language, "把回撤、无新高、周期涨幅、趋势质量与极端风险模块视作附加的安全阀门。", "Treat drawdown, no-new-high, period-rise, trend-quality, and extreme-risk modules as additional safety valves."),
+        )
         _any_advanced = any([
             bool(position.get("vix_exposure_cap_enabled", False)),
             bool(position.get("drawdown_exposure_cap_enabled", False)),
@@ -1293,15 +1800,15 @@ def _parameter_debug_section(settings: dict[str, Any], start: date, end: date, l
         stored = st.session_state["parameter_sweep"]
         individual, unified, ranges, recommendations = stored["full"]
         target_individual, target_unified, target_ranges, target_recommendations = stored["target"]
-        st.markdown(f"**{_tr(language, '全区间参数调整建议', 'Full-Range Parameter Recommendations')}**")
+        st.markdown(f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "全区间参数调整建议", "Full-Range Parameter Recommendations")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
         st.dataframe(_localized_recommendations(recommendations, language), use_container_width=True, hide_index=True)
-        st.markdown(f"**{_tr(language, '最适合的参数范围', 'Preferred Parameter Ranges')}**")
+        st.markdown(f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "最适合的参数范围", "Preferred Parameter Ranges")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
         st.dataframe(_localized_parameter_frame(ranges, language), use_container_width=True, hide_index=True)
-        st.markdown(f"**{_tr(language, '逐个测试最佳结果', 'Best Individual Tests')}**")
+        st.markdown(f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "逐个测试最佳结果", "Best Individual Tests")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
         st.dataframe(_localized_parameter_frame(individual.head(25), language), use_container_width=True, hide_index=True)
-        st.markdown(f"**{_tr(language, '统一测试结果', 'Unified Test Results')}**")
+        st.markdown(f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "统一测试结果", "Unified Test Results")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
         st.dataframe(_localized_parameter_frame(unified, language), use_container_width=True, hide_index=True)
-        st.markdown(f"**{_tr(language, '全区间对比净值曲线', 'Full-Range Comparison Equity Curves')}**")
+        st.markdown(f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "全区间对比净值曲线", "Full-Range Comparison Equity Curves")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
         _zoomable_line_chart(
             stored["full_curves"],
             list(stored["full_curves"].columns),
@@ -1316,7 +1823,7 @@ def _parameter_debug_section(settings: dict[str, Any], start: date, end: date, l
             language,
             key="parameter_sweep_full_factor_lines",
         )
-        st.markdown(f"**{_tr(language, '目标日期参数建议表', 'Target-Date Parameter Recommendations')}**")
+        st.markdown(f'<div class="leo-section-head leo-section-head--green"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "目标日期参数建议表", "Target-Date Parameter Recommendations")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
         st.caption(
             _tr(
                 language,
@@ -1325,9 +1832,9 @@ def _parameter_debug_section(settings: dict[str, Any], start: date, end: date, l
             )
         )
         st.dataframe(_localized_recommendations(target_recommendations, language), use_container_width=True, hide_index=True)
-        st.markdown(f"**{_tr(language, '目标日期窗口最适合的参数范围', 'Target Window Preferred Parameter Ranges')}**")
+        st.markdown(f'<div class="leo-section-head leo-section-head--green"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "目标日期窗口最适合的参数范围", "Target Window Preferred Parameter Ranges")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
         st.dataframe(_localized_parameter_frame(target_ranges, language), use_container_width=True, hide_index=True)
-        st.markdown(f"**{_tr(language, '目标日期窗口对比净值曲线', 'Target Window Comparison Equity Curves')}**")
+        st.markdown(f'<div class="leo-section-head leo-section-head--green"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "目标日期窗口对比净值曲线", "Target Window Comparison Equity Curves")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
         _zoomable_line_chart(
             stored["target_curves"],
             list(stored["target_curves"].columns),
@@ -1685,11 +2192,15 @@ def _delete_config_github(relative_path: str) -> tuple[bool, str]:
 
 
 def _github_repo_config() -> GitHubRepoConfig:
-    return GitHubRepoConfig(
-        token=st.secrets.get("GITHUB_TOKEN", ""),
-        repo=st.secrets.get("GITHUB_REPO", ""),
-        branch=st.secrets.get("GITHUB_BRANCH", "main"),
-    )
+    try:
+        token = st.secrets.get("GITHUB_TOKEN", "")
+        repo = st.secrets.get("GITHUB_REPO", "")
+        branch = st.secrets.get("GITHUB_BRANCH", "main")
+    except Exception:
+        token = ""
+        repo = ""
+        branch = "main"
+    return GitHubRepoConfig(token=token, repo=repo, branch=branch)
 
 
 def _read_workflow_push_config() -> tuple[str, str, str]:
@@ -1708,8 +2219,8 @@ def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) 
     asx_open, asx_close = _relevant_local_window(settings, "asx", now)
     nzx_open, nzx_close = _relevant_local_window(settings, "nzx", now)
     market_windows = [
-        {"key": "nzx", "label": "NZ", "open": nzx_open, "close": nzx_close, "color": "#991b1b"},
-        {"key": "asx", "label": "AU", "open": asx_open, "close": asx_close, "color": "#14532d"},
+        {"key": "nzx", "label": "NZ", "open": nzx_open, "close": nzx_close, "color": "#b91c1c"},
+        {"key": "asx", "label": "AU", "open": asx_open, "close": asx_close, "color": "#059669"},
         {"key": "us", "label": "US", "open": us_open, "close": us_close, "color": "#2563eb"},
     ]
     selected_timeline_mode = timeline_mode or settings.get("backtest", {}).get("execution_timing", "next_session")
@@ -1767,11 +2278,13 @@ def _parallel_market_trade_timeline(
         f"""
 <style>
 .trade-timeline-wrap {{
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 14px 14px 10px;
+  border: 1px solid rgba(174, 143, 84, 0.22);
+  border-top: 2px solid rgba(174, 143, 84, 0.40);
+  border-radius: 0;
+  padding: 14px 14px 32px;
   margin: 10px 0 12px;
-  background: transparent;
+  background: rgba(244, 240, 232, 0.04);
+  overflow: visible;
 }}
 .trade-timeline-head {{
   display: flex;
@@ -1929,16 +2442,19 @@ def _parallel_market_trade_timeline(
   margin: 10px 0 2px;
 }}
 .timeline-countdown-card {{
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border: 1px solid rgba(174, 143, 84, 0.22);
+  border-radius: 0;
+  clip-path: polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
+             100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
+             0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
   padding: 10px 12px;
-  background: transparent;
+  background: rgba(244, 240, 232, 0.04);
   color: inherit;
 }}
 .timeline-countdown-card.urgent {{
-  border-color: #dc2626;
-  background: #dc2626;
-  color: #ffffff;
+  border-color: rgba(158, 47, 47, 0.70);
+  background: rgba(158, 47, 47, 0.14);
+  color: inherit;
 }}
 .timeline-countdown-title {{
   font-size: 12px;
@@ -1957,7 +2473,7 @@ def _parallel_market_trade_timeline(
 }}
 @media (max-width: 640px) {{
   .trade-timeline-wrap {{
-    padding: 12px 10px 10px;
+    padding: 12px 10px 34px;
   }}
   .trade-timeline-head {{
     display: grid;
@@ -1967,7 +2483,7 @@ def _parallel_market_trade_timeline(
   }}
   .trade-timeline-head span:nth-child(2) {{
     order: -1;
-    color: #111827;
+    color: inherit;
     font-weight: 700;
   }}
   .trade-timeline-row {{
@@ -2111,9 +2627,11 @@ def _trade_marker_color(item: Any) -> str:
     if item.strategy_key == NEXT_SESSION_MODE:
         return "#059669"
     if item.market_label == "NZX":
-        return "#991b1b"
+        return "#b91c1c"
+    if item.market_label == "ASX":
+        return "#059669"
     if "open" in action_en:
-        return "#93c5fd"
+        return "#60a5fa"
     if "close" in action_en:
         return "#2563eb"
     return "#dc2626"

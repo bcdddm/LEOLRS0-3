@@ -41,14 +41,17 @@ def render_settings_page(
     st.subheader(tr(language, "当前设置", "Current Settings"))
     st.caption(f"{tr(language, '来源', 'Source')}: {Path(config_path).resolve()}")
 
-    st.markdown(f"**{tr(language, '个人偏好', 'Preferences')}**")
+    st.markdown(
+        f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{tr(language, "个人偏好", "Preferences")}</span><span class="leo-section-rule"></span></div>',
+        unsafe_allow_html=True,
+    )
     pref_cols = st.columns(3)
     ui = settings.setdefault("ui", {})
     profile = settings.setdefault("profile", {})
     selected_language = pref_cols[0].selectbox(
         tr(language, "界面语言", "Interface language"),
         ["zh", "en"],
-        index=deps.option_index(["zh", "en"], ui.get("language", "zh")),
+        index=deps.option_index(["zh", "en"], ui.get("language", "en")),
         format_func=lambda value: "中文" if value == "zh" else "English",
         key="settings_ui_language",
     )
@@ -127,7 +130,10 @@ def render_settings_page(
         and path.resolve() != Path(config_path).resolve()
     }
     if deletable:
-        st.markdown(f"**{tr(language, '删除配置文件包', 'Delete Profile')}**")
+        st.markdown(
+            f'<div class="leo-section-head leo-section-head--red"><span class="leo-section-dot"></span><span class="leo-section-overline">{tr(language, "删除配置文件包", "Delete Profile")}</span><span class="leo-section-rule"></span></div>',
+            unsafe_allow_html=True,
+        )
         del_cols = st.columns([3, 1])
         del_target_name = del_cols[0].selectbox(
             tr(language, "选择要删除的配置", "Select profile to delete"),
@@ -167,7 +173,10 @@ def render_settings_page(
 
     st.json(settings, expanded=False)
     st.info(tr(language, "保存前，当前修改只影响本次界面运行。", "Until saved, changes only affect the current app session."))
-    st.markdown(f"**{tr(language, 'GitHub 推送设置', 'GitHub Push Settings')}**")
+    st.markdown(
+        f'<div class="leo-section-head leo-section-head--red"><span class="leo-section-dot"></span><span class="leo-section-overline">{tr(language, "GitHub 推送设置", "GitHub Push Settings")}</span><span class="leo-section-rule"></span></div>',
+        unsafe_allow_html=True,
+    )
     wf_config, wf_nz_time, wf_us_time = deps.read_workflow_push_config()
     push_config_options = {name: path for name, path in deps.config_options().items() if name != "自定义路径"}
     push_config_names = list(push_config_options.keys())
@@ -200,6 +209,9 @@ def render_settings_page(
             st.success(f"{tr(language, '已恢复为默认配置。', 'Restored to default config.')} {msg}")
         else:
             st.error(f"{tr(language, '恢复失败', 'Restore failed')}: {msg}")
-    st.markdown(f"**{tr(language, '系统版本', 'System Version')}**")
+    st.markdown(
+        f'<div class="leo-section-head leo-section-head--green"><span class="leo-section-dot"></span><span class="leo-section-overline">{tr(language, "系统版本", "System Version")}</span><span class="leo-section-rule"></span></div>',
+        unsafe_allow_html=True,
+    )
     st.metric(tr(language, "当前版本", "Current version"), f"v{deps.version}")
     deps.release_notes_renderer(language)

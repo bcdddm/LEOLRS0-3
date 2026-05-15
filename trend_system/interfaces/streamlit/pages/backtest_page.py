@@ -106,11 +106,6 @@ def render_backtest_page(
         st.error(tr(language, "回测结束日期不能早于开始日期。", "Backtest end date cannot be earlier than the start date."))
         return
 
-    if not run and "backtest_result" not in st.session_state:
-        deps.disabled_pdf_button(language, tr(language, "打印/下载历史回测 PDF", "Print/Download Backtest PDF"), key="backtest_pdf_disabled")
-        st.info(tr(language, "回测尚未运行。", "Backtest has not been run yet."))
-        return
-
     fingerprint_extras = {
         "start": str(start),
         "end": str(end),
@@ -119,7 +114,8 @@ def render_backtest_page(
         "execution_timing": execution_timing,
         "use_actual_leveraged_returns": str(use_actual_leveraged_returns),
     }
-    if run:
+    should_prepare = run or "backtest_result" not in st.session_state
+    if should_prepare:
         with st.status(tr(language, "准备回测...", "Preparing backtest..."), expanded=True) as status:
             status.update(label=tr(language, "下载或读取缓存中的历史价格...", "Downloading or reading cached price history..."))
             price_loader = lambda symbol_list, start, end=None, auto_adjust=True: deps.cached_prices(tuple(symbol_list), str(start), end, auto_adjust)
@@ -196,22 +192,42 @@ def render_backtest_page(
         deps.pdf_filename("backtest", settings, range_text=f"{start}_to_{end}", cagr=metrics.get("cagr_pct", 0.0)),
         key="backtest_pdf_download",
     )
-    st.markdown(f"**{tr(language, '策略表现', 'Strategy Performance')}**")
-    metric_cols = st.columns(5)
+    st.markdown(
+        f'<div class="leo-section-head leo-section-head--prussian">'
+        f'<span class="leo-section-dot"></span>'
+        f'<span class="leo-section-overline">{tr(language, "策略表现", "Strategy Performance")}</span>'
+        f'<span class="leo-section-rule"></span></div>',
+        unsafe_allow_html=True,
+    )
+    _strat_cagr = metrics.get("cagr_pct", 0)
+    _strat_dd   = metrics.get("max_drawdown_pct", 0)
+    _strat_calmar = abs(_strat_cagr / _strat_dd) if _strat_dd else 0.0
+    metric_cols = st.columns(6)
     metric_cols[0].metric(tr(language, "策略总收益", "Strategy total return"), f"{metrics.get('total_return_pct', 0):,.2f}%")
-    metric_cols[1].metric("策略 CAGR", f"{metrics.get('cagr_pct', 0):,.2f}%")
-    metric_cols[2].metric(tr(language, "策略最大回撤", "Strategy max drawdown"), f"{metrics.get('max_drawdown_pct', 0):,.2f}%")
+    metric_cols[1].metric("策略 CAGR", f"{_strat_cagr:,.2f}%")
+    metric_cols[2].metric(tr(language, "策略最大回撤", "Strategy max drawdown"), f"{_strat_dd:,.2f}%")
     metric_cols[3].metric(tr(language, "策略年化波动", "Strategy annual volatility"), f"{metrics.get('annual_volatility_pct', 0):,.2f}%")
     metric_cols[4].metric("策略 Sharpe", f"{metrics.get('sharpe_no_rf', 0):.2f}")
+    metric_cols[5].metric(tr(language, "策略 Calmar", "Strategy Calmar"), f"{_strat_calmar:.2f}")
 
     benchmark_symbol = settings["signals"]["primary"]
-    st.markdown(f"**{tr(language, '买入并持有基准', 'Buy-and-hold benchmark')}: {benchmark_symbol}**")
-    benchmark_cols = st.columns(5)
+    st.markdown(
+        f'<div class="leo-section-head leo-section-head--green">'
+        f'<span class="leo-section-dot"></span>'
+        f'<span class="leo-section-overline">{tr(language, "买入并持有基准", "Buy-and-hold benchmark")}: {benchmark_symbol}</span>'
+        f'<span class="leo-section-rule"></span></div>',
+        unsafe_allow_html=True,
+    )
+    _bh_cagr = metrics.get("buy_hold_cagr_pct", 0)
+    _bh_dd   = metrics.get("buy_hold_max_drawdown_pct", 0)
+    _bh_calmar = abs(_bh_cagr / _bh_dd) if _bh_dd else 0.0
+    benchmark_cols = st.columns(6)
     benchmark_cols[0].metric(tr(language, "基准总收益", "Benchmark total return"), f"{metrics.get('buy_hold_total_return_pct', 0):,.2f}%")
-    benchmark_cols[1].metric("基准 CAGR", f"{metrics.get('buy_hold_cagr_pct', 0):,.2f}%")
-    benchmark_cols[2].metric(tr(language, "基准最大回撤", "Benchmark max drawdown"), f"{metrics.get('buy_hold_max_drawdown_pct', 0):,.2f}%")
+    benchmark_cols[1].metric("基准 CAGR", f"{_bh_cagr:,.2f}%")
+    benchmark_cols[2].metric(tr(language, "基准最大回撤", "Benchmark max drawdown"), f"{_bh_dd:,.2f}%")
     benchmark_cols[3].metric(tr(language, "基准年化波动", "Benchmark annual volatility"), f"{metrics.get('buy_hold_annual_volatility_pct', 0):,.2f}%")
     benchmark_cols[4].metric("基准 Sharpe", f"{metrics.get('buy_hold_sharpe_no_rf', 0):.2f}")
+    benchmark_cols[5].metric(tr(language, "基准 Calmar", "Benchmark Calmar"), f"{_bh_calmar:.2f}")
     st.caption(tr(language, "CAGR = 年化复合增长率，表示资金按复利计算后平均每年增长多少；它不是简单平均年收益。", "CAGR is compound annual growth rate. It is not a simple average annual return."))
 
     if st.button(tr(language, "回正净值图", "Reset equity chart")):
