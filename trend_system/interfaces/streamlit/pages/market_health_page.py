@@ -96,9 +96,9 @@ def render_market_health_page(
     health_rows = [
         (tr(language, "标的", "Symbol"), primary),
         (tr(language, "最新日期", "Latest date"), str(price.index[-1].date())),
-        (tr(language, "最新价格", "Latest price"), f"{latest_price:.2f}"),
-        ("MA120", f"{latest_ma120:.2f}"),
-        ("MA200", f"{latest_ma200:.2f}"),
+        (tr(language, "最新价格", "Latest price"), f"{latest_price:,.2f}"),
+        ("MA120", f"{latest_ma120:,.2f}"),
+        ("MA200", f"{latest_ma200:,.2f}"),
         (tr(language, "健康阶段", "Health stage"), stage),
         (tr(language, "是否阴跌", "Slow decline"), tr(language, "是", "Yes") if slow_decline else tr(language, "否", "No")),
     ]
@@ -119,9 +119,9 @@ def render_market_health_page(
         key="market_health_pdf_download",
     )
     metric_cols = st.columns(4)
-    metric_cols[0].metric(primary, f"{latest_price:.2f}")
-    metric_cols[1].metric("MA120", f"{latest_ma120:.2f}")
-    metric_cols[2].metric("MA200", f"{latest_ma200:.2f}")
+    metric_cols[0].metric(primary, f"{latest_price:,.2f}")
+    metric_cols[1].metric("MA120", f"{latest_ma120:,.2f}")
+    metric_cols[2].metric("MA200", f"{latest_ma200:,.2f}")
     metric_cols[3].metric(tr(language, "健康阶段", "Health stage"), stage)
     if slow_decline:
         st.warning(

@@ -94,8 +94,8 @@ def render_daily_page(
     ma_summary_label = f"{ma_short_label} / {ma_medium_label} / {ma_long_label}"
     daily_rows = [
         (tr(language, "信号日期", "Signal date"), str(signal.date.date())),
-        (tr(language, "核心价格", "Core price"), f"{signal.price:.2f}"),
-        (ma_summary_label, f"{signal.ma_short:.2f} / {signal.ma_medium:.2f} / {signal.ma_long:.2f}"),
+        (tr(language, "核心价格", "Core price"), f"{signal.price:,.2f}"),
+        (ma_summary_label, f"{signal.ma_short:,.2f} / {signal.ma_medium:,.2f} / {signal.ma_long:,.2f}"),
         (tr(language, "趋势", "Trend"), f"{deps.state_label(signal.trend_label, language)} ({signal.trend_exposure:.0f}%)"),
         ("VIX", f"{signal.vix:.2f} ({deps.state_label(signal.vix_label, language)})"),
         (tr(language, "VIX 系数", "VIX multiplier"), f"x{signal.vix_multiplier:.2f}"),
@@ -122,7 +122,7 @@ def render_daily_page(
     )
     st.subheader(tr(language, "市场状态", "Market State"))
     metric_cols = st.columns(5)
-    metric_cols[0].metric(tr(language, "SPY 收盘价", "SPY close"), f"{signal.price:.2f}")
+    metric_cols[0].metric(tr(language, "SPY 收盘价", "SPY close"), f"{signal.price:,.2f}")
     metric_cols[1].metric(tr(language, "趋势", "Trend"), deps.state_label(signal.trend_label, language), f"{signal.trend_exposure:.0f}%")
     metric_cols[2].metric("VIX", f"{signal.vix:.2f}", deps.state_label(signal.vix_label, language))
     metric_cols[3].metric(tr(language, "VIX 系数", "VIX multiplier"), f"x{signal.vix_multiplier:.2f}")
@@ -131,8 +131,8 @@ def render_daily_page(
         st.warning(
             tr(
                 language,
-                f"趋势质量警告：120 日均线（{signal.trend_quality_ma_120:.2f}）低于 200 日均线（{signal.trend_quality_ma_200:.2f}），系统判定当前处于（阴跌）状态。",
-                f"Trend quality warning: the 120-day MA ({signal.trend_quality_ma_120:.2f}) is below the 200-day MA ({signal.trend_quality_ma_200:.2f}), so the system treats the market as being in slow-decline state.",
+                f"趋势质量警告：120 日均线（{signal.trend_quality_ma_120:,.2f}）低于 200 日均线（{signal.trend_quality_ma_200:,.2f}），系统判定当前处于（阴跌）状态。",
+                f"Trend quality warning: the 120-day MA ({signal.trend_quality_ma_120:,.2f}) is below the 200-day MA ({signal.trend_quality_ma_200:,.2f}), so the system treats the market as being in slow-decline state.",
             )
         )
 
