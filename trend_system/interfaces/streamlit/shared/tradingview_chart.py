@@ -154,6 +154,11 @@ def render_lightweight_chart(
     return item;
   }}
 
+  function formatValue(price) {{
+    if (price === null || price === undefined) return "";
+    return price.toLocaleString("en-US", {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }});
+  }}
+
   const chart = LightweightCharts.createChart(chartRoot, {{
     autoSize: true,
     layout: {{
@@ -183,6 +188,9 @@ def render_lightweight_chart(
         width: 1,
       }},
     }},
+    localization: {{
+      priceFormatter: formatValue,
+    }},
     handleScroll: true,
     handleScale: true,
   }});
@@ -197,6 +205,7 @@ def render_lightweight_chart(
     throw new Error("Unsupported Lightweight Charts API version");
   }}
 
+  const allSeriesItems = [];
   seriesPayload.forEach((seriesConfig, index) => {{
     const color = palette[index % palette.length];
     const lineStyleName = lineStyleMap[seriesConfig.style] || "Solid";
@@ -209,7 +218,23 @@ def render_lightweight_chart(
       crosshairMarkerVisible: true,
     }});
     series.setData(seriesConfig.points);
-    legendRoot.appendChild(createLegendItem(color, seriesConfig.label));
+    const legendItem = createLegendItem(color, seriesConfig.label);
+    legendRoot.appendChild(legendItem);
+    allSeriesItems.push({{ series, legendItem, label: seriesConfig.label }});
+  }});
+
+  chart.subscribeCrosshairMove((param) => {{
+    allSeriesItems.forEach((item) => {{
+      const textEl = item.legendItem.querySelector("span:last-child");
+      if (!textEl) return;
+      if (param.time) {{
+        const data = param.seriesData.get(item.series);
+        const val = data !== undefined ? formatValue(data.value) : "";
+        textEl.textContent = val ? `${{item.label}}: ${{val}}` : item.label;
+      }} else {{
+        textEl.textContent = item.label;
+      }}
+    }});
   }});
 
   chart.timeScale().fitContent();
