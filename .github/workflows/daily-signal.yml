@@ -20,15 +20,59 @@ jobs:
       - name: Check market delivery time
         id: delivery-time
         run: |
+          workflow_config_path="config/profiles/Leo.toml"
+          target_nz_time="15:45"
+          target_ny_time="15:00"
+          delivery_window_minutes=20
+
+          time_to_minutes() {
+            local value="$1"
+            local hours minutes
+            IFS=: read -r hours minutes <<< "$value"
+            echo $((10#$hours * 60 + 10#$minutes))
+          }
+
+          within_window() {
+            local current_time="$1"
+            local target_time="$2"
+            local current_minutes target_minutes delta
+            current_minutes="$(time_to_minutes "$current_time")"
+            target_minutes="$(time_to_minutes "$target_time")"
+            delta=$((current_minutes - target_minutes))
+            if (( delta < 0 )); then
+              delta=$(( -delta ))
+            fi
+            (( delta <= delivery_window_minutes ))
+          }
+
           nz_time="$(TZ=Pacific/Auckland date +%H:%M)"
           ny_time="$(TZ=America/New_York date +%H:%M)"
+          reason="outside delivery window"
           echo "nz_time=$nz_time" >> "$GITHUB_OUTPUT"
           echo "ny_time=$ny_time" >> "$GITHUB_OUTPUT"
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" || "$nz_time" == "15:45" || "$ny_time" == "15:00" ]]; then
+          echo "workflow_config_path=$workflow_config_path" >> "$GITHUB_OUTPUT"
+          echo "target_nz_time=$target_nz_time" >> "$GITHUB_OUTPUT"
+          echo "target_ny_time=$target_ny_time" >> "$GITHUB_OUTPUT"
+          echo "delivery_window_minutes=$delivery_window_minutes" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            reason="manual dispatch"
+            echo "should_send=true" >> "$GITHUB_OUTPUT"
+          elif within_window "$nz_time" "$target_nz_time"; then
+            reason="within NZ delivery window"
+            echo "should_send=true" >> "$GITHUB_OUTPUT"
+          elif within_window "$ny_time" "$target_ny_time"; then
+            reason="within New York delivery window"
             echo "should_send=true" >> "$GITHUB_OUTPUT"
           else
             echo "should_send=false" >> "$GITHUB_OUTPUT"
           fi
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          echo "Daily signal delivery decision: $reason"
+          echo "Current NZ time: $nz_time"
+          echo "Current New York time: $ny_time"
+          echo "Configured NZ target: $target_nz_time"
+          echo "Configured New York target: $target_ny_time"
+          echo "Delivery window: +/- ${delivery_window_minutes} minutes"
 
       - name: Check out repository
         if: steps.delivery-time.outputs.should_send == 'true'
@@ -47,10 +91,21 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e .
 
+      - name: Validate Telegram secrets
+        if: steps.delivery-time.outputs.should_send == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
+            echo "Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID"
+            exit 1
+          fi
+
       - name: Run daily signal
         if: steps.delivery-time.outputs.should_send == 'true'
         run: |
-          python -m trend_system daily --config config/profiles/Leo.toml > daily-report.txt
+          python -m trend_system daily --config "${{ steps.delivery-time.outputs.workflow_config_path }}" > daily-report.txt
           cat daily-report.txt
 
       - name: Send Telegram message

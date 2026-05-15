@@ -12,7 +12,7 @@ def test_history_start_date_uses_longest_configured_signal_window():
     start = pd.Timestamp("2000-01-03").date()
 
     assert required_history_days(settings) == 120
-    assert history_start_date(start, settings) == (pd.Timestamp(start) - pd.tseries.offsets.BDay(120)).date()
+    assert history_start_date(start, settings) == (pd.Timestamp(start) - pd.tseries.offsets.BDay(140)).date()
 
 
 def test_history_start_date_includes_enabled_longer_risk_lookbacks():

@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import argparse
-from datetime import date, timedelta
 from pathlib import Path
 
-from trend_system.backtest import run_backtest
-from trend_system.config import load_settings, required_symbols
-from trend_system.data import download_prices
-from trend_system.portfolio import build_allocation
-from trend_system.report import daily_report
-from trend_system.signals import history_start_date, recent_signals
+from trend_system.config import load_settings
+from trend_system.models import BacktestRequest, DailySignalRequest
+from trend_system.services.backtest_service import run_backtest_use_case
+from trend_system.services.daily_signal_service import run_daily_signal
 
 
 def main() -> None:
@@ -32,58 +29,28 @@ def main() -> None:
     settings = load_settings(args.config or "config/settings.toml")
 
     if args.command == "daily":
-        data_start = history_start_date(args.start, settings.raw)
-        prices = download_prices(required_symbols(settings), start=data_start)
-        signals = recent_signals(
-            prices[settings.primary_symbol][settings.price_field],
-            prices[settings.vix_symbol][settings.price_field],
-            settings.raw,
-            count=2,
-        )
-        previous_signal = signals[-2] if len(signals) > 1 else None
-        signal = signals[-1]
-        allocation = build_allocation(signal.target_exposure, signal.vix, settings.raw)
-        previous_allocation = (
-            build_allocation(previous_signal.target_exposure, previous_signal.vix, settings.raw)
-            if previous_signal
-            else None
-        )
-        print(daily_report(signal, allocation, settings.raw, previous_signal, previous_allocation))
+        result = run_daily_signal(DailySignalRequest(settings=settings, start=args.start))
+        print(result.report)
         return
 
     if args.command == "backtest":
-        start = args.start or settings.raw["backtest"]["start"]
-        data_start = history_start_date(start, settings.raw)
-        prices = download_prices(
-            [settings.primary_symbol, settings.vix_symbol],
-            start=data_start,
-            end=_exclusive_end(args.end),
+        service_result = run_backtest_use_case(
+            BacktestRequest(
+                settings=settings,
+                start=args.start or settings.raw["backtest"]["start"],
+                end=args.end,
+                output=Path(args.output),
+                trades_output=Path(args.trades_output),
+            )
         )
-        result = run_backtest(
-            prices[settings.primary_symbol][settings.price_field],
-            prices[settings.vix_symbol][settings.price_field],
-            settings.raw,
-            result_start=start,
-        )
-        output = Path(args.output)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        result.equity_curve.to_csv(output)
-        trades_output = Path(args.trades_output)
-        trades_output.parent.mkdir(parents=True, exist_ok=True)
-        result.trades.to_csv(trades_output, index=False)
+        result = service_result.result
         print("Backtest metrics")
         for key, value in result.metrics.items():
             print(f"- {key}: {value}")
         print(f"Rows: {len(result.equity_curve)}")
         print(f"Trades: {len(result.trades)}")
-        print(f"Saved equity curve: {output}")
-        print(f"Saved trades: {trades_output}")
-
-
-def _exclusive_end(value: str | None) -> str | None:
-    if not value:
-        return None
-    return str(date.fromisoformat(value) + timedelta(days=1))
+        print(f"Saved equity curve: {service_result.output}")
+        print(f"Saved trades: {service_result.trades_output}")
 
 
 if __name__ == "__main__":

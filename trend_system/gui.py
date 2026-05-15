@@ -24,15 +24,62 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, 
 
 from trend_system.backtest import build_parameter_sweep_candidate, run_backtest, run_parameter_sweep
 from trend_system import __version__
-from trend_system.config import load_settings, required_symbols
+from trend_system.config import Settings, load_settings, required_symbols
 from trend_system.data import download_prices
+from trend_system.adapters.github.content_store import GitHubRepoConfig, delete_file, push_text_file
+from trend_system.adapters.github.workflow_store import (
+    DEFAULT_NZ_TIME,
+    DEFAULT_PUSH_CONFIG,
+    DEFAULT_US_TIME,
+    read_push_config,
+    update_push_config,
+)
 from trend_system.exposure_rules import (
     apply_foreign_asset_cap_to_values,
     counts_toward_foreign_cap,
 )
+from trend_system.models import BacktestRequest, DailySignalRequest, HealthcheckRequest
+from trend_system.interfaces.streamlit.app_shell import render_app_shell
+from trend_system.interfaces.streamlit.pages.market_health_page import (
+    MarketHealthPageDeps,
+    render_market_health_page as render_market_health_page_module,
+)
+from trend_system.interfaces.streamlit.pages.daily_page import (
+    DailyPageDeps,
+    render_daily_page as render_daily_page_module,
+)
+from trend_system.interfaces.streamlit.pages.backtest_page import (
+    BacktestPageDeps,
+    render_backtest_page as render_backtest_page_module,
+)
+from trend_system.interfaces.streamlit.pages.settings_page import (
+    SettingsPageDeps,
+    render_settings_page as render_settings_page_module,
+)
+from trend_system.interfaces.streamlit.shared import (
+    build_lightweight_chart_payload,
+    fingerprint as shared_fingerprint,
+    is_stale as shared_is_stale,
+    model_settings as shared_model_settings,
+    option_index as shared_option_index,
+    render_lightweight_chart as shared_render_lightweight_chart,
+    release_notes_path as shared_release_notes_path,
+    release_notes_text as shared_release_notes_text,
+    render_release_notes as shared_render_release_notes,
+    tr as shared_tr,
+    ui_language as shared_ui_language,
+)
 from trend_system.portfolio import build_allocation
-from trend_system.signals import history_start_date, latest_signal
-from trend_system.trade_timeline import trade_timeline_items
+from trend_system.services.backtest_service import run_backtest_use_case
+from trend_system.services.daily_signal_service import run_daily_signal
+from trend_system.services.healthcheck_service import run_healthcheck
+from trend_system.signals import history_start_date
+from trend_system.trade_timeline import (
+    NEXT_SESSION_MODE,
+    NZ_CLOSE_US_OPEN_MODE,
+    SUPPORTED_TIMELINE_MODES,
+    trade_timeline_items,
+)
 from trend_system.timezones import market_window
 
 
@@ -54,12 +101,15 @@ CURRENCIES = ["NZD", "USD", "AUD", "CNY"]
 
 
 def _ui_language(settings: dict[str, Any]) -> str:
-    selected = st.session_state.get("ui_language") or settings.get("ui", {}).get("language", "zh")
-    return "en" if selected == "en" else "zh"
+    return shared_ui_language(settings)
 
 
 def _tr(language: str, zh: str, en: str) -> str:
-    return en if language == "en" else zh
+    return shared_tr(language, zh, en)
+
+
+def _as_settings(settings: dict[str, Any]) -> Settings:
+    return Settings(raw=settings, path=DEFAULT_CONFIG)
 
 
 def _apply_session_preferences(settings: dict[str, Any]) -> None:
@@ -122,26 +172,15 @@ def main() -> None:
         )
     )
 
-    page_options = {
-        _tr(language, "今日信号", "Daily Signal"): "daily",
-        _tr(language, "市场健康度", "Market Health"): "market_health",
-        _tr(language, "回测", "Backtest"): "backtest",
-        _tr(language, "设置总览", "Settings Overview"): "settings",
-    }
-    page = st.radio(
-        _tr(language, "页面", "Page"),
-        list(page_options.keys()),
-        horizontal=True,
-        label_visibility="collapsed",
+    render_app_shell(
+        settings=working_settings,
+        language=language,
+        config_path=config_path,
+        daily_renderer=_daily_tab,
+        market_health_renderer=_market_health_tab,
+        backtest_renderer=_backtest_tab,
+        settings_renderer=_settings_tab,
     )
-    if page_options[page] == "daily":
-        _daily_tab(working_settings)
-    elif page_options[page] == "market_health":
-        _market_health_tab(working_settings)
-    elif page_options[page] == "backtest":
-        _backtest_tab(working_settings)
-    else:
-        _settings_tab(working_settings, config_path)
 
 
 def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, Any]:
@@ -986,261 +1025,49 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
 
 def _daily_tab(settings: dict[str, Any]) -> None:
     language = _ui_language(settings)
-    cols = st.columns([1, 1, 1, 1, 1])
-    start = cols[0].date_input(_tr(language, "数据起始日期", "Data start date"), value=date.today(), key="daily_start")
-    run = _aligned_button(cols[1], _tr(language, "更新今日信号", "Update daily signal"), type="primary", use_container_width=True)
-    timeline_mode_labels = _daily_timeline_mode_labels(language)
-    _nz_label = _tr(language, "NZ 盘末 / 美股开盘", "NZ close / US open")
-    if "daily_timeline_mode" not in st.session_state:
-        st.session_state["daily_timeline_mode"] = _nz_label
-    selected_timeline_mode_label = cols[2].selectbox(
-        _tr(language, "交易时间轴模式", "Timeline mode"),
-        list(timeline_mode_labels.keys()),
-        key="daily_timeline_mode",
-    )
-    timeline_mode = timeline_mode_labels[selected_timeline_mode_label]
-    settings.setdefault("backtest", {})["execution_timing"] = timeline_mode
-
-    if not run and "daily_result" not in st.session_state:
-        _disabled_pdf_button(language, _tr(language, "打印/下载今日信号 PDF", "Print/Download Daily Signal PDF"), key="daily_pdf_disabled")
-        st.info(_tr(language, "今日信号尚未加载。", "Daily signal has not been loaded yet."))
-        _market_windows(settings, timeline_mode)
-        return
-
-    if run:
-        with st.spinner(_tr(language, "正在下载 Yahoo Finance 数据...", "Downloading Yahoo Finance data...")):
-            data_start = history_start_date(start, settings)
-            prices = _cached_prices(tuple(required_symbols_from_raw(settings)), str(data_start), None, True)
-            primary = settings["signals"]["primary"]
-            vix_symbol = settings["signals"]["volatility"]
-            price_field = settings["signals"].get("price_field", "Close")
-            try:
-                signal = latest_signal(prices[primary][price_field], prices[vix_symbol][price_field], settings)
-            except RuntimeError as exc:
-                st.error(
-                    f"{_tr(language, '信号计算失败，数据不足，请尝试将数据起始日期调早。', 'Signal calculation failed — not enough data. Try moving the data start date further back.')}"
-                    f"\n\n`{exc}`"
-                )
-                st.session_state.pop("daily_result", None)
-                return
-            allocation = build_allocation(signal.target_exposure, signal.vix, settings)
-            st.session_state["daily_result"] = (signal, allocation)
-            st.session_state["daily_prices"] = prices
-            st.session_state["daily_fingerprint"] = _fingerprint(settings, {"start": str(start)})
-
-    if _is_stale("daily_fingerprint", settings, {"start": str(start)}):
-        st.warning(_tr(language, "数据已更改，请重新回测并刷新数据。", "Settings changed. Please refresh the data."))
-
-    signal, allocation = st.session_state["daily_result"]
-    ma_short_label, ma_medium_label, ma_long_label = _trend_ma_labels(settings)
-    ma_summary_label = f"{ma_short_label} / {ma_medium_label} / {ma_long_label}"
-    daily_rows = [
-        (_tr(language, "信号日期", "Signal date"), str(signal.date.date())),
-        (_tr(language, "核心价格", "Core price"), f"{signal.price:.2f}"),
-        (ma_summary_label, f"{signal.ma_short:.2f} / {signal.ma_medium:.2f} / {signal.ma_long:.2f}"),
-        (_tr(language, "趋势", "Trend"), f"{_state_label(signal.trend_label, language)} ({signal.trend_exposure:.0f}%)"),
-        ("VIX", f"{signal.vix:.2f} ({_state_label(signal.vix_label, language)})"),
-        (_tr(language, "VIX 系数", "VIX multiplier"), f"x{signal.vix_multiplier:.2f}"),
-        (_tr(language, "目标等效仓位", "Target equivalent exposure"), f"{signal.target_exposure:.0f}%"),
-        (allocation.core_asset, f"{allocation.core_percent:.2f}%"),
-        (allocation.leveraged_asset or _tr(language, "无杠杆", "No leverage"), f"{allocation.leveraged_percent:.2f}%"),
-        (allocation.defensive_asset, f"{allocation.defensive_percent:.2f}%"),
-    ]
-    _pdf_download_button(
+    render_daily_page_module(
+        settings,
         language,
-        _tr(language, "打印/下载今日信号 PDF", "Print/Download Daily Signal PDF"),
-        _build_pdf_report(
-            _tr(language, "今日信号", "Daily Signal"),
-            settings,
-            language,
-            sections=[
-                (_tr(language, "市场状态", "Market State"), daily_rows),
-                (_tr(language, "策略信息", "Strategy Information"), _strategy_summary_rows(settings, language)),
-            ],
-            notes=allocation.notes,
+        deps=DailyPageDeps(
+            as_settings=_as_settings,
+            cached_prices=_cached_prices,
+            tr=_tr,
+            aligned_button=_aligned_button,
+            disabled_pdf_button=_disabled_pdf_button,
+            pdf_download_button=_pdf_download_button,
+            build_pdf_report=_build_pdf_report,
+            strategy_summary_rows=_strategy_summary_rows,
+            pdf_filename=_pdf_filename,
+            state_label=_state_label,
+            trend_ma_labels=_trend_ma_labels,
+            daily_timeline_mode_labels=_daily_timeline_mode_labels,
+            market_windows=_market_windows,
+            portfolio_adjustment_section=_portfolio_adjustment_section,
+            fingerprint=_fingerprint,
+            is_stale=_is_stale,
+            required_symbols_from_raw=required_symbols_from_raw,
         ),
-        _pdf_filename("daily-signal", settings),
-        key="daily_pdf_download",
     )
-    st.subheader(_tr(language, "市场状态", "Market State"))
-    metric_cols = st.columns(5)
-    metric_cols[0].metric(_tr(language, "SPY 收盘价", "SPY close"), f"{signal.price:.2f}")
-    metric_cols[1].metric(_tr(language, "趋势", "Trend"), _state_label(signal.trend_label, language), f"{signal.trend_exposure:.0f}%")
-    metric_cols[2].metric("VIX", f"{signal.vix:.2f}", _state_label(signal.vix_label, language))
-    metric_cols[3].metric(_tr(language, "VIX 系数", "VIX multiplier"), f"x{signal.vix_multiplier:.2f}")
-    metric_cols[4].metric(_tr(language, "目标等效仓位", "Target equivalent exposure"), f"{signal.target_exposure:.0f}%")
-    if (
-        settings.get("position", {}).get("trend_quality_ma_cross_slow_decline_enabled", False)
-        and signal.trend_quality_slow_decline
-    ):
-        st.warning(
-            _tr(
-                language,
-                f"趋势质量警告：120 日均线（{signal.trend_quality_ma_120:.2f}）低于 200 日均线（{signal.trend_quality_ma_200:.2f}），系统判定当前处于（阴跌）状态。",
-                f"Trend quality warning: the 120-day MA ({signal.trend_quality_ma_120:.2f}) is below the 200-day MA ({signal.trend_quality_ma_200:.2f}), so the system treats the market as being in slow-decline state.",
-            )
-        )
-
-    st.subheader(_tr(language, "执行仓位", "Execution Allocation"))
-    alloc_cols = st.columns(4)
-    alloc_cols[0].metric(allocation.core_asset, f"{allocation.core_percent:.2f}%")
-    alloc_cols[1].metric(allocation.leveraged_asset or _tr(language, "无杠杆", "No leverage"), f"{allocation.leveraged_percent:.2f}%")
-    alloc_cols[2].metric(allocation.defensive_asset, f"{allocation.defensive_percent:.2f}%")
-    alloc_cols[3].metric(_tr(language, "等效仓位", "Equivalent exposure"), f"{allocation.equivalent_exposure:.2f}%")
-    if allocation.notes:
-        st.warning("\n".join(allocation.notes))
-
-    ma_frame = pd.DataFrame(
-        {
-            _tr(language, "数值", "Value"): {
-                ma_short_label: signal.ma_short,
-                ma_medium_label: signal.ma_medium,
-                ma_long_label: signal.ma_long,
-            }
-        }
-    )
-    st.bar_chart(ma_frame)
-    _portfolio_adjustment_section(settings, allocation, st.session_state.get("daily_prices", {}), signal.date)
-    _market_windows(settings, timeline_mode)
 
 
 def _market_health_tab(settings: dict[str, Any]) -> None:
     language = _ui_language(settings)
-    st.subheader(_tr(language, "市场健康度", "Market Health"))
-    st.caption(
-        _tr(
-            language,
-            "这个页面把高杠杆是否可用拆成独立的市场健康度判断：只有趋势结构修复后，才允许系统重新进入进攻模式。",
-            "This page separates leveraged exposure permission into a market-health check: the system only returns to offensive mode after the trend structure repairs.",
-        )
-    )
-    cols = st.columns([1, 1, 1])
-    start = cols[0].date_input(
-        _tr(language, "健康度数据起始日期", "Health data start date"),
-        value=date.today(),
-        key="market_health_start",
-    )
-    run = _aligned_button(cols[1], _tr(language, "更新市场健康度", "Update market health"), type="primary", use_container_width=True)
-    primary = settings["signals"]["primary"]
-    price_field = settings["signals"].get("price_field", "Close")
-    if not run and "market_health_price" not in st.session_state:
-        _disabled_pdf_button(language, _tr(language, "打印/下载市场健康度 PDF", "Print/Download Market Health PDF"), key="market_health_pdf_disabled")
-        st.info(_tr(language, "市场健康度尚未加载。", "Market health has not been loaded yet."))
-        _market_health_strategy_notes(language)
-        return
-    if run:
-        with st.spinner(_tr(language, "正在下载价格并计算市场健康度...", "Downloading prices and calculating market health...")):
-            data_start = history_start_date(start, settings, include_market_health=True)
-            prices = _cached_prices((primary,), str(data_start), None, True)
-            price = _price_series(prices[primary], price_field).dropna()
-            st.session_state["market_health_price"] = price
-            st.session_state["market_health_symbol"] = primary
-            st.session_state["market_health_display_start"] = start
-
-    price = st.session_state["market_health_price"]
-    ma120 = price.rolling(120, min_periods=1).mean()
-    ma200 = price.rolling(200, min_periods=1).mean()
-    latest_price = float(price.iloc[-1])
-    latest_ma120 = float(ma120.iloc[-1])
-    latest_ma200 = float(ma200.iloc[-1])
-    slow_decline = latest_ma120 < latest_ma200
-    healthy = latest_ma120 > latest_ma200
-    stage = (
-        _tr(language, "预警期：（阴跌）尚未结束", "Warning: slow-decline state is not over")
-        if slow_decline
-        else _tr(language, "恢复期：结构已修复", "Recovery: structure has repaired")
-        if healthy
-        else _tr(language, "中性：120/200 均线接近", "Neutral: 120/200 MAs are close")
-    )
-
-    health_rows = [
-        (_tr(language, "标的", "Symbol"), primary),
-        (_tr(language, "最新日期", "Latest date"), str(price.index[-1].date())),
-        (_tr(language, "最新价格", "Latest price"), f"{latest_price:.2f}"),
-        ("MA120", f"{latest_ma120:.2f}"),
-        ("MA200", f"{latest_ma200:.2f}"),
-        (_tr(language, "健康阶段", "Health stage"), stage),
-        (_tr(language, "是否阴跌", "Slow decline"), _tr(language, "是", "Yes") if slow_decline else _tr(language, "否", "No")),
-    ]
-    _pdf_download_button(
+    render_market_health_page_module(
+        settings,
         language,
-        _tr(language, "打印/下载市场健康度 PDF", "Print/Download Market Health PDF"),
-        _build_pdf_report(
-            _tr(language, "市场健康度", "Market Health"),
-            settings,
-            language,
-            sections=[
-                (_tr(language, "健康度摘要", "Health Summary"), health_rows),
-                (_tr(language, "策略信息", "Strategy Information"), _strategy_summary_rows(settings, language)),
-            ],
-            notes=_market_health_note_lines(language),
+        deps=MarketHealthPageDeps(
+            as_settings=_as_settings,
+            cached_prices=_cached_prices,
+            tr=_tr,
+            aligned_button=_aligned_button,
+            disabled_pdf_button=_disabled_pdf_button,
+            pdf_download_button=_pdf_download_button,
+            build_pdf_report=_build_pdf_report,
+            strategy_summary_rows=_strategy_summary_rows,
+            pdf_filename=_pdf_filename,
+            zoomable_line_chart=_zoomable_line_chart,
         ),
-        _pdf_filename("market-health", settings),
-        key="market_health_pdf_download",
     )
-    metric_cols = st.columns(4)
-    metric_cols[0].metric(primary, f"{latest_price:.2f}")
-    metric_cols[1].metric("MA120", f"{latest_ma120:.2f}")
-    metric_cols[2].metric("MA200", f"{latest_ma200:.2f}")
-    metric_cols[3].metric(_tr(language, "健康阶段", "Health stage"), stage)
-    if slow_decline:
-        st.warning(
-            _tr(
-                language,
-                "市场健康度警告：120 日均线低于 200 日均线，视为（阴跌）状态。策略最高只允许 100% 等效仓位，不使用 3 倍杠杆。",
-                "Market health warning: the 120-day MA is below the 200-day MA, treated as slow-decline state. The strategy allows at most 100% equivalent exposure and does not use 3x leverage.",
-            )
-        )
-    else:
-        st.success(
-            _tr(
-                language,
-                "市场健康度未处于（阴跌）状态；高仓位仍需继续通过趋势、VIX 和回撤模块确认。",
-                "Market health is not in slow-decline state; high exposure still needs confirmation from trend, VIX, and drawdown modules.",
-            )
-        )
-
-    display_start = pd.Timestamp(st.session_state.get("market_health_display_start", start))
-    display_price = price.loc[price.index >= display_start]
-    display_ma120 = ma120.loc[ma120.index >= display_start]
-    display_ma200 = ma200.loc[ma200.index >= display_start]
-    health_frame = pd.DataFrame(
-        {
-            "price": display_price,
-            "ma120": display_ma120,
-            "ma200": display_ma200,
-        }
-    ).tail(260)
-    health_frame.index.name = "date"
-    _zoomable_line_chart(
-        health_frame.rename(columns={"price": "health_price", "ma120": "health_ma120", "ma200": "health_ma200"}),
-        ["health_price", "health_ma120", "health_ma200"],
-        _tr(language, "市场健康度曲线", "Market health chart"),
-        key="market_health_chart",
-        language=language,
-    )
-    _market_health_strategy_notes(language)
-
-
-def _market_health_strategy_notes(language: str) -> None:
-    st.markdown(f"**{_tr(language, '操作纪律', 'Operating Rules')}**")
-    st.markdown("\n".join(_market_health_note_lines(language)))
-
-
-def _market_health_note_lines(language: str) -> list[str]:
-    if language == "en":
-        return [
-            "1. Normal market: trend and VIX modules may allow high exposure or leverage.",
-            "2. Warning phase: price or short MAs may look fine, but if 120MA < 200MA, slow-decline state is not over; cap at 100% and avoid 3x leverage.",
-            "3. Recovery phase: only unlock after 120MA > 200MA, then let trend, VIX, and drawdown modules restore high exposure gradually.",
-            "4. False-trigger guard: no high leverage while the market has not made new highs for a long time or while 120/200 has not repaired.",
-        ]
-    return [
-        "1. 正常市场：允许按趋势和 VIX 模块加到高仓位或杠杆。",
-        "2. 预警期：价格或短均线看起来还不错，但 120MA < 200MA，视为（阴跌）尚未结束；最高只允许 100%，不使用 3 倍杠杆。",
-        "3. 恢复期：只有当 120MA > 200MA 后，才解除（阴跌）锁定，再允许系统根据趋势、VIX、回撤逐步恢复高仓位。",
-        "4. 防误触：长期不创新高或 120/200 未修复时，都不碰高杠杆。",
-    ]
 
 
 def _aligned_button(container: Any, label: str, **kwargs: Any) -> bool:
@@ -1250,547 +1077,83 @@ def _aligned_button(container: Any, label: str, **kwargs: Any) -> bool:
 
 def _backtest_tab(settings: dict[str, Any]) -> None:
     language = _ui_language(settings)
-    st.subheader(_tr(language, "历史回测", "Historical Backtest"))
-    st.caption(_tr(language, "仓位曲线显示的是实际目标等效仓位。最大等效仓位只是上限；若趋势仓位 × VIX 系数达不到上限，曲线不会碰到 300%。", "The exposure curve shows actual target equivalent exposure. The maximum exposure is only a cap."))
-    preset_labels = {
-        _tr(language, "自定义", "Custom"): "自定义",
-        _tr(language, "2000-01-01 到 2010-01-01", "2000-01-01 to 2010-01-01"): "2000-01-01 到 2010-01-01",
-        _tr(language, "2010-01-01 到现在", "2010-01-01 to today"): "2010-01-01 到现在",
-        _tr(language, "2021-01-01 到 2023-12-31", "2021-01-01 to 2023-12-31"): "2021-01-01 到 2023-12-31",
-        _tr(language, "2000-01-01 到现在", "2000-01-01 to today"): "2000-01-01 到现在",
-    }
-    preset_label = st.selectbox(_tr(language, "回测区间预设", "Backtest date preset"), list(preset_labels.keys()))
-    preset = preset_labels[preset_label]
-    default_start, default_end = _backtest_date_defaults(preset, settings)
-
-    cols = st.columns([1, 1, 1, 1, 1])
-    start = cols[0].date_input(
-        _tr(language, "回测起始日期", "Backtest start date"),
-        value=default_start,
-        min_value=BACKTEST_MIN_DATE,
-        max_value=BACKTEST_MAX_DATE,
-        key=f"backtest_start_{preset}",
-    )
-    end = cols[1].date_input(
-        _tr(language, "回测结束日期", "Backtest end date"),
-        value=default_end,
-        min_value=BACKTEST_MIN_DATE,
-        max_value=BACKTEST_MAX_DATE,
-        key=f"backtest_end_{preset}",
-    )
-    initial = cols[2].number_input(_tr(language, "初始资金", "Initial capital"), 1000.0, 10_000_000.0, float(settings["backtest"]["initial_capital"]), 1000.0)
-    settings["backtest"]["initial_capital"] = initial
-    weekly_contribution = cols[3].number_input(
-        _tr(language, "每周追加资金", "Weekly contribution"),
-        0.0,
-        1_000_000.0,
-        float(settings["backtest"].get("weekly_contribution", 0.0)),
-        100.0,
-        help=_tr(
-            language,
-            "每个新交易周开始时追加到策略和所有参考曲线。第一条回测记录只使用初始资金。",
-            "Added to the strategy and all benchmark curves at the start of each new trading week. The first backtest row uses only initial capital.",
-        ),
-    )
-    settings["backtest"]["weekly_contribution"] = weekly_contribution
-    run = _aligned_button(cols[4], _tr(language, "运行回测", "Run backtest"), type="primary", use_container_width=True)
-    chart_settings = st.columns([1, 1, 1, 2])
-    show_leveraged_buy_hold = chart_settings[0].toggle(
-        _tr(language, "显示 3 倍买入持有虚线", "Show dashed 3x buy & hold"),
-        value=bool(settings["backtest"].get("show_leveraged_buy_hold", True)),
-    )
-    show_ma120_timing = chart_settings[1].toggle(
-        _tr(language, "显示 120 日择时点线", "Show dotted 120-day timing"),
-        value=bool(settings["backtest"].get("show_ma120_timing", True)),
-    )
-    show_leveraged_ma120_timing = chart_settings[2].toggle(
-        _tr(language, "显示三倍持有：跌破 120 日均线转现金", "Show 3x Hold: Cash Below 120MA"),
-        value=bool(settings["backtest"].get("show_leveraged_ma120_timing", True)),
-    )
-    use_actual_leveraged_returns = chart_settings[3].toggle(
-        _tr(language, "使用真实杠杆 ETF 收益", "Use actual leveraged ETF returns"),
-        value=bool(settings["backtest"].get("use_actual_leveraged_asset_returns", False)),
-        help=_tr(
-            language,
-            "开启后，策略杠杆部分和 3 倍持有曲线会使用配置里的杠杆 ETF 真实价格，例如 SPXL；关闭时使用 S&P 500 日收益 × 杠杆倍数的理论口径。",
-            "When enabled, the strategy leveraged sleeve and 3x hold line use the configured leveraged ETF's actual price, for example SPXL. When off, they use the synthetic S&P 500 daily return x leverage multiple.",
-        ),
-    )
-    settings["backtest"]["show_leveraged_buy_hold"] = show_leveraged_buy_hold
-    settings["backtest"]["show_ma120_timing"] = show_ma120_timing
-    settings["backtest"]["show_leveraged_ma120_timing"] = show_leveraged_ma120_timing
-    settings["backtest"]["use_actual_leveraged_asset_returns"] = use_actual_leveraged_returns
-    chart_settings[3].caption(
-        _tr(
-            language,
-            "前三个开关只影响净值图显示；真实杠杆 ETF 收益会改变回测结果。",
-            "The first three toggles only affect the equity chart display; actual leveraged ETF returns change the backtest result.",
-        )
-    )
-    execution_timing_labels = _execution_timing_labels(language)
-    current_execution_timing = settings["backtest"].get(
-        "execution_timing",
-        "next_session" if settings["backtest"].get("signal_effective_next_day", True) else "same_close",
-    )
-    selected_execution_timing_label = st.selectbox(
-        _tr(language, "回测执行时点", "Backtest execution timing"),
-        list(execution_timing_labels.keys()),
-        index=_option_index(
-            list(execution_timing_labels.keys()),
-            next(
-                (
-                    label
-                    for label, value in execution_timing_labels.items()
-                    if value == current_execution_timing
-                ),
-                list(execution_timing_labels.keys())[0],
-            ),
-        ),
-        help=_tr(
-            language,
-            "选择信号生成后用哪一个交易时点进入新仓位。",
-            "Choose when a new position starts after a signal is generated.",
-        ),
-    )
-    execution_timing = execution_timing_labels[selected_execution_timing_label]
-    settings["backtest"]["execution_timing"] = execution_timing
-    settings["backtest"]["signal_effective_next_day"] = execution_timing != "same_close"
-    if execution_timing == "next_session":
-        st.info(
-            _tr(
-                language,
-                "回测备忘：当日收益使用前一交易日收盘后已经持有的仓位计算；当日收盘数据只生成新的调仓信号，新仓位从下一交易日开始生效。因此，即使当天暴涨才触发加仓，策略也不会吃到当天涨幅，只会在当天收盘后记录调仓。",
-                "Backtest note: each day's return is calculated using the position already held after the previous close. The current close only generates a new rebalance signal, and the new position starts from the next trading day. So if a sharp rally triggers an add-exposure signal, the strategy does not capture that same-day rally; it records the rebalance after the close.",
-            )
-        )
-    elif execution_timing == "same_close":
-        st.warning(
-            _tr(
-                language,
-                "当前为激进口径：当天收盘信号会在当天收益前生效，可能包含前视偏差，只适合与下一交易日生效口径做对照。",
-                "Aggressive mode is active: the same-day close signal applies before that day's return. This can include look-ahead bias and should only be used for comparison.",
-            )
-        )
-
-    if end < start:
-        st.error(_tr(language, "回测结束日期不能早于开始日期。", "Backtest end date cannot be earlier than the start date."))
-        return
-
-    if not run and "backtest_result" not in st.session_state:
-        _disabled_pdf_button(language, _tr(language, "打印/下载历史回测 PDF", "Print/Download Backtest PDF"), key="backtest_pdf_disabled")
-        st.info(_tr(language, "回测尚未运行。", "Backtest has not been run yet."))
-        return
-
-    fingerprint_extras = {
-        "start": str(start),
-        "end": str(end),
-        "initial_capital": str(initial),
-        "weekly_contribution": str(weekly_contribution),
-        "execution_timing": execution_timing,
-        "use_actual_leveraged_returns": str(use_actual_leveraged_returns),
-    }
-    if run:
-        with st.status(_tr(language, "准备回测...", "Preparing backtest..."), expanded=True) as status:
-            primary = settings["signals"]["primary"]
-            vix_symbol = settings["signals"]["volatility"]
-            leveraged_symbol = settings["execution"]["leveraged_asset"]
-            price_field = settings["signals"].get("price_field", "Close")
-            symbols = [primary, vix_symbol]
-            if use_actual_leveraged_returns:
-                symbols.append(leveraged_symbol)
-            status.update(label=_tr(language, "下载或读取缓存中的历史价格...", "Downloading or reading cached price history..."))
-            data_start = history_start_date(start, settings)
-            prices = _cached_prices(tuple(dict.fromkeys(symbols)), str(data_start), _inclusive_end(end), True)
-            status.update(label=_tr(language, "整理价格序列...", "Preparing price series..."))
-            open_price = prices[primary].get("Open")
-            leveraged_prices = prices.get(leveraged_symbol) if use_actual_leveraged_returns else None
-            leveraged_price = (
-                leveraged_prices[price_field]
-                if leveraged_prices is not None and price_field in leveraged_prices
-                else None
-            )
-            leveraged_open_price = leveraged_prices.get("Open") if leveraged_prices is not None else None
-            status.update(label=_tr(language, "运行回测模型...", "Running backtest model..."))
-            model_settings = _model_settings(settings)
-            result = _cached_backtest(
-                prices[primary][price_field],
-                prices[vix_symbol][price_field],
-                model_settings,
-                open_price=open_price,
-                leveraged_price=leveraged_price,
-                leveraged_open_price=leveraged_open_price,
-                result_start=str(start),
-            )
-            status.update(label=_tr(language, "生成图表和指标...", "Rendering charts and metrics..."), state="complete")
-            st.session_state["backtest_result"] = result
-            st.session_state["backtest_fingerprint"] = _fingerprint(
-                settings,
-                fingerprint_extras,
-            )
-
-    result = st.session_state["backtest_result"]
-    if _is_stale(
-        "backtest_fingerprint",
+    render_backtest_page_module(
         settings,
-        fingerprint_extras,
-    ):
-        st.warning(_tr(language, "数据已更改，请重新回测并刷新数据。", "Settings changed. Please rerun the backtest."))
-
-    parameter_report = _parameter_debug_section(settings, start, end, language)
-
-    metrics = result.metrics
-    backtest_rows = [
-        (_tr(language, "回测区间", "Backtest range"), f"{start} ~ {end}"),
-        (_tr(language, "初始资金", "Initial capital"), f"{initial:,.2f}"),
-        (_tr(language, "每周追加资金", "Weekly contribution"), f"{weekly_contribution:,.2f}"),
-        (_tr(language, "执行时点", "Execution timing"), execution_timing),
-        (_tr(language, "策略总收益", "Strategy total return"), f"{metrics.get('total_return_pct', 0):.2f}%"),
-        ("CAGR", f"{metrics.get('cagr_pct', 0):.2f}%"),
-        (_tr(language, "最大回撤", "Max drawdown"), f"{metrics.get('max_drawdown_pct', 0):.2f}%"),
-        (_tr(language, "年化波动", "Annual volatility"), f"{metrics.get('annual_volatility_pct', 0):.2f}%"),
-        ("Sharpe", f"{metrics.get('sharpe_no_rf', 0):.2f}"),
-        (_tr(language, "基准总收益", "Benchmark total return"), f"{metrics.get('buy_hold_total_return_pct', 0):.2f}%"),
-        (_tr(language, "基准 CAGR", "Benchmark CAGR"), f"{metrics.get('buy_hold_cagr_pct', 0):.2f}%"),
-        (_tr(language, "调仓次数", "Rebalances"), str(len(result.trades))),
-    ]
-    latest_curve = result.equity_curve.iloc[-1]
-    curve_rows = [
-        (_tr(language, "策略净值", "Strategy equity"), f"{latest_curve.get('equity', 0):,.2f}"),
-        (_tr(language, "S&P 500 持有", "S&P 500 buy & hold"), f"{latest_curve.get('buy_hold_equity', 0):,.2f}"),
-        (_tr(language, "3 倍 S&P 500 买入持有", "3x S&P 500 buy & hold"), f"{latest_curve.get('leveraged_buy_hold_equity', 0):,.2f}"),
-        (_tr(language, "S&P 500 120 日择时", "S&P 500 120-day timing"), f"{latest_curve.get('ma120_timing_equity', 0):,.2f}"),
-        (_tr(language, "三倍持有：跌破 120 日均线转现金", "3x Hold: Cash Below 120MA"), f"{latest_curve.get('leveraged_ma120_timing_equity', 0):,.2f}"),
-        (_tr(language, "目标等效仓位", "Target equivalent exposure"), f"{latest_curve.get('target_exposure', 0):.2f}%"),
-    ]
-    curve_rows.append(
-        (_tr(language, "实际等效仓位", "Actual equivalent exposure"), f"{latest_curve.get('actual_equivalent_exposure', 0):.2f}%")
-    )
-    pdf_sections = [
-        (_tr(language, "回测表现", "Backtest Performance"), backtest_rows),
-        (_tr(language, "净值和仓位曲线摘要", "Equity and Exposure Summary"), curve_rows),
-        (_tr(language, "策略信息", "Strategy Information"), _strategy_summary_rows(settings, language)),
-    ]
-    trade_rows = _trade_summary_rows(result.trades, language)
-    if trade_rows:
-        pdf_sections.append((_tr(language, "最近调仓记录", "Latest Rebalances"), trade_rows))
-    pdf_charts = [
-        (
-            _tr(language, "净值曲线", "Equity curve"),
-            result.equity_curve,
-            equity_columns_for_pdf(show_leveraged_buy_hold, show_ma120_timing, show_leveraged_ma120_timing),
-        ),
-        (
-            _tr(language, "仓位曲线", "Exposure curve"),
-            result.equity_curve,
-            _exposure_columns_for_timing(execution_timing),
-        ),
-    ]
-    if parameter_report:
-        pdf_sections.extend(parameter_report["sections"])
-        pdf_charts.extend(parameter_report["charts"])
-    _pdf_download_button(
         language,
-        _tr(language, "打印/下载历史回测 PDF", "Print/Download Backtest PDF"),
-        _build_pdf_report(
-            _tr(language, "历史回测", "Historical Backtest"),
-            settings,
-            language,
-            sections=pdf_sections,
-            charts=pdf_charts,
+        deps=BacktestPageDeps(
+            as_settings=_as_settings,
+            tr=_tr,
+            aligned_button=_aligned_button,
+            option_index=_option_index,
+            disabled_pdf_button=_disabled_pdf_button,
+            pdf_download_button=_pdf_download_button,
+            build_pdf_report=_build_pdf_report,
+            pdf_filename=_pdf_filename,
+            cached_prices=_cached_prices,
+            strategy_summary_rows=_strategy_summary_rows,
+            parameter_debug_section=_parameter_debug_section,
+            trade_summary_rows=_trade_summary_rows,
+            equity_columns_for_pdf=equity_columns_for_pdf,
+            exposure_columns_for_timing=_exposure_columns_for_timing,
+            zoomable_line_chart=_zoomable_line_chart,
+            execution_timing_labels=_execution_timing_labels,
+            backtest_date_defaults=_backtest_date_defaults,
+            fingerprint=_fingerprint,
+            is_stale=_is_stale,
         ),
-        _pdf_filename(
-            "backtest",
-            settings,
-            range_text=f"{start}_to_{end}",
-            cagr=metrics.get("cagr_pct", 0.0),
-        ),
-        key="backtest_pdf_download",
     )
-    st.markdown(f"**{_tr(language, '策略表现', 'Strategy Performance')}**")
-    metric_cols = st.columns(5)
-    metric_cols[0].metric(_tr(language, "策略总收益", "Strategy total return"), f"{metrics.get('total_return_pct', 0):.2f}%")
-    metric_cols[1].metric("策略 CAGR", f"{metrics.get('cagr_pct', 0):.2f}%")
-    metric_cols[2].metric(_tr(language, "策略最大回撤", "Strategy max drawdown"), f"{metrics.get('max_drawdown_pct', 0):.2f}%")
-    metric_cols[3].metric(_tr(language, "策略年化波动", "Strategy annual volatility"), f"{metrics.get('annual_volatility_pct', 0):.2f}%")
-    metric_cols[4].metric("策略 Sharpe", f"{metrics.get('sharpe_no_rf', 0):.2f}")
-
-    benchmark_symbol = settings["signals"]["primary"]
-    st.markdown(f"**{_tr(language, '买入并持有基准', 'Buy-and-hold benchmark')}: {benchmark_symbol}**")
-    benchmark_cols = st.columns(5)
-    benchmark_cols[0].metric(_tr(language, "基准总收益", "Benchmark total return"), f"{metrics.get('buy_hold_total_return_pct', 0):.2f}%")
-    benchmark_cols[1].metric("基准 CAGR", f"{metrics.get('buy_hold_cagr_pct', 0):.2f}%")
-    benchmark_cols[2].metric(_tr(language, "基准最大回撤", "Benchmark max drawdown"), f"{metrics.get('buy_hold_max_drawdown_pct', 0):.2f}%")
-    benchmark_cols[3].metric(_tr(language, "基准年化波动", "Benchmark annual volatility"), f"{metrics.get('buy_hold_annual_volatility_pct', 0):.2f}%")
-    benchmark_cols[4].metric("基准 Sharpe", f"{metrics.get('buy_hold_sharpe_no_rf', 0):.2f}")
-    st.caption(_tr(language, "CAGR = 年化复合增长率，表示资金按复利计算后平均每年增长多少；它不是简单平均年收益。", "CAGR is compound annual growth rate. It is not a simple average annual return."))
-
-    if st.button(_tr(language, "回正净值图", "Reset equity chart")):
-        st.session_state["equity_chart_reset"] = st.session_state.get("equity_chart_reset", 0) + 1
-    equity_columns = ["equity", "buy_hold_equity"]
-    equity_line_styles = {"equity": "solid", "buy_hold_equity": "solid"}
-    if show_leveraged_buy_hold:
-        equity_columns.append("leveraged_buy_hold_equity")
-        equity_line_styles["leveraged_buy_hold_equity"] = "dashed"
-    if show_ma120_timing:
-        equity_columns.append("ma120_timing_equity")
-        equity_line_styles["ma120_timing_equity"] = "dotted"
-    if show_leveraged_ma120_timing:
-        equity_columns.append("leveraged_ma120_timing_equity")
-        equity_line_styles["leveraged_ma120_timing_equity"] = "dotted"
-    _zoomable_line_chart(
-        result.equity_curve,
-        equity_columns,
-        _tr(language, "净值曲线", "Equity curve"),
-        key=f"equity_chart_{st.session_state.get('equity_chart_reset', 0)}",
-        language=language,
-        line_styles=equity_line_styles,
-    )
-    if st.button(_tr(language, "回正仓位图", "Reset exposure chart")):
-        st.session_state["exposure_chart_reset"] = st.session_state.get("exposure_chart_reset", 0) + 1
-    _zoomable_line_chart(
-        result.equity_curve,
-        _exposure_columns_for_timing(execution_timing),
-        _tr(language, "仓位曲线", "Exposure curve"),
-        key=f"exposure_chart_{st.session_state.get('exposure_chart_reset', 0)}",
-        language=language,
-    )
-
-    with st.expander(_tr(language, "调仓记录", "Rebalance Log")):
-        trade_view = st.radio(
-            _tr(language, "显示范围", "Rows"),
-            [
-                _tr(language, "最近 50 笔", "Latest 50"),
-                _tr(language, "全部", "All"),
-            ],
-            horizontal=True,
-        )
-        trades_to_show = result.trades.tail(50) if trade_view.startswith(_tr(language, "最近", "Latest")) else result.trades
-        st.dataframe(trades_to_show, use_container_width=True, height=320)
-        st.download_button(
-            _tr(language, "下载调仓记录 CSV", "Download rebalance log CSV"),
-            data=result.trades.to_csv(index=False).encode("utf-8"),
-            file_name="trades.csv",
-            mime="text/csv",
-        )
 
 
 def _settings_tab(settings: dict[str, Any], config_path: str) -> None:
-    language = _ui_language(settings)
-    st.subheader(_tr(language, "当前设置", "Current Settings"))
-    st.caption(f"{_tr(language, '来源', 'Source')}: {Path(config_path).resolve()}")
-
-    st.markdown(f"**{_tr(language, '个人偏好', 'Preferences')}**")
-    pref_cols = st.columns(3)
-    ui = settings.setdefault("ui", {})
-    profile = settings.setdefault("profile", {})
-    selected_language = pref_cols[0].selectbox(
-        _tr(language, "界面语言", "Interface language"),
-        ["zh", "en"],
-        index=_option_index(["zh", "en"], ui.get("language", "zh")),
-        format_func=lambda value: "中文" if value == "zh" else "English",
-        key="settings_ui_language",
-    )
-    selected_timezone = pref_cols[1].selectbox(
-        _tr(language, "居住地区", "Home region"),
-        [
-            "Pacific/Auckland",
-            "Australia/Sydney",
-            "Asia/Shanghai",
-            "America/New_York",
-            "UTC",
-        ],
-        index=_option_index(
-            [
-                "Pacific/Auckland",
-                "Australia/Sydney",
-                "Asia/Shanghai",
-                "America/New_York",
-                "UTC",
-            ],
-            profile.get("home_timezone", "Pacific/Auckland"),
+    render_settings_page_module(
+        settings,
+        config_path,
+        deps=SettingsPageDeps(
+            tr=_tr,
+            ui_language=_ui_language,
+            option_index=_option_index,
+            aligned_button=_aligned_button,
+            save_config=_save_config,
+            save_config_github=_save_config_github,
+            profile_path_for_name=_profile_path_for_name,
+            config_options=_config_options,
+            delete_config_github=_delete_config_github,
+            read_workflow_push_config=_read_workflow_push_config,
+            update_workflow_github=_update_workflow_github,
+            default_push_config=_DEFAULT_PUSH_CONFIG,
+            default_nz_time=_DEFAULT_NZ_TIME,
+            default_us_time=_DEFAULT_US_TIME,
+            release_notes_renderer=_render_release_notes,
+            version=__version__,
+            app_root=APP_ROOT,
+            default_config=str(DEFAULT_CONFIG),
         ),
-        key="settings_home_timezone",
     )
-    selected_currency = pref_cols[2].selectbox(
-        _tr(language, "基础货币", "Base currency"),
-        ["NZD", "AUD", "USD", "CNY"],
-        index=_option_index(["NZD", "AUD", "USD", "CNY"], profile.get("base_currency", "NZD")),
-        key="settings_base_currency",
-    )
-    ui["language"] = selected_language
-    profile["home_timezone"] = selected_timezone
-    profile["base_currency"] = selected_currency
-    st.session_state["ui_language"] = selected_language
-    st.session_state["home_timezone"] = selected_timezone
-    st.session_state["base_currency"] = selected_currency
-    st.caption(
-        _tr(
-            language,
-            "这些偏好会立即影响当前会话；点击保存当前设置后会写入配置文件。",
-            "These preferences affect the current session immediately; save current settings to write them to the config file.",
-        )
-    )
-
-    save_cols = st.columns([1, 1, 2])
-    if _aligned_button(save_cols[0], _tr(language, "保存当前设置", "Save current settings"), type="primary", use_container_width=True):
-        try:
-            _save_config(Path(config_path), settings)
-        except Exception as exc:
-            st.error(f"{_tr(language, '本地写入失败', 'Local write failed')}: {exc}")
-        else:
-            toml_str = toml.dumps(settings)
-            rel = str(Path(config_path).relative_to(APP_ROOT))
-            ok, msg = _save_config_github(rel, toml_str)
-            if ok:
-                st.success(f"{_tr(language, '设置已保存。', 'Settings saved.')} {msg}")
-            else:
-                st.warning(
-                    f"{_tr(language, '设置已写入本地，但', 'Settings written locally, but')} {msg}"
-                    f"（{_tr(language, '重部署后配置将丢失，请手动 git push', "config will be lost on redeploy — please git push manually")}）"
-                )
-    new_name = save_cols[1].text_input(_tr(language, "新配置名称", "New profile name"), placeholder=_tr(language, "例如：保守版", "Example: Conservative"))
-    if _aligned_button(save_cols[2], _tr(language, "另存为配置文件包", "Save as profile"), use_container_width=True):
-        if not new_name.strip():
-            st.error(_tr(language, "请先输入新配置名称。", "Enter a new profile name first."))
-        else:
-            target = _profile_path_for_name(new_name)
-            settings.setdefault("profile", {})["name"] = new_name.strip()
-            try:
-                _save_config(target, settings)
-            except Exception as exc:
-                st.error(f"{_tr(language, '本地写入失败', 'Local write failed')}: {exc}")
-            else:
-                toml_str = toml.dumps(settings)
-                rel = str(target.relative_to(APP_ROOT))
-                ok, msg = _save_config_github(rel, toml_str)
-                if ok:
-                    st.success(f"{_tr(language, '已另存为', 'Saved as')}: {target.name}。{msg}")
-                else:
-                    st.warning(
-                        f"{_tr(language, '已另存为', 'Saved as')} {target.name}（{_tr(language, '本地', 'local')}），"
-                        f"{_tr(language, '但', 'but')} {msg}"
-                        f"（{_tr(language, '刷新后配置将消失，请手动 git push', 'config will disappear on refresh — please git push manually')}）"
-                    )
-    # --- Delete profile section ---
-    deletable = {
-        name: path
-        for name, path in _config_options().items()
-        if path != Path(DEFAULT_CONFIG) and name not in ("默认配置", "自定义路径")
-        and path.resolve() != Path(config_path).resolve()
-    }
-    if deletable:
-        st.markdown(f"**{_tr(language, '删除配置文件包', 'Delete Profile')}**")
-        del_cols = st.columns([3, 1])
-        del_target_name = del_cols[0].selectbox(
-            _tr(language, "选择要删除的配置", "Select profile to delete"),
-            list(deletable.keys()),
-            key="delete_profile_select",
-            label_visibility="collapsed",
-        )
-        if del_cols[1].button(_tr(language, "删除", "Delete"), use_container_width=True):
-            st.session_state["pending_delete"] = del_target_name
-        if st.session_state.get("pending_delete") == del_target_name:
-            st.warning(
-                f"⚠️ {_tr(language, '确认删除配置文件包', 'Confirm delete profile')}"
-                f" **{del_target_name}**？{_tr(language, '此操作不可撤销。', 'This cannot be undone.')}"
-            )
-            confirm_cols = st.columns(2)
-            if confirm_cols[0].button(_tr(language, "确认删除", "Confirm delete"), type="primary", key="confirm_delete_yes"):
-                del_path = deletable[del_target_name]
-                try:
-                    del_path.unlink(missing_ok=True)
-                except Exception as exc:
-                    st.error(f"{_tr(language, '本地删除失败', 'Local delete failed')}: {exc}")
-                else:
-                    rel = str(del_path.relative_to(APP_ROOT))
-                    ok, msg = _delete_config_github(rel)
-                    st.session_state.pop("pending_delete", None)
-                    if ok:
-                        st.success(f"{_tr(language, '已删除', 'Deleted')}: {del_target_name}。{msg}")
-                    else:
-                        st.warning(
-                            f"{_tr(language, '本地已删除，但', 'Deleted locally, but')} {msg}"
-                            f"（{_tr(language, '请手动 git push 同步到 GitHub', 'please git push to sync to GitHub')}）"
-                        )
-                    st.rerun()
-            if confirm_cols[1].button(_tr(language, "取消", "Cancel"), key="confirm_delete_no"):
-                st.session_state.pop("pending_delete", None)
-                st.rerun()
-
-    st.json(settings, expanded=False)
-    st.info(_tr(language, "保存前，当前修改只影响本次界面运行。", "Until saved, changes only affect the current app session."))
-    st.markdown(f"**{_tr(language, 'GitHub 推送设置', 'GitHub Push Settings')}**")
-    wf_config, wf_nz_time, wf_us_time = _read_workflow_push_config()
-    push_config_options = {name: path for name, path in _config_options().items() if name != "自定义路径"}
-    push_config_names = list(push_config_options.keys())
-    wf_config_name = next(
-        (name for name, path in push_config_options.items() if str(path.relative_to(APP_ROOT)) == wf_config),
-        push_config_names[0],
-    )
-    push_cols = st.columns([2, 1, 1])
-    push_selected_name = push_cols[0].selectbox(
-        _tr(language, "推送配置", "Push config"),
-        push_config_names,
-        index=_option_index(push_config_names, wf_config_name),
-        key="push_config_select",
-    )
-    push_nz_time = push_cols[1].text_input(
-        _tr(language, "NZ 推送时间", "NZ push time"),
-        value=wf_nz_time,
-        placeholder="15:45",
-        key="push_nz_time",
-    )
-    push_us_time = push_cols[2].text_input(
-        _tr(language, "US 推送时间", "US push time"),
-        value=wf_us_time,
-        placeholder="15:00",
-        key="push_us_time",
-    )
-    st.caption(_tr(language, "时间格式 HH:MM（本地时间）。NZ 时间对应 Pacific/Auckland，US 时间对应 America/New_York。", "Format HH:MM (local time). NZ uses Pacific/Auckland, US uses America/New_York."))
-    push_action_cols = st.columns([1, 1, 2])
-    if push_action_cols[0].button(_tr(language, "保存推送设置", "Save push settings"), type="primary", use_container_width=True):
-        selected_path = push_config_options[push_selected_name]
-        rel = str(selected_path.relative_to(APP_ROOT)) if push_selected_name != "默认配置" else _DEFAULT_PUSH_CONFIG
-        ok, msg = _update_workflow_github(rel, push_nz_time.strip(), push_us_time.strip())
-        if ok:
-            st.success(f"{_tr(language, '推送设置已保存。', 'Push settings saved.')} {msg}")
-        else:
-            st.error(f"{_tr(language, '保存失败', 'Save failed')}: {msg}")
-    if push_action_cols[1].button(_tr(language, "恢复默认配置", "Restore defaults"), use_container_width=True):
-        ok, msg = _update_workflow_github(_DEFAULT_PUSH_CONFIG, _DEFAULT_NZ_TIME, _DEFAULT_US_TIME)
-        if ok:
-            st.success(f"{_tr(language, '已恢复为默认配置。', 'Restored to default config.')} {msg}")
-        else:
-            st.error(f"{_tr(language, '恢复失败', 'Restore failed')}: {msg}")
-    st.markdown(f"**{_tr(language, '系统版本', 'System Version')}**")
-    st.metric(_tr(language, "当前版本", "Current version"), f"v{__version__}")
-    _render_release_notes(language)
 
 
 def _render_release_notes(language: str) -> None:
-    st.markdown(f"**{_tr(language, '更新与修复日志', 'Update and Fix Log')}**")
-    changelog = _release_notes_text(language)
-    escaped = html.escape(changelog)
-    st.markdown(
-        f"""
-<div style="height: 320px; overflow-y: auto; border: 1px solid #d9dde3; border-radius: 6px; padding: 12px; background: transparent; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; font-size: 13px; line-height: 1.45;">
-{escaped}
-</div>
-""",
-        unsafe_allow_html=True,
+    shared_render_release_notes(
+        language,
+        tr=_tr,
+        changelog_path=CHANGELOG_PATH,
+        changelog_en_path=CHANGELOG_EN_PATH,
     )
-    st.caption(f"{_tr(language, '日志文件', 'Log file')}: {_release_notes_path(language).resolve()}")
 
 
 def _release_notes_text(language: str = "zh") -> str:
-    path = _release_notes_path(language)
-    if path.exists():
-        return path.read_text(encoding="utf-8")
-    return "CHANGELOG.md not found."
+    return shared_release_notes_text(
+        language,
+        changelog_path=CHANGELOG_PATH,
+        changelog_en_path=CHANGELOG_EN_PATH,
+    )
 
 
 def _release_notes_path(language: str = "zh") -> Path:
-    return CHANGELOG_EN_PATH if language == "en" and CHANGELOG_EN_PATH.exists() else CHANGELOG_PATH
+    return shared_release_notes_path(
+        language,
+        changelog_path=CHANGELOG_PATH,
+        changelog_en_path=CHANGELOG_EN_PATH,
+    )
 
 
 def _parameter_debug_section(settings: dict[str, Any], start: date, end: date, language: str) -> dict[str, Any] | None:
@@ -2257,8 +1620,8 @@ def _execution_timing_labels(language: str) -> dict[str, str]:
 
 def _daily_timeline_mode_labels(language: str) -> dict[str, str]:
     return {
-        _tr(language, "下一交易日", "Next session"): "next_session",
-        _tr(language, "NZ 盘末 / 美股开盘", "NZ close / US open"): "nz_close_us_open",
+        _tr(language, "下一交易日", "Next session"): NEXT_SESSION_MODE,
+        _tr(language, "NZ 盘末 / 美股开盘", "NZ close / US open"): NZ_CLOSE_US_OPEN_MODE,
     }
 
 
@@ -2315,169 +1678,27 @@ def _save_config(path: Path, settings: dict[str, Any]) -> None:
 
 
 def _save_config_github(relative_path: str, content: str) -> tuple[bool, str]:
-    """Push a config file to GitHub via REST API. Returns (success, message)."""
-    import base64
-    import json
-    import urllib.error
-    import urllib.request
-
-    try:
-        token = st.secrets.get("GITHUB_TOKEN", "")
-        repo = st.secrets.get("GITHUB_REPO", "")
-        branch = st.secrets.get("GITHUB_BRANCH", "main")
-        if not token or not repo:
-            return False, "未配置 GITHUB_TOKEN / GITHUB_REPO secrets"
-        api_url = f"https://api.github.com/repos/{repo}/contents/{relative_path}"
-        headers = {
-            "Authorization": f"token {token}",
-            "Accept": "application/vnd.github+json",
-            "Content-Type": "application/json",
-        }
-        # GET current file SHA (required for updates)
-        req = urllib.request.Request(api_url, headers=headers)
-        try:
-            with urllib.request.urlopen(req) as resp:
-                current = json.loads(resp.read())
-            sha = current.get("sha", "")
-        except urllib.error.HTTPError as exc:
-            if exc.code == 404:
-                sha = ""
-            else:
-                raise
-        # PUT new content
-        body: dict[str, Any] = {
-            "message": f"chore: update {relative_path} via Streamlit UI",
-            "content": base64.b64encode(content.encode()).decode(),
-            "branch": branch,
-        }
-        if sha:
-            body["sha"] = sha
-        put_req = urllib.request.Request(
-            api_url, data=json.dumps(body).encode(), headers=headers, method="PUT"
-        )
-        with urllib.request.urlopen(put_req):
-            pass
-        return True, "已推送到 GitHub"
-    except Exception as exc:
-        return False, f"GitHub 推送失败: {exc}"
+    return push_text_file(_github_repo_config(), relative_path, content)
 
 
 def _delete_config_github(relative_path: str) -> tuple[bool, str]:
-    """Delete a config file from GitHub via REST API. Returns (success, message)."""
-    import json
-    import urllib.error
-    import urllib.request
-
-    try:
-        token = st.secrets.get("GITHUB_TOKEN", "")
-        repo = st.secrets.get("GITHUB_REPO", "")
-        branch = st.secrets.get("GITHUB_BRANCH", "main")
-        if not token or not repo:
-            return False, "未配置 GITHUB_TOKEN / GITHUB_REPO secrets"
-        api_url = f"https://api.github.com/repos/{repo}/contents/{relative_path}"
-        headers = {
-            "Authorization": f"token {token}",
-            "Accept": "application/vnd.github+json",
-            "Content-Type": "application/json",
-        }
-        # GET current file SHA (required for deletion)
-        req = urllib.request.Request(api_url, headers=headers)
-        try:
-            with urllib.request.urlopen(req) as resp:
-                current = json.loads(resp.read())
-            sha = current.get("sha", "")
-        except urllib.error.HTTPError as exc:
-            if exc.code == 404:
-                return True, "GitHub 上不存在该文件（已跳过）"
-            raise
-        body: dict[str, Any] = {
-            "message": f"chore: delete {relative_path} via Streamlit UI",
-            "sha": sha,
-            "branch": branch,
-        }
-        del_req = urllib.request.Request(
-            api_url, data=json.dumps(body).encode(), headers=headers, method="DELETE"
-        )
-        with urllib.request.urlopen(del_req):
-            pass
-        return True, "已从 GitHub 删除"
-    except Exception as exc:
-        return False, f"GitHub 删除失败: {exc}"
+    return delete_file(_github_repo_config(), relative_path)
 
 
-_WORKFLOW_PATH = ".github/workflows/daily-signal.yml"
-_DEFAULT_PUSH_CONFIG = "config/settings.toml"
-_DEFAULT_NZ_TIME = "15:45"
-_DEFAULT_US_TIME = "15:00"
+def _github_repo_config() -> GitHubRepoConfig:
+    return GitHubRepoConfig(
+        token=st.secrets.get("GITHUB_TOKEN", ""),
+        repo=st.secrets.get("GITHUB_REPO", ""),
+        branch=st.secrets.get("GITHUB_BRANCH", "main"),
+    )
 
 
 def _read_workflow_push_config() -> tuple[str, str, str]:
-    """Read current push config/times from the GitHub Actions workflow via API.
-    Returns (config_rel_path, nz_time, us_time). Falls back to defaults on error."""
-    import base64
-    import json
-    import re
-    import urllib.request
-
-    try:
-        token = st.secrets.get("GITHUB_TOKEN", "")
-        repo = st.secrets.get("GITHUB_REPO", "")
-        branch = st.secrets.get("GITHUB_BRANCH", "main")
-        if not token or not repo:
-            return _DEFAULT_PUSH_CONFIG, _DEFAULT_NZ_TIME, _DEFAULT_US_TIME
-        api_url = f"https://api.github.com/repos/{repo}/contents/{_WORKFLOW_PATH}?ref={branch}"
-        req = urllib.request.Request(api_url, headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"})
-        with urllib.request.urlopen(req) as resp:
-            data = json.loads(resp.read())
-        content = base64.b64decode(data["content"]).decode()
-        nz = re.search(r'"\\$nz_time"\s*==\s*"(\d{2}:\d{2})"', content)
-        us = re.search(r'"\\$ny_time"\s*==\s*"(\d{2}:\d{2})"', content)
-        cfg = re.search(r'--config\s+(config/\S+\.toml)', content)
-        return (
-            cfg.group(1) if cfg else _DEFAULT_PUSH_CONFIG,
-            nz.group(1) if nz else _DEFAULT_NZ_TIME,
-            us.group(1) if us else _DEFAULT_US_TIME,
-        )
-    except Exception:
-        return _DEFAULT_PUSH_CONFIG, _DEFAULT_NZ_TIME, _DEFAULT_US_TIME
+    return read_push_config(_github_repo_config())
 
 
 def _update_workflow_github(config_rel: str, nz_time: str, us_time: str) -> tuple[bool, str]:
-    """Update push config/times in the GitHub Actions workflow via REST API."""
-    import base64
-    import json
-    import re
-    import urllib.error
-    import urllib.request
-
-    try:
-        token = st.secrets.get("GITHUB_TOKEN", "")
-        repo = st.secrets.get("GITHUB_REPO", "")
-        branch = st.secrets.get("GITHUB_BRANCH", "main")
-        if not token or not repo:
-            return False, "未配置 GITHUB_TOKEN / GITHUB_REPO secrets"
-        api_url = f"https://api.github.com/repos/{repo}/contents/{_WORKFLOW_PATH}"
-        headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json", "Content-Type": "application/json"}
-        req = urllib.request.Request(api_url, headers=headers)
-        with urllib.request.urlopen(req) as resp:
-            data = json.loads(resp.read())
-        content = base64.b64decode(data["content"]).decode()
-        sha = data["sha"]
-        content = re.sub(r'"(\$nz_time)"\s*==\s*"\d{2}:\d{2}"', f'"$nz_time" == "{nz_time}"', content)
-        content = re.sub(r'"(\$ny_time)"\s*==\s*"\d{2}:\d{2}"', f'"$ny_time" == "{us_time}"', content)
-        content = re.sub(r'--config\s+config/\S+\.toml', f'--config {config_rel}', content)
-        body: dict[str, Any] = {
-            "message": f"chore: update push config to {config_rel} ({nz_time} NZ / {us_time} US) via Streamlit UI",
-            "content": base64.b64encode(content.encode()).decode(),
-            "sha": sha,
-            "branch": branch,
-        }
-        put_req = urllib.request.Request(api_url, data=json.dumps(body).encode(), headers=headers, method="PUT")
-        with urllib.request.urlopen(put_req):
-            pass
-        return True, "Workflow 已更新并推送到 GitHub"
-    except Exception as exc:
-        return False, f"Workflow 更新失败: {exc}"
+    return update_push_config(_github_repo_config(), config_rel, nz_time, us_time)
 
 
 def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) -> None:
@@ -2493,13 +1714,9 @@ def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) 
         {"key": "us", "label": "US", "open": us_open, "close": us_close, "color": "#2563eb"},
     ]
     selected_timeline_mode = timeline_mode or settings.get("backtest", {}).get("execution_timing", "next_session")
-    if selected_timeline_mode not in {"next_session", "nz_close_us_open"}:
-        selected_timeline_mode = "next_session"
-    trade_items = [
-        item
-        for item in trade_timeline_items(settings, now)
-        if item.strategy_key == selected_timeline_mode
-    ]
+    if selected_timeline_mode not in SUPPORTED_TIMELINE_MODES:
+        selected_timeline_mode = NEXT_SESSION_MODE
+    trade_items = trade_timeline_items(settings, now, strategy_keys={selected_timeline_mode})
     _parallel_market_trade_timeline(market_windows, trade_items, now, language)
     _timeline_countdowns(market_windows, trade_items, now, language)
     cols = st.columns(3)
@@ -2892,7 +2109,7 @@ def _trade_action_item_html(item: Any, language: str) -> str:
 
 def _trade_marker_color(item: Any) -> str:
     action_en = item.action("en").lower()
-    if item.strategy_key == "next_session":
+    if item.strategy_key == NEXT_SESSION_MODE:
         return "#059669"
     if item.market_label == "NZX":
         return "#991b1b"
@@ -2905,7 +2122,7 @@ def _trade_marker_color(item: Any) -> str:
 
 def _short_trade_action(item: Any, language: str) -> str:
     action_en = item.action("en").lower()
-    if item.strategy_key == "next_session":
+    if item.strategy_key == NEXT_SESSION_MODE:
         return _tr(language, "下一交易日：开盘前调仓", "Next session: rebalance before open")
     if item.market_label == "NZX":
         return _tr(language, "NZX 收盘前：处理本地仓位", "Before NZX close: local sleeve")
@@ -3091,7 +2308,7 @@ def _cached_parameter_sweep(
 
 
 def _option_index(options: list[str], value: str) -> int:
-    return options.index(value) if value in options else 0
+    return shared_option_index(options, value)
 
 
 def _inclusive_end(value: date) -> str:
@@ -3345,38 +2562,14 @@ def _zoomable_line_chart(
     language: str,
     line_styles: dict[str, str] | None = None,
 ) -> None:
-    chart_data = (
-        frame.reset_index()[["date", *columns]]
-        .melt(id_vars="date", var_name="series", value_name="value")
-        .dropna()
+    shared_render_lightweight_chart(
+        frame,
+        columns,
+        title,
+        key=key,
+        label_resolver=lambda series: _series_label(series, language),
+        line_styles=line_styles,
     )
-    chart_data["line_style"] = chart_data["series"].map(line_styles or {}).fillna("solid")
-    chart_data["series_label"] = chart_data["series"].apply(lambda series: _series_label(series, language))
-    chart = (
-        alt.Chart(chart_data)
-        .mark_line(strokeCap="round")
-        .encode(
-            x=alt.X("date:T", title=_tr(language, "日期", "Date")),
-            y=alt.Y("value:Q", title=title),
-            color=alt.Color("series_label:N", title=_tr(language, "曲线", "Series")),
-            strokeDash=alt.StrokeDash(
-                "line_style:N",
-                scale=alt.Scale(
-                    domain=["solid", "dashed", "dotted"],
-                    range=[[], [8, 5], [1, 5]],
-                ),
-                legend=None,
-            ),
-            tooltip=[
-                alt.Tooltip("date:T", title=_tr(language, "日期", "Date")),
-                alt.Tooltip("series_label:N", title=_tr(language, "曲线", "Series")),
-                alt.Tooltip("value:Q", title=_tr(language, "数值", "Value"), format=",.2f"),
-            ],
-        )
-        .properties(height=360)
-        .interactive()
-    )
-    st.altair_chart(chart, use_container_width=True, key=key)
 
 
 def _series_label(series: str, language: str) -> str:
@@ -3790,21 +2983,15 @@ def _filename_slug(value: str) -> str:
 
 
 def _fingerprint(settings: dict[str, Any], extras: dict[str, str]) -> str:
-    payload = toml.dumps({"settings": _model_settings(settings), "extras": extras})
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return shared_fingerprint(settings, extras)
 
 
 def _is_stale(session_key: str, settings: dict[str, Any], extras: dict[str, str]) -> bool:
-    saved = st.session_state.get(session_key)
-    return bool(saved and saved != _fingerprint(settings, extras))
+    return shared_is_stale(session_key, settings, extras)
 
 
 def _model_settings(settings: dict[str, Any]) -> dict[str, Any]:
-    model_settings = deepcopy(settings)
-    model_settings.get("backtest", {}).pop("show_leveraged_buy_hold", None)
-    model_settings.get("backtest", {}).pop("show_ma120_timing", None)
-    model_settings.get("backtest", {}).pop("show_leveraged_ma120_timing", None)
-    return model_settings
+    return shared_model_settings(settings)
 
 
 def _state_label(label: str, language: str) -> str:
