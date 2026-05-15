@@ -134,10 +134,10 @@ def render_lightweight_chart(
   const seriesPayload = {json.dumps(series_payload)};
   const chartRoot = document.getElementById("{chart_id}");
   const legendRoot = document.getElementById("{chart_id}-legend");
-  const styleMap = {{
-    solid: [],
-    dashed: [8, 6],
-    dotted: [2, 6],
+  const lineStyleMap = {{
+    solid: "Solid",
+    dashed: "Dashed",
+    dotted: "Dotted",
   }};
   const palette = ["#2563eb", "#dc2626", "#059669", "#a855f7", "#ea580c", "#0891b2", "#9333ea", "#475569"];
 
@@ -187,12 +187,23 @@ def render_lightweight_chart(
     handleScale: true,
   }});
 
+  function addCompatibleLineSeries(chartApi, options) {{
+    if (typeof chartApi.addSeries === "function" && LightweightCharts.LineSeries) {{
+      return chartApi.addSeries(LightweightCharts.LineSeries, options);
+    }}
+    if (typeof chartApi.addLineSeries === "function") {{
+      return chartApi.addLineSeries(options);
+    }}
+    throw new Error("Unsupported Lightweight Charts API version");
+  }}
+
   seriesPayload.forEach((seriesConfig, index) => {{
     const color = palette[index % palette.length];
-    const series = chart.addLineSeries({{
+    const lineStyleName = lineStyleMap[seriesConfig.style] || "Solid";
+    const series = addCompatibleLineSeries(chart, {{
       color,
       lineWidth: 2,
-      lineStyle: styleMap[seriesConfig.style] ? LightweightCharts.LineStyle[seriesConfig.style.charAt(0).toUpperCase() + seriesConfig.style.slice(1)] : LightweightCharts.LineStyle.Solid,
+      lineStyle: LightweightCharts.LineStyle[lineStyleName] ?? LightweightCharts.LineStyle.Solid,
       priceLineVisible: false,
       lastValueVisible: true,
       crosshairMarkerVisible: true,
@@ -204,7 +215,7 @@ def render_lightweight_chart(
   chart.timeScale().fitContent();
 </script>
 """
-    components.html(html, height=430, key=key)
+    components.html(html, height=430)
 
 
 def _escape_html(value: str) -> str:
