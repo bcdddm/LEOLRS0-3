@@ -63,6 +63,7 @@ from trend_system.interfaces.streamlit.shared import (
     option_index as shared_option_index,
     release_notes_path as shared_release_notes_path,
     release_notes_text as shared_release_notes_text,
+    render_lightweight_chart as shared_render_lightweight_chart,
     render_release_notes as shared_render_release_notes,
     tr as shared_tr,
     ui_language as shared_ui_language,
