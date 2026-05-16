@@ -28,6 +28,7 @@ from trend_system.gui import (
     _series_label,
     _save_config,
     _state_label,
+    _timeline_bounds,
     _trend_ma_labels,
     _tr,
     _widget_key_prefix,
@@ -123,6 +124,21 @@ def test_trend_ma_labels_follow_configured_windows():
     settings = {"trend": {"short_window": 10, "medium_window": 40, "long_window": 120}}
 
     assert _trend_ma_labels(settings) == ("MA10", "MA40", "MA120")
+
+
+def test_timeline_bounds_expand_to_include_next_trade_deadline():
+    now = datetime(2026, 1, 3, 12, 0, tzinfo=ZoneInfo("Pacific/Auckland"))
+    market_windows = [
+        {"open": datetime(2026, 1, 5, 10, 0, tzinfo=ZoneInfo("Pacific/Auckland")), "close": datetime(2026, 1, 5, 16, 45, tzinfo=ZoneInfo("Pacific/Auckland"))},
+    ]
+    trade_items = [
+        SimpleNamespace(deadline=datetime(2026, 1, 6, 3, 30, tzinfo=ZoneInfo("Pacific/Auckland"))),
+    ]
+
+    start, end = _timeline_bounds(market_windows, trade_items, now)
+
+    assert start == now
+    assert end == datetime(2026, 1, 6, 3, 30, tzinfo=ZoneInfo("Pacific/Auckland"))
 
 
 def test_settings_profile_save_writes_loadable_toml(tmp_path):
@@ -288,7 +304,8 @@ def test_parameter_ui_name_follows_language_and_vix_rule_label():
 def test_streamlit_page_title_uses_leolrs_name():
     source = open("trend_system/gui.py", encoding="utf-8").read()
 
-    assert 'st.title("LEOLRS0-3")' in source
+    assert 'def _render_shell_header(settings: dict[str, Any], language: str) -> str:' in source
+    assert '<div class="shell-title">LEOLRS0-3</div>' in source
     assert "st.subheader(_tr(language, \"区段无新高锁仓模块\"" in source
     assert "st.subheader(_tr(language, \"趋势质量模块\"" in source
     assert "st.subheader(_tr(language, \"回撤风险模块\"" in source

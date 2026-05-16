@@ -4,7 +4,7 @@ home_timezone = "Pacific/Auckland"
 base_currency = "NZD"
 
 [ui]
-language = "zh"
+language = "en"
 
 [signals]
 primary = "SPY"

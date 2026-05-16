@@ -7,6 +7,8 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+from trend_system.interfaces.streamlit.shared.preparing import render_preparing
+
 
 def build_lightweight_chart_payload(
     frame: pd.DataFrame,
@@ -54,7 +56,12 @@ def render_lightweight_chart(
         line_styles=line_styles,
     )
     if not series_payload:
-        st.info("No chart data available.")
+        render_preparing(
+            st.container(),
+            "en",
+            title="Preparing",
+            detail="Chart surface is waiting for usable series data.",
+        )
         return
 
     chart_id = f"tv-chart-{key}"

@@ -6,6 +6,7 @@ from trend_system.interfaces.streamlit.shared.release_notes import (
     release_notes_path,
     release_notes_text,
 )
+from trend_system.interfaces.streamlit.shared.preparing import preparing_markup
 from trend_system.interfaces.streamlit.shared.state import fingerprint
 from trend_system.interfaces.streamlit.shared.text import option_index, tr
 
@@ -15,6 +16,15 @@ def test_shared_text_helpers_cover_translation_and_fallback_index():
     assert tr("zh", "中文", "English") == "中文"
     assert option_index(["a", "b"], "b") == 1
     assert option_index(["a", "b"], "missing") == 0
+
+
+def test_preparing_markup_uses_translated_title_and_theme_classes():
+    markup = preparing_markup("zh")
+
+    assert "准备中" in markup
+    assert "leolrs-dot-blue" in markup
+    assert "leolrs-dot-green" in markup
+    assert "leolrs-dot-red" in markup
 
 
 def test_shared_release_notes_prefers_english_when_available(tmp_path: Path):

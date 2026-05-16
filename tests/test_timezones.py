@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 from trend_system.timezones import market_window
 from trend_system.trade_timeline import (
     NEXT_SESSION_MODE,
+    SAME_CLOSE_MODE,
     NZ_CLOSE_US_OPEN_MODE,
     trade_timeline_items,
 )
@@ -58,7 +59,7 @@ def test_trade_timeline_lists_next_session_deadline():
 
     items = trade_timeline_items(settings, now)
 
-    assert {item.strategy_key for item in items} == {NEXT_SESSION_MODE, NZ_CLOSE_US_OPEN_MODE}
+    assert {item.strategy_key for item in items} == {NEXT_SESSION_MODE, SAME_CLOSE_MODE, NZ_CLOSE_US_OPEN_MODE}
     assert any("下个美股交易日" in item.action("zh") for item in items)
 
 
@@ -98,6 +99,18 @@ def test_trade_timeline_can_filter_to_one_stable_mode():
 
     assert len(items) == 1
     assert items[0].strategy_key == NEXT_SESSION_MODE
+
+
+def test_trade_timeline_supports_same_close_mode():
+    settings = _settings("Pacific/Auckland")
+    now = datetime(2026, 1, 5, 12, 0, tzinfo=ZoneInfo("Pacific/Auckland"))
+
+    items = trade_timeline_items(settings, now, strategy_keys={SAME_CLOSE_MODE})
+
+    assert len(items) == 1
+    assert items[0].strategy_key == SAME_CLOSE_MODE
+    assert items[0].market_label == "US"
+    assert items[0].action("en").startswith("At the US close")
 
 
 def test_trade_timeline_invalid_filter_falls_back_to_safe_default():

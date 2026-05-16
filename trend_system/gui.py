@@ -75,6 +75,7 @@ from trend_system.services.healthcheck_service import run_healthcheck
 from trend_system.signals import history_start_date
 from trend_system.trade_timeline import (
     NEXT_SESSION_MODE,
+    SAME_CLOSE_MODE,
     NZ_CLOSE_US_OPEN_MODE,
     SUPPORTED_TIMELINE_MODES,
     trade_timeline_items,
@@ -144,10 +145,27 @@ def main() -> None:
   --leo-ink:          #111214;
   --leo-ink-sub:      rgba(17, 18, 20, 0.78);
   --leo-kicker:       rgba(18, 57, 91, 0.85);
+  --leo-surface-a:    rgba(244, 240, 232, 0.25);
+  --leo-surface-b:    rgba(255, 255, 255, 0.10);
+  --leo-surface-chip: rgba(255, 255, 255, 0.14);
+  --leo-surface-rim:  rgba(174, 143, 84, 0.22);
+  --leo-surface-top:  rgba(255, 255, 255, 0.17);
+  --leo-surface-bot:  rgba(174, 143, 84, 0.06);
+  --leo-metal-glow:   rgba(174, 143, 84, 0.12);
+  --leo-light-x:      50%;
+  --leo-light-y:      -8%;
+  --leo-light-drift:  0px;
+  --leo-scroll-energy: 0;
+  --leo-prussian-mineral: rgba(18, 57, 91, 0.88);
+  --leo-prussian-haze: rgba(74, 110, 150, 0.18);
+  --leo-racing-green: rgba(31, 106, 83, 0.88);
+  --leo-racing-green-haze: rgba(31, 106, 83, 0.18);
+  --leo-palace-red: rgba(158, 47, 47, 0.88);
+  --leo-palace-red-haze: rgba(158, 47, 47, 0.16);
   /* Pearl switch shell — 25% opacity */
   --leo-sw-bg:        rgba(244, 240, 232, 0.25);
-  --leo-sw-rim:       rgba(174, 143, 84, 0.32);
-  --leo-sw-inner:     rgba(255, 255, 255, 0.62);
+  --leo-sw-rim:       rgba(174, 143, 84, 0.24);
+  --leo-sw-inner:     rgba(255, 255, 255, 0.31);
   --leo-sw-shadow:    rgba(26, 29, 31, 0.10);
   --leo-sw-text:      rgba(17, 18, 20, 0.72);
   --leo-sw-text-on:   #111214;
@@ -167,10 +185,17 @@ def main() -> None:
   :root {
     --leo-ink:        rgba(244, 240, 232, 0.92);
     --leo-ink-sub:    rgba(244, 240, 232, 0.60);
-    --leo-kicker:     rgba(174, 143, 84, 0.80);
+    --leo-kicker:     rgba(244, 240, 232, 0.86);
+    --leo-surface-a:  rgba(26, 29, 31, 0.25);
+    --leo-surface-b:  rgba(244, 240, 232, 0.06);
+    --leo-surface-chip: rgba(244, 240, 232, 0.08);
+    --leo-surface-rim: rgba(174, 143, 84, 0.18);
+    --leo-surface-top: rgba(255, 255, 255, 0.05);
+    --leo-surface-bot: rgba(174, 143, 84, 0.05);
+    --leo-metal-glow: rgba(174, 143, 84, 0.10);
     --leo-sw-bg:      rgba(26, 29, 31, 0.25);
     --leo-sw-rim:     rgba(174, 143, 84, 0.22);
-    --leo-sw-inner:   rgba(255, 255, 255, 0.12);
+    --leo-sw-inner:   rgba(255, 255, 255, 0.06);
     --leo-sw-shadow:  rgba(0, 0, 0, 0.40);
     --leo-sw-text:    rgba(244, 240, 232, 0.65);
     --leo-sw-text-on: rgba(244, 240, 232, 0.95);
@@ -179,17 +204,49 @@ def main() -> None:
 [data-theme="dark"] {
   --leo-ink:        rgba(244, 240, 232, 0.92);
   --leo-ink-sub:    rgba(244, 240, 232, 0.60);
-  --leo-kicker:     rgba(174, 143, 84, 0.80);
+  --leo-kicker:     rgba(244, 240, 232, 0.86);
+  --leo-surface-a:  rgba(26, 29, 31, 0.25);
+  --leo-surface-b:  rgba(244, 240, 232, 0.06);
+  --leo-surface-chip: rgba(244, 240, 232, 0.08);
+  --leo-surface-rim: rgba(174, 143, 84, 0.18);
+  --leo-surface-top: rgba(255, 255, 255, 0.05);
+  --leo-surface-bot: rgba(174, 143, 84, 0.05);
+  --leo-metal-glow: rgba(174, 143, 84, 0.10);
   --leo-sw-bg:      rgba(26, 29, 31, 0.25);
   --leo-sw-rim:     rgba(174, 143, 84, 0.22);
-  --leo-sw-inner:   rgba(255, 255, 255, 0.12);
+  --leo-sw-inner:   rgba(255, 255, 255, 0.06);
   --leo-sw-shadow:  rgba(0, 0, 0, 0.40);
   --leo-sw-text:    rgba(244, 240, 232, 0.65);
   --leo-sw-text-on: rgba(244, 240, 232, 0.95);
 }
 /* ── Shell layout ──────────────────────────────────────── */
+html,
+body,
+#root,
+.stApp,
+[data-testid="stAppViewContainer"] {
+  height: 100% !important;
+  min-height: 100vh !important;
+}
+body,
+#root,
+.stApp {
+  overflow: visible !important;
+}
+[data-testid="stAppViewContainer"] {
+  position: relative !important;
+  inset: auto !important;
+  overflow: visible !important;
+}
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"] {
+  min-height: 100vh !important;
+}
 .block-container {
   overflow-x: hidden !important;
+}
+.stApp {
+  position: relative;
 }
 .shell-title-band {
   display: flex;
@@ -244,20 +301,20 @@ div[data-testid="stSegmentedControl"] button:nth-child(1)[aria-selected="true"] 
   background: var(--leo-bead-en)     !important;
   color:      var(--leo-bead-en-txt) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.20),
-    0 1px 3px rgba(18,57,91,0.40)    !important;
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 1px 3px rgba(18,57,91,0.22)    !important;
 }
 div[data-testid="stSegmentedControl"] button:nth-child(2)[aria-pressed="true"],
 div[data-testid="stSegmentedControl"] button:nth-child(2)[aria-selected="true"] {
   background: var(--leo-bead-zh)     !important;
   color:      var(--leo-bead-zh-txt) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.16),
-    0 1px 3px rgba(158,47,47,0.40)   !important;
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 1px 3px rgba(158,47,47,0.22)   !important;
 }
 div[data-testid="stSegmentedControl"] button:not([aria-pressed="true"]):not([aria-selected="true"]):hover {
   color:      var(--leo-sw-text-on)  !important;
-  background: rgba(174,143,84,0.10)  !important;
+  background: rgba(174,143,84,0.05)  !important;
 }
 div[data-testid="stSegmentedControl"] button:focus-visible {
   outline:        1.5px solid rgba(174,143,84,0.60) !important;
@@ -266,20 +323,11 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
 .strategy-console-intro {
   margin: 0.35rem 0 0.85rem;
   padding: 0.8rem 0.85rem 0.75rem;
-  background: linear-gradient(145deg, rgba(255,255,255,0.78), rgba(231,223,209,0.88));
-  border: 1px solid rgba(174, 143, 84, 0.20);
+  background: linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+  border: 2px solid var(--leo-surface-rim);
   clip-path: polygon(0.75rem 0, calc(100% - 0.75rem) 0, 100% 0.75rem, 100% calc(100% - 0.75rem), calc(100% - 0.75rem) 100%, 0.75rem 100%, 0 calc(100% - 0.75rem), 0 0.75rem);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.72), inset 0 -1px 0 rgba(174,143,84,0.14);
-}
-@media (prefers-color-scheme: dark) {
-  .strategy-console-intro {
-    background: linear-gradient(145deg, rgba(26,29,31,0.30), rgba(244,240,232,0.06));
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(174,143,84,0.12);
-  }
-}
-[data-theme="dark"] .strategy-console-intro {
-  background: linear-gradient(145deg, rgba(26,29,31,0.30), rgba(244,240,232,0.06));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(174,143,84,0.12);
+  box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 14px var(--leo-metal-glow);
+  backdrop-filter: blur(8px);
 }
 .strategy-console-title {
   font-size: 0.84rem;
@@ -302,31 +350,51 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
   align-items: center;
   min-height: 1.6rem;
   padding: 0.22rem 0.62rem;
-  border-radius: 999px;
-  border: 1px solid rgba(174, 143, 84, 0.22);
-  background: rgba(255,255,255,0.44);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.50);
+  border-radius: 0;
+  border: 1px solid var(--leo-surface-rim);
+  background: var(--leo-surface-chip);
+  box-shadow: inset 0 1px 0 var(--leo-surface-top);
   font-size: 0.72rem;
   color: var(--leo-ink);
+  backdrop-filter: blur(6px);
 }
-@media (prefers-color-scheme: dark) {
-  .strategy-console-chip { background: rgba(255,255,255,0.06); }
+/* ── Hard edge reset: all rectangular, no rounded / chamfered corners ── */
+div[data-testid="stSegmentedControl"] > div,
+div[data-testid="stSegmentedControl"] button,
+.strategy-console-intro,
+.strategy-console-chip,
+.sidebar-section-plate,
+.sidebar-control-cluster,
+.sidebar-control-cluster .cluster-chip,
+[data-testid="stMetric"],
+[data-testid="stExpander"],
+[data-testid="stVegaLiteChart"],
+[data-testid="element-container"] > iframe,
+[data-testid="stSidebar"] [data-baseweb="input"],
+[data-testid="stSidebar"] [data-baseweb="base-input"],
+[data-testid="stSidebar"] [data-baseweb="radio"] label,
+[data-testid="stSidebar"] [role="switch"],
+[data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button,
+[data-testid="stSidebar"] [data-baseweb="slider"] > div:first-child > div,
+[data-testid="stSidebar"] [data-baseweb="slider"] > div:first-child > div > div,
+[data-testid="stSidebar"] [role="slider"],
+.trade-timeline-wrap,
+.trade-timeline-track,
+.trade-timeline-segment,
+.trade-action-item,
+.timeline-countdown-card,
+.timeline-legend-item span {
+  border-radius: 0 !important;
+  clip-path: none !important;
 }
-[data-theme="dark"] .strategy-console-chip { background: rgba(255,255,255,0.06); }
 .sidebar-section-plate {
   margin: 0.55rem 0 0.5rem;
   padding: 0.55rem 0.7rem 0.5rem;
-  background: linear-gradient(145deg, rgba(18,57,91,0.06), rgba(255,255,255,0.66));
-  border: 1px solid rgba(174, 143, 84, 0.18);
+  background: linear-gradient(145deg, rgba(18,57,91,0.14), var(--leo-surface-b));
+  border: 2px solid var(--leo-surface-rim);
   clip-path: polygon(0.6rem 0, calc(100% - 0.6rem) 0, 100% 0.6rem, 100% calc(100% - 0.6rem), calc(100% - 0.6rem) 100%, 0.6rem 100%, 0 calc(100% - 0.6rem), 0 0.6rem);
-}
-@media (prefers-color-scheme: dark) {
-  .sidebar-section-plate {
-    background: linear-gradient(145deg, rgba(18,57,91,0.16), rgba(26,29,31,0.32));
-  }
-}
-[data-theme="dark"] .sidebar-section-plate {
-  background: linear-gradient(145deg, rgba(18,57,91,0.16), rgba(26,29,31,0.32));
+  box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 12px var(--leo-metal-glow);
+  backdrop-filter: blur(8px);
 }
 .sidebar-section-overline {
   font-size: 0.68rem;
@@ -344,6 +412,219 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
   font-size: 0.72rem;
   color: var(--leo-ink-sub);
   margin-top: 0.18rem;
+}
+.sidebar-control-cluster {
+  margin: 0.42rem 0 0.62rem;
+  padding: 0.68rem 0.72rem 0.6rem;
+  background:
+    radial-gradient(circle at top right, var(--leo-prussian-haze), transparent 42%),
+    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+  border: 2px solid var(--leo-surface-rim);
+  clip-path: polygon(0.72rem 0, calc(100% - 0.72rem) 0, 100% 0.72rem, 100% calc(100% - 0.72rem), calc(100% - 0.72rem) 100%, 0.72rem 100%, 0 calc(100% - 0.72rem), 0 0.72rem);
+  box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 14px var(--leo-metal-glow);
+  backdrop-filter: blur(8px);
+}
+.strategy-console-intro,
+.sidebar-section-plate,
+.sidebar-control-cluster,
+[data-testid="stMetric"],
+[data-testid="stExpander"],
+[data-testid="stVegaLiteChart"],
+[data-testid="element-container"] > iframe,
+.trade-timeline-wrap,
+.timeline-countdown-card {
+  transition: box-shadow 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+.strategy-console-intro:hover,
+.strategy-console-intro:focus-within,
+.sidebar-section-plate:hover,
+.sidebar-section-plate:focus-within,
+.sidebar-control-cluster:hover,
+.sidebar-control-cluster:focus-within,
+[data-testid="stMetric"]:hover,
+[data-testid="stExpander"]:hover,
+[data-testid="stExpander"]:focus-within,
+.trade-timeline-wrap:hover,
+.trade-timeline-wrap:focus-within,
+.timeline-countdown-card:hover {
+  box-shadow:
+    inset 0 1px 0 var(--leo-surface-top),
+    inset 0 -1px 0 var(--leo-surface-bot),
+    0 0 20px rgba(174, 143, 84, 0.20),
+    0 0 38px rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(174, 143, 84, 0.34) !important;
+}
+.sidebar-control-cluster.cluster-green {
+  background:
+    radial-gradient(circle at top right, var(--leo-racing-green-haze), transparent 42%),
+    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+}
+.sidebar-control-cluster.cluster-red {
+  background:
+    radial-gradient(circle at top right, var(--leo-palace-red-haze), transparent 42%),
+    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+}
+.sidebar-control-cluster .cluster-overline {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--leo-kicker);
+}
+.sidebar-control-cluster .cluster-title {
+  margin-top: 0.16rem;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--leo-ink);
+}
+.sidebar-control-cluster .cluster-summary {
+  margin-top: 0.16rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--leo-ink-sub);
+}
+.sidebar-control-cluster .cluster-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.34rem;
+  margin-top: 0.45rem;
+}
+.sidebar-control-cluster .cluster-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.45rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(174, 143, 84, 0.16);
+  background: rgba(255,255,255,0.07);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--leo-ink-sub);
+}
+/* ── Sidebar control language — Jack R inspired ───────── */
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
+  margin-bottom: 0.26rem !important;
+}
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
+  font-size: 0.63rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.11em !important;
+  text-transform: uppercase !important;
+  color: var(--leo-racing-green) !important;
+}
+[data-testid="stSidebar"] [data-baseweb="input"],
+[data-testid="stSidebar"] [data-baseweb="base-input"] {
+  background: linear-gradient(145deg, var(--leo-surface-a), rgba(255,255,255,0.06)) !important;
+  border: 1px solid var(--leo-surface-rim) !important;
+  border-radius: 0 !important;
+  box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot) !important;
+  backdrop-filter: blur(8px) !important;
+}
+[data-testid="stSidebar"] [data-baseweb="input"] input,
+[data-testid="stSidebar"] [data-baseweb="base-input"] input {
+  color: var(--leo-ink) !important;
+  font-size: 0.92rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+}
+[data-testid="stSidebar"] [data-baseweb="input"] input::placeholder,
+[data-testid="stSidebar"] [data-baseweb="base-input"] input::placeholder {
+  color: var(--leo-ink-sub) !important;
+}
+[data-testid="stSidebar"] [data-baseweb="input"]:focus-within,
+[data-testid="stSidebar"] [data-baseweb="base-input"]:focus-within {
+  border-color: rgba(31, 106, 83, 0.34) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 0 0 1px rgba(31, 106, 83, 0.14) !important;
+}
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {
+  font-size: 0.70rem !important;
+  line-height: 1.45 !important;
+  color: var(--leo-ink-sub) !important;
+}
+[data-testid="stSidebar"] [data-baseweb="radio"] {
+  gap: 0.45rem !important;
+}
+[data-testid="stSidebar"] [data-baseweb="radio"] label {
+  min-height: 2rem !important;
+  padding: 0.18rem 0.32rem !important;
+  border: 1px solid transparent !important;
+  border-radius: 999px !important;
+  background: linear-gradient(145deg, rgba(255,255,255,0.10), rgba(31,106,83,0.05)) !important;
+}
+[data-testid="stSidebar"] [data-baseweb="radio"] input:checked + div,
+[data-testid="stSidebar"] [data-baseweb="radio"] input:checked ~ div {
+  border-color: rgba(31, 106, 83, 0.24) !important;
+}
+[data-testid="stSidebar"] [data-baseweb="radio"] label p {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+}
+[data-testid="stSidebar"] [role="switch"] {
+  background: linear-gradient(90deg, rgba(31,106,83,0.16), rgba(31,106,83,0.08)) !important;
+  border: 1px solid var(--leo-surface-rim) !important;
+  border-radius: 999px !important;
+  box-shadow: inset 0 1px 0 var(--leo-surface-top) !important;
+}
+[data-testid="stSidebar"] [role="switch"][aria-checked="true"] {
+  background: linear-gradient(90deg, rgba(31,106,83,0.28), rgba(31,106,83,0.20)) !important;
+  border-color: rgba(31, 106, 83, 0.26) !important;
+  box-shadow: inset 0 1px 0 var(--leo-surface-top), 0 0 14px rgba(31,106,83,0.18) !important;
+}
+[data-testid="stSidebar"] [role="switch"] > div {
+  background: linear-gradient(145deg, rgba(244,240,232,0.86), rgba(217,208,188,0.74)) !important;
+  box-shadow: 0 1px 3px rgba(17,18,20,0.18), inset 0 1px 0 rgba(255,255,255,0.34) !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+  min-height: 2.2rem !important;
+  display: flex !important;
+  align-items: center !important;
+  padding-inline: 0.2rem !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpanderDetails"] {
+  padding-top: 0.35rem !important;
+}
+[data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button {
+  min-height: 2.55rem !important;
+  background:
+    radial-gradient(circle at 24% 28%, rgba(255,255,255,0.14) 0, transparent 28%),
+    linear-gradient(145deg, rgba(158,47,47,0.92), rgba(128,38,38,0.96)) !important;
+  border: 1px solid rgba(174, 143, 84, 0.22) !important;
+  border-radius: 0 !important;
+  clip-path: polygon(0.7rem 0, calc(100% - 0.7rem) 0, 100% 0.7rem,
+             100% calc(100% - 0.7rem), calc(100% - 0.7rem) 100%,
+             0.7rem 100%, 0 calc(100% - 0.7rem), 0 0.7rem) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 8px rgba(158,47,47,0.16) !important;
+  color: rgba(244,240,232,0.96) !important;
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+}
+[data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button:hover {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 4px 10px rgba(158,47,47,0.22) !important;
+  border-color: rgba(174, 143, 84, 0.30) !important;
+}
+[data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button:focus-visible {
+  outline: 1.5px solid rgba(158,47,47,0.36) !important;
+  outline-offset: 2px !important;
+}
+[data-theme="dark"] [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
+[data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="radio"] label p,
+[data-theme="dark"] [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
+[data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="slider"] [data-testid="stThumbValue"] {
+  color: rgba(244, 240, 232, 0.92) !important;
+}
+@media (prefers-color-scheme: dark) {
+  [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
+  [data-testid="stSidebar"] [data-baseweb="radio"] label p,
+  [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
+  [data-testid="stSidebar"] [data-baseweb="slider"] [data-testid="stThumbValue"] {
+    color: rgba(244, 240, 232, 0.92) !important;
+  }
 }
 /* ── Section header ────────────────────────────────────── */
 .leo-section-head {
@@ -390,41 +671,46 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
   font-weight: 700 !important;
   letter-spacing: 0.16em !important;
   text-transform: uppercase !important;
-  color: rgb(18, 57, 91) !important;
+  color: var(--leo-kicker) !important;
   border-bottom: 1px solid rgba(174, 143, 84, 0.22);
   padding-bottom: 0.35rem;
   margin-bottom: 0.65rem;
 }
 [data-theme="dark"] [data-testid="stHeading"] h3 {
-  color: rgba(174, 143, 84, 0.88) !important;
+  color: rgba(244, 240, 232, 0.94) !important;
 }
 @media (prefers-color-scheme: dark) {
-  [data-testid="stHeading"] h3 { color: rgba(174, 143, 84, 0.88) !important; }
+  [data-testid="stHeading"] h3 { color: rgba(244, 240, 232, 0.94) !important; }
 }
 /* ── Metric card — pearl plate ─────────────────────────── */
 [data-testid="stMetric"] {
   background:  linear-gradient(
                  145deg,
-                 rgba(255, 255, 255, 0.18) 0%,
-                 rgba(244, 240, 232, 0.10) 55%,
-                 rgba(174, 143, 84,  0.05) 100%
+                 var(--leo-surface-a) 0%,
+                 var(--leo-surface-b) 55%,
+                 rgba(174, 143, 84,  0.025) 100%
                );
-  border:      1px solid rgba(174, 143, 84, 0.24);
+  border:      2px solid var(--leo-surface-rim);
   clip-path:   polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
                100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
                0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
   padding:     0.7rem 0.85rem 0.65rem;
-  box-shadow:  inset 0 1.5px 0 rgba(255,255,255,0.72),
-               inset 1px 0 0 rgba(255,255,255,0.18),
-               inset 0 -1px 0 rgba(174,143,84,0.24),
-               0 1px 3px rgba(26,29,31,0.07);
+  box-shadow:  inset 0 1px 0 var(--leo-surface-top),
+               inset 1px 0 0 rgba(255,255,255,0.09),
+               inset 0 -1px 0 var(--leo-surface-bot),
+               0 1px 3px rgba(26,29,31,0.07),
+               0 0 14px var(--leo-metal-glow);
+  backdrop-filter: blur(8px);
 }
 /* ── Metric text — light mode (default) ────────────────── */
 [data-testid="stMetricLabel"] > div {
   font-size:      0.64rem !important;
   letter-spacing: 0.10em !important;
   text-transform: uppercase !important;
-  color:          #3D3F42 !important;
+  color:          var(--leo-ink-sub) !important;
+}
+[data-testid="stMetricLabel"] * {
+  color: inherit !important;
 }
 [data-testid="stMetricLabel"] > div::before {
   content:        '▪';
@@ -436,50 +722,144 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
 [data-testid="stMetricValue"] > div {
   font-size:            1.45rem !important;
   font-weight:          700 !important;
-  color:                #0A0C0D !important;
+  color:                var(--leo-ink) !important;
   font-variant-numeric: tabular-nums;
+}
+[data-testid="stMetricValue"] *,
+[data-testid="stMetricDelta"] *,
+[data-testid="stMetric"] label,
+[data-testid="stMetric"] p,
+[data-testid="stMetric"] span,
+[data-testid="stMetric"] div {
+  color: inherit !important;
 }
 /* ── Metric card + text — dark mode ────────────────────── */
 @media (prefers-color-scheme: dark) {
   [data-testid="stMetric"] {
     background:  linear-gradient(
                    145deg,
-                   rgba(255, 255, 255, 0.07) 0%,
-                   rgba(26, 29, 31, 0.20) 100%
+                   var(--leo-surface-a) 0%,
+                   var(--leo-surface-b) 100%
                  );
-    border-color: rgba(174, 143, 84, 0.18);
-    box-shadow:  inset 0 1px 0 rgba(255,255,255,0.10),
-                 inset 0 -1px 0 rgba(174,143,84,0.16),
+    border-color: var(--leo-surface-rim);
+    box-shadow:  inset 0 1px 0 var(--leo-surface-top),
+                 inset 0 -1px 0 var(--leo-surface-bot),
                  0 1px 3px rgba(0,0,0,0.28);
   }
-  [data-testid="stMetricValue"] > div { color: rgba(244, 240, 232, 0.95) !important; }
-  [data-testid="stMetricLabel"] > div { color: rgba(244, 240, 232, 0.62) !important; }
+  [data-testid="stMetricValue"],
+  [data-testid="stMetricValue"] > div,
+  [data-testid="stMetricValue"] * { color: rgba(244, 240, 232, 0.95) !important; }
+  [data-testid="stMetricLabel"],
+  [data-testid="stMetricLabel"] > div,
+  [data-testid="stMetricLabel"] * { color: rgba(244, 240, 232, 0.62) !important; }
+  [data-testid="stMetricDelta"],
+  [data-testid="stMetricDelta"] * { color: rgba(244, 240, 232, 0.86) !important; }
 }
 [data-theme="dark"] [data-testid="stMetric"] {
   background:  linear-gradient(
                  145deg,
-                 rgba(255, 255, 255, 0.07) 0%,
-                 rgba(26, 29, 31, 0.20) 100%
+                 var(--leo-surface-a) 0%,
+                 var(--leo-surface-b) 100%
                );
-  border-color: rgba(174, 143, 84, 0.18);
-  box-shadow:  inset 0 1px 0 rgba(255,255,255,0.10),
-               inset 0 -1px 0 rgba(174,143,84,0.16),
+  border-color: var(--leo-surface-rim);
+  box-shadow:  inset 0 1px 0 var(--leo-surface-top),
+               inset 0 -1px 0 var(--leo-surface-bot),
                0 1px 3px rgba(0,0,0,0.28);
 }
-[data-theme="dark"] [data-testid="stMetricValue"] > div {
+[data-theme="dark"] [data-testid="stMetricValue"],
+[data-theme="dark"] [data-testid="stMetricValue"] > div,
+[data-theme="dark"] [data-testid="stMetricValue"] * {
   color: rgba(244, 240, 232, 0.95) !important;
 }
-[data-theme="dark"] [data-testid="stMetricLabel"] > div {
+[data-theme="dark"] [data-testid="stMetricLabel"],
+[data-theme="dark"] [data-testid="stMetricLabel"] > div,
+[data-theme="dark"] [data-testid="stMetricLabel"] * {
   color: rgba(244, 240, 232, 0.62) !important;
 }
+[data-theme="dark"] [data-testid="stMetricDelta"],
+[data-theme="dark"] [data-testid="stMetricDelta"] * {
+  color: rgba(244, 240, 232, 0.86) !important;
+}
+/* ── Daily state metric with right badge ───────────────── */
+.leo-sidebadge-metric {
+  min-height: 100%;
+  padding: 0.7rem 0.85rem 0.65rem;
+  background: linear-gradient(
+    145deg,
+    var(--leo-surface-a) 0%,
+    var(--leo-surface-b) 55%,
+    rgba(174, 143, 84, 0.025) 100%
+  );
+  border: 2px solid var(--leo-surface-rim);
+  box-shadow:
+    inset 0 1px 0 var(--leo-surface-top),
+    inset 1px 0 0 rgba(255,255,255,0.09),
+    inset 0 -1px 0 var(--leo-surface-bot),
+    0 1px 3px rgba(26,29,31,0.07),
+    0 0 14px var(--leo-metal-glow);
+  backdrop-filter: blur(8px);
+}
+.leo-sidebadge-metric__label {
+  font-size: 0.64rem;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--leo-ink-sub);
+}
+.leo-sidebadge-metric__label::before {
+  content: '▪';
+  font-size: 0.52rem;
+  color: rgba(174, 143, 84, 0.80);
+  margin-right: 0.28rem;
+  vertical-align: middle;
+}
+.leo-sidebadge-metric__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-top: 0.55rem;
+  min-height: 2.2rem;
+}
+.leo-sidebadge-metric__value {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--leo-ink);
+  line-height: 1.1;
+}
+.leo-sidebadge-metric__badge {
+  flex-shrink: 0;
+  padding: 0.28rem 0.62rem;
+  border: 1px solid rgba(31, 106, 83, 0.22);
+  background: rgba(31, 106, 83, 0.18);
+  color: rgba(134, 233, 161, 0.95);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.leo-sidebadge-metric--red .leo-sidebadge-metric__badge {
+  border-color: rgba(158, 47, 47, 0.24);
+  background: rgba(158, 47, 47, 0.18);
+  color: rgba(255, 215, 215, 0.96);
+}
+@media (prefers-color-scheme: dark) {
+  .leo-sidebadge-metric__label { color: rgba(244, 240, 232, 0.62); }
+  .leo-sidebadge-metric__value { color: rgba(244, 240, 232, 0.95); }
+}
+[data-theme="dark"] .leo-sidebadge-metric__label { color: rgba(244, 240, 232, 0.62); }
+[data-theme="dark"] .leo-sidebadge-metric__value { color: rgba(244, 240, 232, 0.95); }
 /* ── Expander ──────────────────────────────────────────── */
 [data-testid="stExpander"] {
-  border:        1px solid rgba(174, 143, 84, 0.20) !important;
+  border:        2px solid var(--leo-surface-rim) !important;
   border-radius: 0 !important;
   clip-path:     polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
                  100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
                  0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
-  background:    rgba(244, 240, 232, 0.10);
+  background:    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+  box-shadow:    inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 12px var(--leo-metal-glow);
+  backdrop-filter: blur(8px);
 }
 [data-testid="stExpander"] summary {
   font-size:      0.72rem !important;
@@ -487,18 +867,17 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
   letter-spacing: 0.08em !important;
   color:          var(--leo-ink-sub) !important;
 }
-@media (prefers-color-scheme: dark) {
-  [data-testid="stExpander"] { background: rgba(26, 29, 31, 0.14); }
-}
-[data-theme="dark"] [data-testid="stExpander"] { background: rgba(26, 29, 31, 0.14); }
 /* ── Chart container ───────────────────────────────────── */
 [data-testid="stVegaLiteChart"],
 [data-testid="element-container"] > iframe {
-  border:        1px solid rgba(174, 143, 84, 0.18) !important;
+  border:        2px solid var(--leo-surface-rim) !important;
   border-radius: 0 !important;
   clip-path:     polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
                  100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
                  0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
+  background:    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+  box-shadow:    inset 0 1px 0 var(--leo-surface-top), 0 0 12px var(--leo-metal-glow);
+  backdrop-filter: blur(8px);
 }
 /* ── Responsive metric grid ────────────────────────────── */
 /* Desktop (> 1024px): up to 6 per row — Python layout controls column count */
@@ -524,51 +903,106 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
 }
 /* ── Premium slider ────────────────────────────────────── */
 [data-baseweb="slider"] {
-  padding: 0.6rem 0 !important;
+  padding: 0.72rem 0 0.58rem !important;
+}
+[data-testid="stSidebar"] [data-baseweb="slider"] > div:first-child > div {
+  height: 6px !important;
+  background: linear-gradient(90deg, rgba(31,106,83,0.14), rgba(31,106,83,0.06)) !important;
+  border: 1px solid rgba(174, 143, 84, 0.14) !important;
+  border-radius: 999px !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10) !important;
+}
+[data-testid="stSidebar"] [data-baseweb="slider"] > div:first-child > div > div {
+  background: linear-gradient(90deg, rgba(31,106,83,0.76), var(--leo-racing-green)) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 1px 4px rgba(31,106,83,0.18) !important;
 }
 [data-baseweb="slider"] [data-testid="stThumbValue"] {
-  font-size:   0.68rem !important;
-  font-weight: 600 !important;
-  color:       var(--leo-ink) !important;
+  font-size:   0.64rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  color:       var(--leo-racing-green) !important;
+  text-transform: uppercase !important;
 }
-[role="slider"] {
-  width:   14px !important;
-  height:  14px !important;
-  background: linear-gradient(145deg, #F4F0E8 0%, #E0D8C8 100%) !important;
-  border:     1.5px solid rgba(174, 143, 84, 0.55) !important;
+[data-testid="stSidebar"] [role="slider"] {
+  width:   16px !important;
+  height:  16px !important;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255,255,255,0.28) 0, rgba(255,255,255,0.10) 24%, transparent 45%),
+    linear-gradient(145deg, rgba(31,106,83,0.94) 0%, rgba(46,132,105,0.88) 58%, rgba(174,143,84,0.44) 100%) !important;
+  border:     1px solid rgba(174, 143, 84, 0.42) !important;
   border-radius: 0 !important;
   clip-path: polygon(
     2px 0, calc(100% - 2px) 0, 100% 2px, 100% calc(100% - 2px),
     calc(100% - 2px) 100%, 2px 100%, 0 calc(100% - 2px), 0 2px
   ) !important;
   box-shadow:
-    0 1px 3px rgba(26,29,31,0.22),
-    inset 0 1px 0 rgba(255,255,255,0.80) !important;
-  transition: transform 130ms ease, box-shadow 130ms ease !important;
+    0 2px 5px rgba(26,29,31,0.24),
+    inset 0 1px 0 rgba(255,255,255,0.18) !important;
+  transition: box-shadow 130ms ease, border-color 130ms ease !important;
+  cursor: grab !important;
+  touch-action: none !important;
 }
-[role="slider"]:hover,
-[role="slider"]:focus {
-  transform:  scale(1.20) !important;
+[data-testid="stSidebar"] [role="slider"]:hover,
+[data-testid="stSidebar"] [role="slider"]:focus {
   box-shadow:
-    0 2px 7px rgba(174,143,84,0.40),
-    inset 0 1px 0 rgba(255,255,255,0.80) !important;
+    0 3px 8px rgba(31,106,83,0.20),
+    inset 0 1px 0 rgba(255,255,255,0.18) !important;
   outline: none !important;
+  border-color: rgba(31, 106, 83, 0.42) !important;
+}
+[data-testid="stSidebar"] [role="slider"]:active {
+  cursor: grabbing !important;
+  box-shadow:
+    0 0 18px rgba(31,106,83,0.24),
+    0 0 28px rgba(255,255,255,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.18) !important;
 }
 @media (prefers-color-scheme: dark) {
-  [role="slider"] {
+  [data-testid="stSidebar"] [role="slider"] {
     background: linear-gradient(145deg, rgba(244,240,232,0.18) 0%, rgba(26,29,31,0.55) 100%) !important;
     border-color: rgba(174, 143, 84, 0.40) !important;
     box-shadow:
       0 1px 3px rgba(0,0,0,0.50),
-      inset 0 1px 0 rgba(255,255,255,0.12) !important;
+      inset 0 1px 0 rgba(255,255,255,0.06) !important;
   }
 }
-[data-theme="dark"] [role="slider"] {
+[data-theme="dark"] [data-testid="stSidebar"] [role="slider"] {
   background: linear-gradient(145deg, rgba(244,240,232,0.18) 0%, rgba(26,29,31,0.55) 100%) !important;
   border-color: rgba(174, 143, 84, 0.40) !important;
   box-shadow:
     0 1px 3px rgba(0,0,0,0.50),
-    inset 0 1px 0 rgba(255,255,255,0.12) !important;
+    inset 0 1px 0 rgba(255,255,255,0.06) !important;
+}
+/* ── Final hard edge reset: keep all non-pill surfaces rectangular ───── */
+div[data-testid="stSegmentedControl"] > div,
+div[data-testid="stSegmentedControl"] button,
+.strategy-console-intro,
+.strategy-console-chip,
+.sidebar-section-plate,
+.sidebar-control-cluster,
+.sidebar-control-cluster .cluster-chip,
+[data-testid="stMetric"],
+[data-testid="stExpander"],
+[data-testid="stVegaLiteChart"],
+[data-testid="element-container"] > iframe,
+[data-testid="stSidebar"] [data-baseweb="input"],
+[data-testid="stSidebar"] [data-baseweb="base-input"],
+[data-testid="stSidebar"] [data-baseweb="radio"] label,
+[data-testid="stSidebar"] [role="switch"],
+[data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button,
+[data-testid="stSidebar"] [data-baseweb="slider"] > div:first-child > div,
+[data-testid="stSidebar"] [data-baseweb="slider"] > div:first-child > div > div,
+[data-testid="stSidebar"] [role="slider"],
+.trade-timeline-wrap,
+.trade-timeline-track,
+.trade-timeline-segment,
+.trade-deadline-warning,
+.trade-action-item,
+.timeline-countdown-card,
+.timeline-legend-item span {
+  border-radius: 0 !important;
+  clip-path: none !important;
 }
 </style>
 """,
@@ -670,6 +1104,37 @@ def _render_sidebar_console_intro(settings: dict[str, Any], language: str) -> No
     )
 
 
+def _sidebar_control_cluster(
+    language: str,
+    overline: str,
+    title: str,
+    summary: str,
+    chips: list[str] | None = None,
+    tone: str = "prussian",
+) -> None:
+    tone_class = {
+        "prussian": "",
+        "green": " cluster-green",
+        "red": " cluster-red",
+    }.get(tone, "")
+    chip_markup = ""
+    if chips:
+        chip_markup = '<div class="cluster-chip-row">' + "".join(
+            f'<span class="cluster-chip">{html.escape(chip)}</span>' for chip in chips
+        ) + "</div>"
+    st.markdown(
+        f"""
+<div class="sidebar-control-cluster{tone_class}">
+  <div class="cluster-overline">{html.escape(overline)}</div>
+  <div class="cluster-title">{html.escape(title)}</div>
+  <div class="cluster-summary">{html.escape(summary)}</div>
+  {chip_markup}
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
 def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, Any]:
     key_prefix = _widget_key_prefix(config_path)
     with st.sidebar.form("settings_form"):
@@ -682,7 +1147,7 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             language,
             _tr(language, "第一组", "Group One"),
             _tr(language, "Session & Market Context", "Session & Market Context"),
-            _tr(language, "先定义执行市场、账户资产和杠杆许可，再让系统解释后续所有信号。", "Define market, account assets, and leverage permission before the rest of the system interprets signals."),
+            _tr(language, "先定义执行市场、本地与海外资产边界，再让后续信号有明确的执行语境。", "Define market selection and account asset boundaries first so every later signal has a clear execution context."),
         )
         st.subheader(_tr(language, "执行资产与账户限制", "Execution Assets and Account Limits"))
         execution["default_market"] = st.radio(
@@ -728,51 +1193,6 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             key=f"{key_prefix}_execution_au_defensive_asset",
         )
         st.caption(_tr(language, "澳洲本地现金类 ETF。当前默认 BILL.AX。", "Australia local cash ETF. Default is BILL.AX."))
-        execution["allow_leverage"] = st.toggle(
-            _tr(language, "允许杠杆 ETF", "Allow leveraged ETF"),
-            execution["allow_leverage"],
-            key=f"{key_prefix}_execution_allow_leverage",
-        )
-        st.caption(_tr(language, "关闭后，目标仓位即使高于 100%，也会被限制在非杠杆核心资产内。", "When off, targets above 100% are capped to unleveraged core exposure."))
-        execution["leverage_only_when_vix_below"] = st.number_input(
-            _tr(language, "杠杆允许 VIX 上限", "Leverage allowed below VIX"),
-            0.0,
-            80.0,
-            min(float(execution.get("leverage_only_when_vix_below", 20.0)), 80.0),
-            0.5,
-            help=_tr(
-                language,
-                "只有 VIX 低于这个数值时，系统才允许使用杠杆 ETF。",
-                "Leveraged ETFs are allowed only when VIX is below this value.",
-            ),
-            key=f"{key_prefix}_execution_leverage_only_when_vix_below",
-        )
-        execution["clear_leverage_when_vix_at_or_above"] = st.number_input(
-            _tr(language, "杠杆清退 VIX 水平", "Clear leverage at or above VIX"),
-            float(execution["leverage_only_when_vix_below"]),
-            80.0,
-            min(
-                80.0,
-                max(
-                    float(execution["leverage_only_when_vix_below"]),
-                    float(execution.get("clear_leverage_when_vix_at_or_above", 30.0)),
-                ),
-            ),
-            0.5,
-            help=_tr(
-                language,
-                "VIX 达到或高于这个数值时，系统会清掉杠杆暴露。",
-                "When VIX reaches or exceeds this value, leveraged exposure is cleared.",
-            ),
-            key=f"{key_prefix}_execution_clear_leverage_when_vix_at_or_above",
-        )
-        st.caption(
-            _tr(
-                language,
-                "这两个门槛只控制是否允许杠杆 ETF；基础仓位仍由趋势信号和 VIX 分档系数决定。",
-                "These thresholds only control leveraged ETF permission; base exposure still comes from trend signals and VIX tiers.",
-            )
-        )
         execution["limit_foreign_assets_nzd_value"] = st.toggle(
             _tr(language, "海外/FIF资产折合NZD不超过50,000", "Cap foreign/FIF assets at 50,000 NZD"),
             bool(
@@ -807,8 +1227,106 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
         _sidebar_section_plate(
             language,
             _tr(language, "第二组", "Group Two"),
+            _tr(language, "Signal Construction", "Signal Construction"),
+            _tr(language, "先定义趋势感应器与简单门控，再决定后面的主仓位引擎如何解释它们。", "Define the trend sensors and simple gate first, then let the main position engine interpret them."),
+        )
+        st.subheader(_tr(language, "趋势信号", "Trend Signal"))
+        trend["short_window"] = st.number_input(_tr(language, "短期均线", "Short moving average"), 5, 100, int(trend["short_window"]))
+        st.caption(_tr(language, "反映短期动能。数值越小越敏感，越容易提前加仓或减仓。", "Tracks short-term momentum. Smaller values react faster."))
+        trend["medium_window"] = st.number_input(_tr(language, "中期均线", "Medium moving average"), 10, 150, int(trend["medium_window"]))
+        st.caption(_tr(language, "反映中期趋势。数值越大越稳，但信号会更慢。", "Tracks medium-term trend. Larger values are steadier but slower."))
+        trend["long_window"] = st.number_input(_tr(language, "长期均线", "Long moving average"), 50, 300, int(trend["long_window"]))
+        st.caption(_tr(language, "判断牛熊环境的主过滤器。越长越保守，越短越容易频繁切换。", "Main bull/bear environment filter. Longer is more conservative."))
+        trend["confirmation_days"] = st.number_input(_tr(language, "连续确认天数", "Confirmation days"), 1, 10, int(trend["confirmation_days"]))
+        st.caption(_tr(language, "要求信号连续成立多少天才确认。调高可减少假突破，但会牺牲反应速度。", "Requires a signal to hold for this many days. Higher values reduce false breaks but react slower."))
+
+        st.divider()
+        st.subheader(_tr(language, "简单模块", "Simple Module"))
+        position["simple_module_enabled"] = st.toggle(
+            _tr(language, "启用简单模块", "Enable simple module"),
+            bool(position.get("simple_module_enabled", False)),
+            help=_tr(
+                language,
+                "开启后，系统用双均线条件判断是否入场。可单独使用（纯简单模式），也可与复合模块同时开启（简单条件作为复合模块的入场门控）。",
+                "When enabled, the system uses dual-MA conditions to gate market entry. Can be used standalone or with the composite module as an entry gate.",
+            ),
+            key=f"{key_prefix}_simple_module_enabled",
+        )
+        _composite_on = bool(position.get("composite_module_enabled", True))
+        _simple_on = bool(position.get("simple_module_enabled", False))
+        simple_cols = st.columns(3)
+        position["simple_module_fast_ma_window"] = simple_cols[0].number_input(
+            _tr(language, "快速均线窗口", "Fast MA window"),
+            10,
+            300,
+            int(position.get("simple_module_fast_ma_window", 120)),
+            5,
+            help=_tr(language, "默认 120 日均线，用于判断短期方向。", "Default is 120-day MA for short-term direction."),
+            key=f"{key_prefix}_simple_module_fast_ma_window",
+        )
+        position["simple_module_slow_ma_window"] = simple_cols[1].number_input(
+            _tr(language, "慢速均线窗口", "Slow MA window"),
+            10,
+            300,
+            int(position.get("simple_module_slow_ma_window", 200)),
+            5,
+            help=_tr(language, "默认 200 日均线，用于判断长期趋势。", "Default is 200-day MA for long-term trend."),
+            key=f"{key_prefix}_simple_module_slow_ma_window",
+        )
+        position["simple_module_threshold_pct"] = simple_cols[2].number_input(
+            _tr(language, "超出均线阈值 (%)", "Above-MA threshold (%)"),
+            0.0,
+            20.0,
+            float(position.get("simple_module_threshold_pct", 2.0)),
+            0.5,
+            help=_tr(language, "收盘价须超出两条均线此百分比才触发。默认 2%。", "Close must exceed both MAs by this percentage to trigger. Default is 2%."),
+            key=f"{key_prefix}_simple_module_threshold_pct",
+        )
+        position["simple_module_off_exposure"] = st.slider(
+            _tr(language, "条件不满足时的目标仓位 (%)", "Off-state target exposure (%)"),
+            0.0,
+            300.0,
+            min(float(position.get("simple_module_off_exposure", 0.0)), 300.0),
+            5.0,
+            help=_tr(
+                language,
+                "简单模块条件不满足时（价格未超过均线阈值）使用的目标仓位。",
+                "Target exposure when simple module conditions are not met (price not above MA threshold).",
+            ),
+            key=f"{key_prefix}_simple_module_off_exposure",
+        )
+        if _simple_on and not _composite_on:
+            position["simple_module_on_exposure"] = st.slider(
+                _tr(language, "条件满足时的目标仓位 (%)", "On-state target exposure (%)"),
+                0.0,
+                300.0,
+                min(float(position.get("simple_module_on_exposure", 300.0)), 300.0),
+                5.0,
+                help=_tr(language, "仅简单模块模式：触发条件时的目标仓位。默认 300%。", "Simple-only mode: target exposure when conditions are met. Default is 300%."),
+                key=f"{key_prefix}_simple_module_on_exposure",
+            )
+        st.caption(
+            _tr(
+                language,
+                "触发条件：快速均线在慢速均线上方，且收盘价在两条均线上方超过阈值百分比。",
+                "Trigger: fast MA above slow MA, and close price more than threshold % above both MAs.",
+            )
+        )
+        if _simple_on and _composite_on:
+            st.caption(
+                _tr(
+                    language,
+                    "两个模块同时开启：简单条件满足 → 使用复合模块完整结果；简单条件不满足 → 使用上方【条件不满足时的目标仓位】。",
+                    "Both modules on: simple conditions met → full composite result; simple conditions not met → off-state target exposure above.",
+                )
+            )
+
+        st.divider()
+        _sidebar_section_plate(
+            language,
+            _tr(language, "第三组", "Group Three"),
             _tr(language, "Core Position Engine", "Core Position Engine"),
-            _tr(language, "这里决定基础仓位边界、趋势引擎与简单模块如何共同形成主要仓位姿态。", "This group shapes the base exposure range and how the trend and simple engines form the primary posture."),
+            _tr(language, "这里决定基础仓位边界、复合引擎与 VIX 系数如何形成主要仓位姿态。", "This group shapes the base exposure range, composite engine, and VIX tiers that form the main posture."),
         )
         st.subheader(_tr(language, "复合模块", "Composite Module"))
         position["composite_module_enabled"] = st.toggle(
@@ -828,16 +1346,18 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
                 "The composite module includes all parameters below: trend signal MAs, base exposure bounds, and VIX tier multipliers.",
             )
         )
-        st.subheader(_tr(language, "趋势信号", "Trend Signal"))
-        trend["short_window"] = st.number_input(_tr(language, "短期均线", "Short moving average"), 5, 100, int(trend["short_window"]))
-        st.caption(_tr(language, "反映短期动能。数值越小越敏感，越容易提前加仓或减仓。", "Tracks short-term momentum. Smaller values react faster."))
-        trend["medium_window"] = st.number_input(_tr(language, "中期均线", "Medium moving average"), 10, 150, int(trend["medium_window"]))
-        st.caption(_tr(language, "反映中期趋势。数值越大越稳，但信号会更慢。", "Tracks medium-term trend. Larger values are steadier but slower."))
-        trend["long_window"] = st.number_input(_tr(language, "长期均线", "Long moving average"), 50, 300, int(trend["long_window"]))
-        st.caption(_tr(language, "判断牛熊环境的主过滤器。越长越保守，越短越容易频繁切换。", "Main bull/bear environment filter. Longer is more conservative."))
-        trend["confirmation_days"] = st.number_input(_tr(language, "连续确认天数", "Confirmation days"), 1, 10, int(trend["confirmation_days"]))
-        st.caption(_tr(language, "要求信号连续成立多少天才确认。调高可减少假突破，但会牺牲反应速度。", "Requires a signal to hold for this many days. Higher values reduce false breaks but react slower."))
         st.subheader(_tr(language, "基础仓位边界", "Base Exposure Bounds"))
+        _sidebar_control_cluster(
+            language,
+            _tr(language, "主控制节点", "Primary Control Cluster"),
+            _tr(language, "仓位地板 / 顶盖 / 调仓阈值", "Exposure floor / cap / rebalance threshold"),
+            _tr(
+                language,
+                "这一组是策略控制台裡最重要的三根推杆，决定系统愿意压到多低、拉到多高，以及变化多大才值得执行。",
+                "This trio is the key control cluster in the strategy console: how low the system can compress, how high it can extend, and how much change is worth executing.",
+            ),
+            chips=[_tr(language, "Floor", "Floor"), _tr(language, "Cap", "Cap"), _tr(language, "Trigger", "Trigger")],
+        )
         position["min_exposure"] = st.slider(
             _tr(language, "最小等效仓位", "Minimum equivalent exposure"),
             0.0,
@@ -928,6 +1448,18 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
                 f"Current tiers: VIX < {low_vix_upper:g} is low; {low_vix_upper:g} to {normal_vix_upper:g} is normal; {normal_vix_upper:g} to {danger_vix_upper:g} is danger; >= {danger_vix_upper:g} is crisis.",
             )
         )
+        _sidebar_control_cluster(
+            language,
+            _tr(language, "波动引擎", "Volatility Engine"),
+            _tr(language, "VIX 分档与乘数", "VIX thresholds and multipliers"),
+            _tr(
+                language,
+                "这段决定系统在低波动、正常和危险环境之间如何变速，是主仓位引擎后面的第一层节奏控制。",
+                "This block controls how the system changes speed across low, normal, and dangerous volatility regimes. It is the first tempo control after the main exposure engine.",
+            ),
+            chips=[_tr(language, "Low", "Low"), _tr(language, "Normal", "Normal"), _tr(language, "Danger", "Danger"), _tr(language, "Crisis", "Crisis")],
+            tone="green",
+        )
         for rule in settings["vix"]["rules"]:
             label = rule["label"]
             rule["multiplier"] = st.number_input(
@@ -940,94 +1472,57 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             )
             st.caption(_vix_multiplier_note(label, language))
 
-        # ── 简单模块 ─────────────────────────────────────────────────────────
-        st.divider()
-        st.subheader(_tr(language, "简单模块", "Simple Module"))
-        position["simple_module_enabled"] = st.toggle(
-            _tr(language, "启用简单模块", "Enable simple module"),
-            bool(position.get("simple_module_enabled", False)),
-            help=_tr(
-                language,
-                "开启后，系统用双均线条件判断是否入场。可单独使用（纯简单模式），也可与复合模块同时开启（简单条件作为复合模块的入场门控）。",
-                "When enabled, the system uses dual-MA conditions to gate market entry. Can be used standalone or with the composite module as an entry gate.",
-            ),
-            key=f"{key_prefix}_simple_module_enabled",
-        )
-        _composite_on = bool(position.get("composite_module_enabled", True))
-        _simple_on = bool(position.get("simple_module_enabled", False))
-        simple_cols = st.columns(3)
-        position["simple_module_fast_ma_window"] = simple_cols[0].number_input(
-            _tr(language, "快速均线窗口", "Fast MA window"),
-            10,
-            300,
-            int(position.get("simple_module_fast_ma_window", 120)),
-            5,
-            help=_tr(language, "默认 120 日均线，用于判断短期方向。", "Default is 120-day MA for short-term direction."),
-            key=f"{key_prefix}_simple_module_fast_ma_window",
-        )
-        position["simple_module_slow_ma_window"] = simple_cols[1].number_input(
-            _tr(language, "慢速均线窗口", "Slow MA window"),
-            10,
-            300,
-            int(position.get("simple_module_slow_ma_window", 200)),
-            5,
-            help=_tr(language, "默认 200 日均线，用于判断长期趋势。", "Default is 200-day MA for long-term trend."),
-            key=f"{key_prefix}_simple_module_slow_ma_window",
-        )
-        position["simple_module_threshold_pct"] = simple_cols[2].number_input(
-            _tr(language, "超出均线阈值 (%)", "Above-MA threshold (%)"),
-            0.0,
-            20.0,
-            float(position.get("simple_module_threshold_pct", 2.0)),
-            0.5,
-            help=_tr(language, "收盘价须超出两条均线此百分比才触发。默认 2%。", "Close must exceed both MAs by this percentage to trigger. Default is 2%."),
-            key=f"{key_prefix}_simple_module_threshold_pct",
-        )
-        position["simple_module_off_exposure"] = st.slider(
-            _tr(language, "条件不满足时的目标仓位 (%)", "Off-state target exposure (%)"),
-            0.0,
-            300.0,
-            min(float(position.get("simple_module_off_exposure", 0.0)), 300.0),
-            5.0,
-            help=_tr(
-                language,
-                "简单模块条件不满足时（价格未超过均线阈值）使用的目标仓位。",
-                "Target exposure when simple module conditions are not met (price not above MA threshold).",
-            ),
-            key=f"{key_prefix}_simple_module_off_exposure",
-        )
-        if _simple_on and not _composite_on:
-            position["simple_module_on_exposure"] = st.slider(
-                _tr(language, "条件满足时的目标仓位 (%)", "On-state target exposure (%)"),
-                0.0,
-                300.0,
-                min(float(position.get("simple_module_on_exposure", 300.0)), 300.0),
-                5.0,
-                help=_tr(language, "仅简单模块模式：触发条件时的目标仓位。默认 300%。", "Simple-only mode: target exposure when conditions are met. Default is 300%."),
-                key=f"{key_prefix}_simple_module_on_exposure",
-            )
-        st.caption(
-            _tr(
-                language,
-                "触发条件：快速均线在慢速均线上方，且收盘价在两条均线上方超过阈值百分比。",
-                "Trigger: fast MA above slow MA, and close price more than threshold % above both MAs.",
-            )
-        )
-        if _simple_on and _composite_on:
-            st.caption(
-                _tr(
-                    language,
-                    "两个模块同时开启：简单条件满足 → 使用复合模块完整结果；简单条件不满足 → 使用上方【条件不满足时的目标仓位】。",
-                    "Both modules on: simple conditions met → full composite result; simple conditions not met → off-state target exposure above.",
-                )
-            )
-
-        # ── 高级模块 (折叠) ──────────────────────────────────────────────────
         st.divider()
         _sidebar_section_plate(
             language,
-            _tr(language, "第三组", "Group Three"),
-            _tr(language, "Advanced Safety Overlays", "Advanced Safety Overlays"),
+            _tr(language, "第四组", "Group Four"),
+            _tr(language, "Leverage & Safety Gate", "Leverage & Safety Gate"),
+            _tr(language, "先定义杠杆放行条件，再进入附加安全阀与异常覆盖。", "Define leverage permission before entering the extra safety gates and exception overrides."),
+        )
+        st.subheader(_tr(language, "杠杆门槛", "Leverage Gates"))
+        execution["allow_leverage"] = st.toggle(
+            _tr(language, "允许杠杆 ETF", "Allow leveraged ETF"),
+            execution["allow_leverage"],
+            key=f"{key_prefix}_execution_allow_leverage",
+        )
+        st.caption(_tr(language, "关闭后，目标仓位即使高于 100%，也会被限制在非杠杆核心资产内。", "When off, targets above 100% are capped to unleveraged core exposure."))
+        execution["leverage_only_when_vix_below"] = st.number_input(
+            _tr(language, "杠杆允许 VIX 上限", "Leverage allowed below VIX"),
+            0.0,
+            80.0,
+            min(float(execution.get("leverage_only_when_vix_below", 20.0)), 80.0),
+            0.5,
+            help=_tr(language, "只有 VIX 低于这个数值时，系统才允许使用杠杆 ETF。", "Leveraged ETFs are allowed only when VIX is below this value."),
+            key=f"{key_prefix}_execution_leverage_only_when_vix_below",
+        )
+        execution["clear_leverage_when_vix_at_or_above"] = st.number_input(
+            _tr(language, "杠杆清退 VIX 水平", "Clear leverage at or above VIX"),
+            float(execution["leverage_only_when_vix_below"]),
+            80.0,
+            min(
+                80.0,
+                max(
+                    float(execution["leverage_only_when_vix_below"]),
+                    float(execution.get("clear_leverage_when_vix_at_or_above", 30.0)),
+                ),
+            ),
+            0.5,
+            help=_tr(language, "VIX 达到或高于这个数值时，系统会清掉杠杆暴露。", "When VIX reaches or exceeds this value, leveraged exposure is cleared."),
+            key=f"{key_prefix}_execution_clear_leverage_when_vix_at_or_above",
+        )
+        st.caption(
+            _tr(
+                language,
+                "这两个门槛只控制是否允许杠杆 ETF；基础仓位仍由趋势信号和 VIX 分档系数决定。",
+                "These thresholds only control leveraged ETF permission; base exposure still comes from trend signals and VIX tiers.",
+            )
+        )
+
+        st.divider()
+        _sidebar_section_plate(
+            language,
+            _tr(language, "第五组", "Group Five"),
+            _tr(language, "Advanced Caps & Exception Modules", "Advanced Caps & Exception Modules"),
             _tr(language, "把回撤、无新高、周期涨幅、趋势质量与极端风险模块视作附加的安全阀门。", "Treat drawdown, no-new-high, period-rise, trend-quality, and extreme-risk modules as additional safety valves."),
         )
         _any_advanced = any([
@@ -1050,6 +1545,18 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
 
             # ── VIX 风险模块
             st.subheader(_tr(language, "VIX 风险模块", "VIX Risk Module"))
+            _sidebar_control_cluster(
+                language,
+                _tr(language, "安全阀 A", "Safety Valve A"),
+                _tr(language, "VIX 仓位上限曲线", "VIX exposure cap curve"),
+                _tr(
+                    language,
+                    "当波动真正升高时，这条曲线会直接压低允许的上限，比前面的乘数更像一条硬护栏。",
+                    "When volatility truly rises, this curve directly compresses the allowed cap. It behaves more like a hard guardrail than the softer multipliers above.",
+                ),
+                chips=[_tr(language, "Cap ladder", "Cap ladder"), _tr(language, "5 bands", "5 bands")],
+                tone="green",
+            )
             position["vix_exposure_cap_enabled"] = st.toggle(
                 _tr(language, "启用 VIX 仓位上限曲线", "Enable VIX exposure cap curve"),
                 bool(position.get("vix_exposure_cap_enabled", False)),
@@ -1154,6 +1661,18 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
 
             st.divider()
             st.subheader(_tr(language, "回撤风险模块", "Drawdown Risk Module"))
+            _sidebar_control_cluster(
+                language,
+                _tr(language, "安全阀 B", "Safety Valve B"),
+                _tr(language, "回撤仓位上限曲线", "Drawdown exposure cap curve"),
+                _tr(
+                    language,
+                    "这一段处理的是慢性走弱而不是瞬时恐慌，让系统在连续失血阶段更早降低上限。",
+                    "This block is for slow deterioration rather than panic spikes, helping the system lower its cap earlier during extended drawdown phases.",
+                ),
+                chips=[_tr(language, "Lookback", "Lookback"), _tr(language, "Cap ladder", "Cap ladder")],
+                tone="red",
+            )
             position["drawdown_exposure_cap_enabled"] = st.toggle(
                 _tr(language, "启用回撤仓位上限曲线", "Enable drawdown exposure cap curve"),
                 bool(position.get("drawdown_exposure_cap_enabled", False)),
@@ -2219,9 +2738,9 @@ def _market_windows(settings: dict[str, Any], timeline_mode: str | None = None) 
     asx_open, asx_close = _relevant_local_window(settings, "asx", now)
     nzx_open, nzx_close = _relevant_local_window(settings, "nzx", now)
     market_windows = [
-        {"key": "nzx", "label": "NZ", "open": nzx_open, "close": nzx_close, "color": "#b91c1c"},
-        {"key": "asx", "label": "AU", "open": asx_open, "close": asx_close, "color": "#059669"},
-        {"key": "us", "label": "US", "open": us_open, "close": us_close, "color": "#2563eb"},
+        {"key": "nzx", "label": "NZ", "open": nzx_open, "close": nzx_close, "color": "#9e2f2f"},
+        {"key": "asx", "label": "AU", "open": asx_open, "close": asx_close, "color": "#1f6a53"},
+        {"key": "us", "label": "US", "open": us_open, "close": us_close, "color": "#12395b"},
     ]
     selected_timeline_mode = timeline_mode or settings.get("backtest", {}).get("execution_timing", "next_session")
     if selected_timeline_mode not in SUPPORTED_TIMELINE_MODES:
@@ -2278,12 +2797,14 @@ def _parallel_market_trade_timeline(
         f"""
 <style>
 .trade-timeline-wrap {{
-  border: 1px solid rgba(174, 143, 84, 0.22);
-  border-top: 2px solid rgba(174, 143, 84, 0.40);
+  border: 2px solid var(--leo-surface-rim);
+  border-top: 3px solid rgba(174, 143, 84, 0.24);
   border-radius: 0;
   padding: 14px 14px 32px;
   margin: 10px 0 12px;
-  background: rgba(244, 240, 232, 0.04);
+  background: linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+  box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 14px var(--leo-metal-glow);
+  backdrop-filter: blur(8px);
   overflow: visible;
 }}
 .trade-timeline-head {{
@@ -2311,16 +2832,19 @@ def _parallel_market_trade_timeline(
 .trade-timeline-track {{
   position: relative;
   height: 34px;
-  border-radius: 6px;
-  background: rgba(128, 128, 128, 0.2);
+  border-radius: 0;
+  clip-path: polygon(0.35rem 0, calc(100% - 0.35rem) 0, 100% 0.35rem, 100% calc(100% - 0.35rem), calc(100% - 0.35rem) 100%, 0.35rem 100%, 0 calc(100% - 0.35rem), 0 0.35rem);
+  background: linear-gradient(145deg, rgba(244,240,232,0.12), rgba(26,29,31,0.10));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 0 rgba(174,143,84,0.05);
   overflow: visible;
 }}
 .trade-timeline-segment {{
   position: absolute;
   top: 0;
   bottom: 0;
-  border-radius: 5px;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.42);
+  border-radius: 0;
+  clip-path: polygon(0.3rem 0, calc(100% - 0.3rem) 0, 100% 0.3rem, 100% calc(100% - 0.3rem), calc(100% - 0.3rem) 100%, 0.3rem 100%, 0 calc(100% - 0.3rem), 0 0.3rem);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.20);
 }}
 .trade-timeline-segment span {{
   position: absolute;
@@ -2355,8 +2879,9 @@ def _parallel_market_trade_timeline(
   position: absolute;
   top: 0;
   bottom: 0;
-  border-radius: 5px;
-  opacity: .2;
+  border-radius: 0;
+  clip-path: polygon(0.3rem 0, calc(100% - 0.3rem) 0, 100% 0.3rem, 100% calc(100% - 0.3rem), calc(100% - 0.3rem) 100%, 0.3rem 100%, 0 calc(100% - 0.3rem), 0 0.3rem);
+  opacity: .14;
 }}
 .trade-deadline-marker {{
   position: absolute;
@@ -2397,11 +2922,15 @@ def _parallel_market_trade_timeline(
   position: relative;
   overflow: hidden;
   padding: 5px 8px 5px 18px;
-  background: rgba(128, 128, 128, 0.2);
-  border-radius: 6px;
+  background: linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+  border: 1px solid var(--leo-surface-rim);
+  border-radius: 0;
+  clip-path: polygon(0.35rem 0, calc(100% - 0.35rem) 0, 100% 0.35rem, 100% calc(100% - 0.35rem), calc(100% - 0.35rem) 100%, 0.35rem 100%, 0 calc(100% - 0.35rem), 0 0.35rem);
+  box-shadow: inset 0 1px 0 var(--leo-surface-top);
   color: inherit;
   font-size: 12px;
   line-height: 1.35;
+  backdrop-filter: blur(6px);
 }}
 .trade-action-item::before {{
   content: "";
@@ -2441,20 +2970,39 @@ def _parallel_market_trade_timeline(
   gap: 10px;
   margin: 10px 0 2px;
 }}
+.timeline-countdown-section {{
+  margin: 10px 0 2px;
+}}
+.timeline-countdown-section-title {{
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--leo-kicker);
+  margin: 0 0 6px;
+}}
 .timeline-countdown-card {{
-  border: 1px solid rgba(174, 143, 84, 0.22);
+  border: 2px solid var(--leo-surface-rim);
   border-radius: 0;
   clip-path: polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
              100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
              0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
   padding: 10px 12px;
-  background: rgba(244, 240, 232, 0.04);
-  color: inherit;
+  background: linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+  box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 10px var(--leo-metal-glow);
+  color: var(--leo-ink);
+  backdrop-filter: blur(8px);
+}}
+.timeline-countdown-card.market-card {{
+  border-left: 2px solid rgba(18, 57, 91, 0.30);
+}}
+.timeline-countdown-card.action-card {{
+  border-left: 2px solid rgba(31, 106, 83, 0.30);
 }}
 .timeline-countdown-card.urgent {{
   border-color: rgba(158, 47, 47, 0.70);
-  background: rgba(158, 47, 47, 0.14);
-  color: inherit;
+  background: linear-gradient(145deg, rgba(158, 47, 47, 0.16), rgba(244, 240, 232, 0.06));
+  color: var(--leo-ink);
 }}
 .timeline-countdown-title {{
   font-size: 12px;
@@ -2546,7 +3094,11 @@ def _timeline_bounds(
     trade_items: list[Any],
     now: datetime,
 ) -> tuple[datetime, datetime]:
-    return now, now + timedelta(hours=24)
+    anchors = [now + timedelta(hours=24)]
+    anchors.extend(window["close"] for window in market_windows)
+    anchors.extend(item.deadline for item in trade_items)
+    end = max(anchors)
+    return now, end
 
 
 def _market_segments(
@@ -2625,22 +3177,24 @@ def _trade_action_item_html(item: Any, language: str) -> str:
 def _trade_marker_color(item: Any) -> str:
     action_en = item.action("en").lower()
     if item.strategy_key == NEXT_SESSION_MODE:
-        return "#059669"
+        return "#1f6a53"
     if item.market_label == "NZX":
-        return "#b91c1c"
+        return "#9e2f2f"
     if item.market_label == "ASX":
-        return "#059669"
+        return "#1f6a53"
     if "open" in action_en:
-        return "#60a5fa"
+        return "#355d7a"
     if "close" in action_en:
-        return "#2563eb"
-    return "#dc2626"
+        return "#12395b"
+    return "#9e2f2f"
 
 
 def _short_trade_action(item: Any, language: str) -> str:
     action_en = item.action("en").lower()
     if item.strategy_key == NEXT_SESSION_MODE:
         return _tr(language, "下一交易日：开盘前调仓", "Next session: rebalance before open")
+    if item.strategy_key == SAME_CLOSE_MODE:
+        return _tr(language, "同日收盘：按收盘信号调仓", "Same close: rebalance at the close")
     if item.market_label == "NZX":
         return _tr(language, "NZX 收盘前：处理本地仓位", "Before NZX close: local sleeve")
     if "open" in action_en:
@@ -2671,9 +3225,10 @@ def _timeline_countdowns(
     now: datetime,
     language: str,
 ) -> None:
-    countdowns: list[tuple[str, datetime, str]] = []
+    market_cards: list[str] = []
+    action_cards: list[str] = []
 
-    market_event_candidates: list[tuple[str, datetime, str]] = []
+    market_event_candidates: list[tuple[str, datetime, str, str]] = []
     for window in market_windows:
         if window["open"] <= now <= window["close"]:
             close_dt = window["close"]
@@ -2681,6 +3236,7 @@ def _timeline_countdowns(
                 _tr(language, f"当前市场 {window['label']} 收盘", f"Current market {window['label']} close"),
                 close_dt,
                 close_dt.strftime("%Y-%m-%d %H:%M"),
+                "market-card",
             ))
         elif window["open"] > now:
             open_dt = window["open"]
@@ -2688,9 +3244,11 @@ def _timeline_countdowns(
                 _tr(language, f"下个市场 {window['label']} 开盘", f"Next market {window['label']} open"),
                 open_dt,
                 open_dt.strftime("%Y-%m-%d %H:%M"),
+                "market-card",
             ))
     if market_event_candidates:
-        countdowns.append(min(market_event_candidates, key=lambda x: x[1]))
+        title, target, meta, kind = min(market_event_candidates, key=lambda x: x[1])
+        market_cards.append(_countdown_card_html(title, target, meta, now, language, kind))
 
     future_trade_items = sorted(
         (item for item in trade_items if item.deadline >= now),
@@ -2698,24 +3256,53 @@ def _timeline_countdowns(
     )
     if future_trade_items:
         item = future_trade_items[0]
-        countdowns.append((
+        action_cards.append(_countdown_card_html(
             _tr(language, f"当前模式操作时间 · {item.market_label}", f"Current mode action · {item.market_label}"),
             item.deadline,
             f"{item.deadline:%Y-%m-%d %H:%M} · {_short_trade_action(item, language)}",
+            now,
+            language,
+            "action-card",
         ))
 
-    cards = "\n".join(
-        _countdown_card_html(title, target, meta, now, language)
-        for title, target, meta in countdowns
+    sections: list[str] = []
+    if market_cards:
+        sections.append(_countdown_section_html(
+            _tr(language, "市场时段", "Market window"),
+            market_cards,
+        ))
+    if action_cards:
+        sections.append(_countdown_section_html(
+            _tr(language, "策略动作", "Strategy action"),
+            action_cards,
+        ))
+    if sections:
+        st.markdown("".join(sections), unsafe_allow_html=True)
+
+
+def _countdown_section_html(title: str, cards: list[str]) -> str:
+    cards_html = "\n".join(cards)
+    return (
+        '<div class="timeline-countdown-section">'
+        f'<div class="timeline-countdown-section-title">{html.escape(title)}</div>'
+        f'<div class="timeline-countdown-grid">{cards_html}</div>'
+        "</div>"
     )
-    if cards:
-        st.markdown(f'<div class="timeline-countdown-grid">{cards}</div>', unsafe_allow_html=True)
 
 
-def _countdown_card_html(title: str, target: datetime, meta: str, now: datetime, language: str) -> str:
+def _countdown_card_html(
+    title: str,
+    target: datetime,
+    meta: str,
+    now: datetime,
+    language: str,
+    kind: str,
+) -> str:
     remaining = target - now
     urgent = timedelta(0) <= remaining <= timedelta(hours=3)
-    class_name = "timeline-countdown-card urgent" if urgent else "timeline-countdown-card"
+    class_name = f"timeline-countdown-card {kind}"
+    if urgent:
+        class_name += " urgent"
     return (
         f'<div class="{class_name}">'
         f'<div class="timeline-countdown-title">{html.escape(title)}</div>'

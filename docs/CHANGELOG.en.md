@@ -2,6 +2,84 @@
 
 This English changelog is a translation of the Chinese source changelog. The Chinese file `docs/CHANGELOG.md` remains the source of truth; this file is shown when the UI language is English.
 
+## v0.2.5 - 2026-05-16
+
+### 1. Improvement: pages now prepare data automatically on first entry
+
+The Daily Signal, Market Health, and Backtest pages now prepare their data automatically on first load instead of showing a blank or not-yet-loaded state first.
+
+- Entering the page now immediately triggers the data preparation flow.
+- Content is rendered only after preparation completes.
+- When data is insufficient, the app shows a clearer error while keeping market-window information visible.
+
+### 2. New: unified Preparing animation
+
+A shared `Preparing / 准备中` micro-animation has been added for page preparation and local refresh states.
+
+- The animation uses three themed dots:
+  - Prussian blue with a lapis/mineral feel
+  - British racing green with a metallic feel
+  - Palace-wall red with a matte lacquer feel
+- This replaces scattered empty-state copy with a consistent loading language.
+
+### 3. Timeline fixes: weekend visibility and execution-mode alignment
+
+The trade timeline now fixes two key issues:
+
+- The visible range is no longer fixed at 24 hours. It now expands to the next real market window or action deadline, so weekends and holidays no longer hide the next action.
+- `same_close` now has its own timeline semantics instead of incorrectly falling back to `next_session`.
+
+The countdown area above the timeline is also split into `Market window` and `Strategy action`, so market timing and strategy timing are no longer mixed together.
+
+### 4. UI refactor: homepage header, language switch, and strategy console
+
+This release continues the shift from a plain settings page to a more intentional control-console layout:
+
+- The homepage title area is now a custom header band.
+- A compact `EN / 中文` switch has been added to the top area, with English as the default language.
+- The sidebar strategy editor is now grouped by decision intent instead of raw config order.
+- Core sliders and parameter groups now have clearer visual hierarchy.
+
+### 5. UI fix: dark-mode readability and metric cards
+
+Several dark-mode text surfaces and metric cards were still falling back to black or overly dark text. They have now been normalized to theme tokens.
+
+- Large metric values, labels, and status text now use the shared theme tokens.
+- Night-mode reading text now returns to a white-based palette.
+- The `TREND` and `VIX` cards now use a right-side badge layout so the small labels no longer sit below the value, keeping module heights more consistent.
+
+### 6. UI fix: white-screen regression and collapsed root heights
+
+During the refactor, the app hit a white-screen regression where content still existed in the DOM but the whole page visually disappeared. The root cause was a collapsed height chain from `html` / `body` / `#root` into the main app container.
+
+- Height and min-height constraints were restored across the main container chain.
+- Main layout positioning and overflow behavior were normalized.
+- The page now loads reliably again.
+
+### 7. UI cleanup: rectangular language with no chamfered corners
+
+Following the current design direction, major non-pill surfaces were normalized back to plain rectangular geometry with no rounded or octagonal chamfered corners.
+
+- Major panels, metric cards, expanders, chart containers, and timeline blocks now follow the hard-edge reset.
+- The final rectangle reset now sits at the end of the style block so earlier rules cannot override it again.
+
+### 8. Visual-state note: what remains and what was removed
+
+To stabilize the app after the white-screen issue, the release keeps the stable pearl surface language and stronger `hover / active` glow, but removes the fragile page-wide dynamic light script.
+
+- Still present: stronger hover / active glow on key surfaces.
+- Removed for stability: the global top-light dynamic script with scroll-reactive motion.
+- If dynamic light returns later, it should be reintroduced through a more isolated and conservative mechanism.
+
+### 9. Verification
+
+Verification commands:
+
+```bash
+python3 -m compileall trend_system/gui.py trend_system/interfaces/streamlit trend_system/trade_timeline.py
+pytest tests/test_gui_helpers.py tests/test_timezones.py tests/test_streamlit_shared_helpers.py -q
+```
+
 ## v0.2.4 - 2026-05-12
 
 ### 1. Feature: delete profile

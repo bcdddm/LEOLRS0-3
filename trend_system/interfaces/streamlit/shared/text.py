@@ -6,7 +6,7 @@ import streamlit as st
 
 
 def ui_language(settings: dict[str, Any]) -> str:
-    selected = st.session_state.get("ui_language") or settings.get("ui", {}).get("language", "zh")
+    selected = st.session_state.get("ui_language") or settings.get("ui", {}).get("language", "en")
     return "en" if selected == "en" else "zh"
 
 

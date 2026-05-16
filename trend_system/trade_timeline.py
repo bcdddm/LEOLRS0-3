@@ -7,9 +7,11 @@ from zoneinfo import ZoneInfo
 from trend_system.timezones import market_window
 
 NEXT_SESSION_MODE = "next_session"
+SAME_CLOSE_MODE = "same_close"
 NZ_CLOSE_US_OPEN_MODE = "nz_close_us_open"
 SUPPORTED_TIMELINE_MODES = (
     NEXT_SESSION_MODE,
+    SAME_CLOSE_MODE,
     NZ_CLOSE_US_OPEN_MODE,
 )
 
@@ -56,6 +58,15 @@ def trade_timeline_items(
             action_zh="下个美股交易日开盘前，完成按信号买入/调仓",
             action_en="Before the next US open, complete signal-based buys/rebalance",
             deadline=us_open,
+            market_label="US",
+        ),
+        TradeTimelineItem(
+            strategy_key=SAME_CLOSE_MODE,
+            strategy_label_zh="同日收盘生效",
+            strategy_label_en="Same Close",
+            action_zh="美股收盘时按当日信号完成调仓",
+            action_en="At the US close, execute the rebalance using the same-day signal",
+            deadline=us_close,
             market_label="US",
         ),
         TradeTimelineItem(

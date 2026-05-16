@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
+from html import escape
 from typing import Any, Callable
 
 import pandas as pd
@@ -31,6 +32,28 @@ class DailyPageDeps:
     fingerprint: Callable[[dict[str, Any], dict[str, str]], str]
     is_stale: Callable[[str, dict[str, Any], dict[str, str]], bool]
     required_symbols_from_raw: Callable[[dict[str, Any]], list[str]]
+
+
+def _render_side_badge_metric(
+    container: Any,
+    label: str,
+    value: str,
+    badge: str,
+    *,
+    tone: str = "green",
+) -> None:
+    container.markdown(
+        f"""
+<div class="leo-sidebadge-metric leo-sidebadge-metric--{escape(tone, quote=True)}">
+  <div class="leo-sidebadge-metric__label">{escape(label)}</div>
+  <div class="leo-sidebadge-metric__row">
+    <div class="leo-sidebadge-metric__value">{escape(value)}</div>
+    <div class="leo-sidebadge-metric__badge">{escape(badge)}</div>
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 
 
 def render_daily_page(
@@ -143,8 +166,18 @@ def render_daily_page(
     )
     sig_r1 = st.columns(4)
     sig_r1[0].metric(tr(language, "SPY 收盘价", "SPY close"), f"{signal.price:,.2f}")
-    sig_r1[1].metric(tr(language, "趋势", "Trend"), deps.state_label(signal.trend_label, language), f"{signal.trend_exposure:,.0f}%")
-    sig_r1[2].metric("VIX", f"{signal.vix:.2f}", deps.state_label(signal.vix_label, language))
+    _render_side_badge_metric(
+        sig_r1[1],
+        tr(language, "趋势", "Trend"),
+        deps.state_label(signal.trend_label, language),
+        f"{signal.trend_exposure:,.0f}%",
+    )
+    _render_side_badge_metric(
+        sig_r1[2],
+        "VIX",
+        f"{signal.vix:.2f}",
+        deps.state_label(signal.vix_label, language),
+    )
     sig_r1[3].metric(tr(language, "VIX 系数", "VIX multiplier"), f"x{signal.vix_multiplier:.2f}")
     sig_r2 = st.columns(4)
     sig_r2[0].metric(tr(language, "目标等效仓位", "Target exposure"), f"{signal.target_exposure:,.0f}%")
