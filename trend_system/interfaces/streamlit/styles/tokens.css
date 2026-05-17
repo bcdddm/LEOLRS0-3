@@ -1,0 +1,85 @@
+:root {
+  --leo-page-bg:      #F5F1EB;
+  --leo-sidebar-bg:   rgba(244, 240, 232, 0.55);
+  --leo-ink:          #111214;
+  --leo-ink-sub:      rgba(17, 18, 20, 0.78);
+  --leo-kicker:       rgba(18, 57, 91, 0.85);
+  --leo-surface-a:    rgba(244, 240, 232, 0.25);
+  --leo-surface-b:    rgba(255, 255, 255, 0.10);
+  --leo-surface-chip: rgba(255, 255, 255, 0.14);
+  --leo-surface-rim:  rgba(174, 143, 84, 0.22);
+  --leo-surface-top:  rgba(255, 255, 255, 0.17);
+  --leo-surface-bot:  rgba(174, 143, 84, 0.06);
+  --leo-metal-glow:   rgba(174, 143, 84, 0.12);
+  --leo-light-x:      50%;
+  --leo-light-y:      -8%;
+  --leo-light-drift:  0px;
+  --leo-scroll-energy: 0;
+  --leo-prussian-mineral: rgba(18, 57, 91, 0.88);
+  --leo-prussian-haze: rgba(74, 110, 150, 0.18);
+  --leo-racing-green: rgba(31, 106, 83, 0.88);
+  --leo-racing-green-haze: rgba(31, 106, 83, 0.18);
+  --leo-palace-red: rgba(158, 47, 47, 0.88);
+  --leo-palace-red-haze: rgba(158, 47, 47, 0.16);
+  --leo-sw-bg:        rgba(244, 240, 232, 0.25);
+  --leo-sw-rim:       rgba(174, 143, 84, 0.24);
+  --leo-sw-inner:     rgba(255, 255, 255, 0.31);
+  --leo-sw-shadow:    rgba(26, 29, 31, 0.10);
+  --leo-sw-text:      rgba(17, 18, 20, 0.72);
+  --leo-sw-text-on:   #111214;
+  --leo-bead-en:      rgba(18, 57, 91, 0.92);
+  --leo-bead-en-txt:  #F4F0E8;
+  --leo-bead-zh:      rgba(158, 47, 47, 0.92);
+  --leo-bead-zh-txt:  #F4F0E8;
+  /* ── Metallic input border tokens (dark BRG × aged gold) ───────────── */
+  /* BRG = #004225 = rgb(0,66,37) — deep olive green, zero blue component  */
+  --leo-metallic-gold:  rgba(110, 88, 48, 0.62);  /* darker aged gold     */
+  --leo-metallic-green: rgba(0, 66, 37, 0.92);    /* true British Racing Green */
+}
+
+[data-theme="light"] {
+  --leo-page-bg:      #F5F1EB;
+  --leo-sidebar-bg:   rgba(244, 240, 232, 0.55);
+  --leo-ink:          #0A0C0D;
+  --leo-ink-sub:      rgba(10, 12, 13, 0.82);
+  --leo-kicker:       rgb(18, 57, 91);
+  --leo-surface-a:    rgba(244, 240, 232, 0.25);
+  --leo-surface-b:    rgba(255, 255, 255, 0.10);
+  --leo-surface-chip: rgba(255, 255, 255, 0.14);
+  --leo-surface-rim:  rgba(174, 143, 84, 0.22);
+  --leo-surface-top:  rgba(255, 255, 255, 0.17);
+  --leo-surface-bot:  rgba(174, 143, 84, 0.06);
+  --leo-metal-glow:   rgba(174, 143, 84, 0.12);
+  --leo-sw-bg:        rgba(244, 240, 232, 0.25);
+  --leo-sw-rim:       rgba(174, 143, 84, 0.24);
+  --leo-sw-inner:     rgba(255, 255, 255, 0.31);
+  --leo-sw-shadow:    rgba(26, 29, 31, 0.10);
+  --leo-sw-text:      rgba(17, 18, 20, 0.72);
+  --leo-sw-text-on:   #111214;
+}
+
+[data-theme="dark"] {
+  --leo-page-bg:      #1A1D1F;
+  --leo-sidebar-bg:   rgba(20, 22, 24, 0.80);
+  --leo-ink:        rgba(244, 240, 232, 0.92);
+  --leo-ink-sub:    rgba(244, 240, 232, 0.60);
+  --leo-kicker:     rgba(244, 240, 232, 0.86);
+  --leo-surface-a:  rgba(26, 29, 31, 0.25);
+  --leo-surface-b:  rgba(244, 240, 232, 0.06);
+  --leo-surface-chip: rgba(244, 240, 232, 0.08);
+  --leo-surface-rim: rgba(174, 143, 84, 0.18);
+  --leo-surface-top: rgba(255, 255, 255, 0.05);
+  --leo-surface-bot: rgba(174, 143, 84, 0.05);
+  --leo-metal-glow: rgba(174, 143, 84, 0.10);
+  --leo-sw-bg:      rgba(26, 29, 31, 0.25);
+  --leo-sw-rim:     rgba(174, 143, 84, 0.22);
+  --leo-sw-inner:   rgba(255, 255, 255, 0.06);
+  --leo-sw-shadow:  rgba(0, 0, 0, 0.40);
+  --leo-sw-text:    rgba(244, 240, 232, 0.65);
+  --leo-sw-text-on: rgba(244, 240, 232, 0.95);
+  --leo-prussian-mineral: rgba(180, 210, 240, 0.92);
+  --leo-prussian-haze: rgba(74, 110, 150, 0.22);
+  /* dark-mode metallic tokens — slightly lifted luminosity for dark bg contrast */
+  --leo-metallic-gold:  rgba(128, 103, 58, 0.74);  /* dark gold, lifted for dark bg */
+  --leo-metallic-green: rgba(0, 80, 45, 0.96);     /* BRG family, slightly lifted   */
+}

@@ -4,9 +4,11 @@ from typing import Any
 
 import streamlit as st
 
+from trend_system.interfaces.streamlit.shared.session_state import SessionKeys
+
 
 def ui_language(settings: dict[str, Any]) -> str:
-    selected = st.session_state.get("ui_language") or settings.get("ui", {}).get("language", "en")
+    selected = st.session_state.get(SessionKeys.UI_LANGUAGE) or settings.get("ui", {}).get("language", "en")
     return "en" if selected == "en" else "zh"
 
 

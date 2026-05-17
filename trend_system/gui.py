@@ -9,7 +9,6 @@ from pathlib import Path
 import re
 from typing import Any
 
-import altair as alt
 import pandas as pd
 import streamlit as st
 import toml
@@ -22,7 +21,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.graphics.shapes import Drawing, Line, String
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from trend_system.backtest import build_parameter_sweep_candidate, run_backtest, run_parameter_sweep
+from trend_system.backtest import run_backtest
 from trend_system import __version__
 from trend_system.config import Settings, load_settings, required_symbols
 from trend_system.data import download_prices
@@ -37,6 +36,13 @@ from trend_system.adapters.github.workflow_store import (
 from trend_system.exposure_rules import (
     apply_foreign_asset_cap_to_values,
     counts_toward_foreign_cap,
+)
+from trend_system.interfaces.streamlit.components import (
+    render_info_panel,
+    render_section_head,
+    render_sidebar_control_cluster,
+    render_sidebar_section_plate,
+    render_strategy_console_intro,
 )
 from trend_system.models import BacktestRequest, DailySignalRequest, HealthcheckRequest
 from trend_system.interfaces.streamlit.app_shell import render_app_shell
@@ -57,14 +63,17 @@ from trend_system.interfaces.streamlit.pages.settings_page import (
     render_settings_page as render_settings_page_module,
 )
 from trend_system.interfaces.streamlit.shared import (
+    SessionKeys,
     fingerprint as shared_fingerprint,
+    inject_styles as shared_inject_styles,
     is_stale as shared_is_stale,
-    model_settings as shared_model_settings,
+    migrate_legacy_keys as shared_migrate_legacy_keys,
     option_index as shared_option_index,
     release_notes_path as shared_release_notes_path,
     release_notes_text as shared_release_notes_text,
     render_lightweight_chart as shared_render_lightweight_chart,
     render_release_notes as shared_render_release_notes,
+    resolve_theme as shared_resolve_theme,
     tr as shared_tr,
     ui_language as shared_ui_language,
 )
@@ -72,7 +81,6 @@ from trend_system.portfolio import build_allocation
 from trend_system.services.backtest_service import run_backtest_use_case
 from trend_system.services.daily_signal_service import run_daily_signal
 from trend_system.services.healthcheck_service import run_healthcheck
-from trend_system.signals import history_start_date
 from trend_system.trade_timeline import (
     NEXT_SESSION_MODE,
     SAME_CLOSE_MODE,
@@ -115,20 +123,26 @@ def _as_settings(settings: dict[str, Any]) -> Settings:
 def _apply_session_preferences(settings: dict[str, Any]) -> None:
     ui = settings.setdefault("ui", {})
     profile = settings.setdefault("profile", {})
-    if "settings_ui_language" in st.session_state:
-        st.session_state["ui_language"] = st.session_state["settings_ui_language"]
-    if "header_ui_language" in st.session_state:
-        st.session_state["ui_language"] = "en" if st.session_state["header_ui_language"] == "EN" else "zh"
-    if "settings_home_timezone" in st.session_state:
-        st.session_state["home_timezone"] = st.session_state["settings_home_timezone"]
-    if "settings_base_currency" in st.session_state:
-        st.session_state["base_currency"] = st.session_state["settings_base_currency"]
-    if "ui_language" in st.session_state:
-        ui["language"] = st.session_state["ui_language"]
-    if "home_timezone" in st.session_state:
-        profile["home_timezone"] = st.session_state["home_timezone"]
-    if "base_currency" in st.session_state:
-        profile["base_currency"] = st.session_state["base_currency"]
+    if SessionKeys.SETTINGS_UI_LANGUAGE in st.session_state:
+        st.session_state[SessionKeys.UI_LANGUAGE] = st.session_state[SessionKeys.SETTINGS_UI_LANGUAGE]
+    if SessionKeys.HEADER_UI_LANGUAGE in st.session_state:
+        st.session_state[SessionKeys.UI_LANGUAGE] = "en" if st.session_state[SessionKeys.HEADER_UI_LANGUAGE] == "EN" else "zh"
+    if SessionKeys.SETTINGS_UI_THEME in st.session_state:
+        st.session_state[SessionKeys.UI_THEME] = st.session_state[SessionKeys.SETTINGS_UI_THEME]
+    if SessionKeys.HEADER_UI_THEME in st.session_state:
+        st.session_state[SessionKeys.UI_THEME] = st.session_state[SessionKeys.HEADER_UI_THEME]
+    if SessionKeys.SETTINGS_HOME_TIMEZONE in st.session_state:
+        st.session_state[SessionKeys.HOME_TIMEZONE] = st.session_state[SessionKeys.SETTINGS_HOME_TIMEZONE]
+    if SessionKeys.SETTINGS_BASE_CURRENCY in st.session_state:
+        st.session_state[SessionKeys.BASE_CURRENCY] = st.session_state[SessionKeys.SETTINGS_BASE_CURRENCY]
+    if SessionKeys.UI_LANGUAGE in st.session_state:
+        ui["language"] = st.session_state[SessionKeys.UI_LANGUAGE]
+    if SessionKeys.UI_THEME in st.session_state:
+        ui["theme"] = st.session_state[SessionKeys.UI_THEME]
+    if SessionKeys.HOME_TIMEZONE in st.session_state:
+        profile["home_timezone"] = st.session_state[SessionKeys.HOME_TIMEZONE]
+    if SessionKeys.BASE_CURRENCY in st.session_state:
+        profile["base_currency"] = st.session_state[SessionKeys.BASE_CURRENCY]
 
 
 def main() -> None:
@@ -137,878 +151,7 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="expanded",
     )
-    st.markdown(
-        """
-<style>
-/* ── Design tokens ─────────────────────────────────────── */
-:root {
-  --leo-ink:          #111214;
-  --leo-ink-sub:      rgba(17, 18, 20, 0.78);
-  --leo-kicker:       rgba(18, 57, 91, 0.85);
-  --leo-surface-a:    rgba(244, 240, 232, 0.25);
-  --leo-surface-b:    rgba(255, 255, 255, 0.10);
-  --leo-surface-chip: rgba(255, 255, 255, 0.14);
-  --leo-surface-rim:  rgba(174, 143, 84, 0.22);
-  --leo-surface-top:  rgba(255, 255, 255, 0.17);
-  --leo-surface-bot:  rgba(174, 143, 84, 0.06);
-  --leo-metal-glow:   rgba(174, 143, 84, 0.12);
-  --leo-light-x:      50%;
-  --leo-light-y:      -8%;
-  --leo-light-drift:  0px;
-  --leo-scroll-energy: 0;
-  --leo-prussian-mineral: rgba(18, 57, 91, 0.88);
-  --leo-prussian-haze: rgba(74, 110, 150, 0.18);
-  --leo-racing-green: rgba(31, 106, 83, 0.88);
-  --leo-racing-green-haze: rgba(31, 106, 83, 0.18);
-  --leo-palace-red: rgba(158, 47, 47, 0.88);
-  --leo-palace-red-haze: rgba(158, 47, 47, 0.16);
-  /* Pearl switch shell — 25% opacity */
-  --leo-sw-bg:        rgba(244, 240, 232, 0.25);
-  --leo-sw-rim:       rgba(174, 143, 84, 0.24);
-  --leo-sw-inner:     rgba(255, 255, 255, 0.31);
-  --leo-sw-shadow:    rgba(26, 29, 31, 0.10);
-  --leo-sw-text:      rgba(17, 18, 20, 0.72);
-  --leo-sw-text-on:   #111214;
-  /* Active beads */
-  --leo-bead-en:      rgba(18, 57, 91, 0.92);
-  --leo-bead-en-txt:  #F4F0E8;
-  --leo-bead-zh:      rgba(158, 47, 47, 0.92);
-  --leo-bead-zh-txt:  #F4F0E8;
-}
-/* ── Light mode — explicit black text ──────────────────── */
-[data-theme="light"] {
-  --leo-ink:      #0A0C0D;
-  --leo-ink-sub:  rgba(10, 12, 13, 0.82);
-  --leo-kicker:   rgb(18, 57, 91);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --leo-ink:        rgba(244, 240, 232, 0.92);
-    --leo-ink-sub:    rgba(244, 240, 232, 0.60);
-    --leo-kicker:     rgba(244, 240, 232, 0.86);
-    --leo-surface-a:  rgba(26, 29, 31, 0.25);
-    --leo-surface-b:  rgba(244, 240, 232, 0.06);
-    --leo-surface-chip: rgba(244, 240, 232, 0.08);
-    --leo-surface-rim: rgba(174, 143, 84, 0.18);
-    --leo-surface-top: rgba(255, 255, 255, 0.05);
-    --leo-surface-bot: rgba(174, 143, 84, 0.05);
-    --leo-metal-glow: rgba(174, 143, 84, 0.10);
-    --leo-sw-bg:      rgba(26, 29, 31, 0.25);
-    --leo-sw-rim:     rgba(174, 143, 84, 0.22);
-    --leo-sw-inner:   rgba(255, 255, 255, 0.06);
-    --leo-sw-shadow:  rgba(0, 0, 0, 0.40);
-    --leo-sw-text:    rgba(244, 240, 232, 0.65);
-    --leo-sw-text-on: rgba(244, 240, 232, 0.95);
-  }
-}
-[data-theme="dark"] {
-  --leo-ink:        rgba(244, 240, 232, 0.92);
-  --leo-ink-sub:    rgba(244, 240, 232, 0.60);
-  --leo-kicker:     rgba(244, 240, 232, 0.86);
-  --leo-surface-a:  rgba(26, 29, 31, 0.25);
-  --leo-surface-b:  rgba(244, 240, 232, 0.06);
-  --leo-surface-chip: rgba(244, 240, 232, 0.08);
-  --leo-surface-rim: rgba(174, 143, 84, 0.18);
-  --leo-surface-top: rgba(255, 255, 255, 0.05);
-  --leo-surface-bot: rgba(174, 143, 84, 0.05);
-  --leo-metal-glow: rgba(174, 143, 84, 0.10);
-  --leo-sw-bg:      rgba(26, 29, 31, 0.25);
-  --leo-sw-rim:     rgba(174, 143, 84, 0.22);
-  --leo-sw-inner:   rgba(255, 255, 255, 0.06);
-  --leo-sw-shadow:  rgba(0, 0, 0, 0.40);
-  --leo-sw-text:    rgba(244, 240, 232, 0.65);
-  --leo-sw-text-on: rgba(244, 240, 232, 0.95);
-}
-/* ── Shell layout ──────────────────────────────────────── */
-html,
-body,
-#root,
-.stApp,
-[data-testid="stAppViewContainer"] {
-  height: 100% !important;
-  min-height: 100vh !important;
-}
-body,
-#root,
-.stApp {
-  overflow: visible !important;
-}
-[data-testid="stAppViewContainer"] {
-  position: relative !important;
-  inset: auto !important;
-  overflow: visible !important;
-}
-[data-testid="stMain"],
-[data-testid="stMainBlockContainer"] {
-  min-height: 100vh !important;
-}
-.block-container {
-  overflow-x: hidden !important;
-}
-.stApp {
-  position: relative;
-}
-.shell-title-band {
-  display: flex;
-  flex-direction: column;
-  gap: 0.32rem;
-  margin-bottom: 0.5rem;
-}
-.shell-kicker {
-  font-size: 0.72rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--leo-kicker);
-}
-.shell-title {
-  font-size: clamp(2rem, 4vw, 2.8rem);
-  line-height: 1;
-  font-weight: 700;
-  color: var(--leo-ink);
-}
-.shell-subtitle {
-  font-size: 0.92rem;
-  color: var(--leo-ink-sub);
-}
-/* ── Pearl language switch ─────────────────────────────── */
-div[data-testid="stSegmentedControl"] > div {
-  background:      var(--leo-sw-bg)    !important;
-  border:          1px solid var(--leo-sw-rim) !important;
-  border-radius:   999px               !important;
-  padding:         3px                 !important;
-  box-shadow:
-    inset 0 1px 0 var(--leo-sw-inner),
-    0 1px 4px var(--leo-sw-shadow)     !important;
-  backdrop-filter: blur(6px)           !important;
-  gap:             2px                 !important;
-}
-div[data-testid="stSegmentedControl"] button {
-  border-radius:   999px       !important;
-  border:          none        !important;
-  background:      transparent !important;
-  color:           var(--leo-sw-text) !important;
-  font-size:       0.70rem     !important;
-  font-weight:     500         !important;
-  letter-spacing:  0.07em      !important;
-  padding:         3px 11px    !important;
-  transition:
-    background 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    color      120ms ease,
-    box-shadow 160ms ease      !important;
-}
-div[data-testid="stSegmentedControl"] button:nth-child(1)[aria-pressed="true"],
-div[data-testid="stSegmentedControl"] button:nth-child(1)[aria-selected="true"] {
-  background: var(--leo-bead-en)     !important;
-  color:      var(--leo-bead-en-txt) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.10),
-    0 1px 3px rgba(18,57,91,0.22)    !important;
-}
-div[data-testid="stSegmentedControl"] button:nth-child(2)[aria-pressed="true"],
-div[data-testid="stSegmentedControl"] button:nth-child(2)[aria-selected="true"] {
-  background: var(--leo-bead-zh)     !important;
-  color:      var(--leo-bead-zh-txt) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08),
-    0 1px 3px rgba(158,47,47,0.22)   !important;
-}
-div[data-testid="stSegmentedControl"] button:not([aria-pressed="true"]):not([aria-selected="true"]):hover {
-  color:      var(--leo-sw-text-on)  !important;
-  background: rgba(174,143,84,0.05)  !important;
-}
-div[data-testid="stSegmentedControl"] button:focus-visible {
-  outline:        1.5px solid rgba(174,143,84,0.60) !important;
-  outline-offset: 1px !important;
-}
-.strategy-console-intro {
-  margin: 0.35rem 0 0.85rem;
-  padding: 0.8rem 0.85rem 0.75rem;
-  background: linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
-  border: 2px solid var(--leo-surface-rim);
-  clip-path: polygon(0.75rem 0, calc(100% - 0.75rem) 0, 100% 0.75rem, 100% calc(100% - 0.75rem), calc(100% - 0.75rem) 100%, 0.75rem 100%, 0 calc(100% - 0.75rem), 0 0.75rem);
-  box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 14px var(--leo-metal-glow);
-  backdrop-filter: blur(8px);
-}
-.strategy-console-title {
-  font-size: 0.84rem;
-  font-weight: 700;
-  margin-bottom: 0.3rem;
-  color: var(--leo-ink);
-}
-.strategy-console-note {
-  font-size: 0.73rem;
-  color: var(--leo-ink-sub);
-  margin-bottom: 0.5rem;
-}
-.strategy-console-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-.strategy-console-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.6rem;
-  padding: 0.22rem 0.62rem;
-  border-radius: 0;
-  border: 1px solid var(--leo-surface-rim);
-  background: var(--leo-surface-chip);
-  box-shadow: inset 0 1px 0 var(--leo-surface-top);
-  font-size: 0.72rem;
-  color: var(--leo-ink);
-  backdrop-filter: blur(6px);
-}
-/* ── Hard edge reset: all rectangular, no rounded / chamfered corners ── */
-div[data-testid="stSegmentedControl"] > div,
-div[data-testid="stSegmentedControl"] button,
-.strategy-console-intro,
-.strategy-console-chip,
-.sidebar-section-plate,
-.sidebar-control-cluster,
-.sidebar-control-cluster .cluster-chip,
-[data-testid="stMetric"],
-[data-testid="stExpander"],
-[data-testid="stVegaLiteChart"],
-[data-testid="element-container"] > iframe,
-[data-testid="stSidebar"] [data-baseweb="input"],
-[data-testid="stSidebar"] [data-baseweb="base-input"],
-[data-testid="stSidebar"] [data-baseweb="radio"] label,
-[data-testid="stSidebar"] [role="switch"],
-[data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button,
-[data-testid="stSidebar"] [data-baseweb="slider"] > div:first-child > div,
-[data-testid="stSidebar"] [data-baseweb="slider"] > div:first-child > div > div,
-[data-testid="stSidebar"] [role="slider"],
-.trade-timeline-wrap,
-.trade-timeline-track,
-.trade-timeline-segment,
-.trade-action-item,
-.timeline-countdown-card,
-.timeline-legend-item span {
-  border-radius: 0 !important;
-  clip-path: none !important;
-}
-.sidebar-section-plate {
-  margin: 0.55rem 0 0.5rem;
-  padding: 0.55rem 0.7rem 0.5rem;
-  background: linear-gradient(145deg, rgba(18,57,91,0.14), var(--leo-surface-b));
-  border: 2px solid var(--leo-surface-rim);
-  clip-path: polygon(0.6rem 0, calc(100% - 0.6rem) 0, 100% 0.6rem, 100% calc(100% - 0.6rem), calc(100% - 0.6rem) 100%, 0.6rem 100%, 0 calc(100% - 0.6rem), 0 0.6rem);
-  box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 12px var(--leo-metal-glow);
-  backdrop-filter: blur(8px);
-}
-.sidebar-section-overline {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--leo-kicker);
-  margin-bottom: 0.18rem;
-}
-.sidebar-section-title {
-  font-size: 0.86rem;
-  font-weight: 700;
-  color: var(--leo-ink);
-}
-.sidebar-section-summary {
-  font-size: 0.72rem;
-  color: var(--leo-ink-sub);
-  margin-top: 0.18rem;
-}
-.sidebar-control-cluster {
-  margin: 0.42rem 0 0.62rem;
-  padding: 0.68rem 0.72rem 0.6rem;
-  background:
-    radial-gradient(circle at top right, var(--leo-prussian-haze), transparent 42%),
-    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
-  border: 2px solid var(--leo-surface-rim);
-  clip-path: polygon(0.72rem 0, calc(100% - 0.72rem) 0, 100% 0.72rem, 100% calc(100% - 0.72rem), calc(100% - 0.72rem) 100%, 0.72rem 100%, 0 calc(100% - 0.72rem), 0 0.72rem);
-  box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 14px var(--leo-metal-glow);
-  backdrop-filter: blur(8px);
-}
-.strategy-console-intro,
-.sidebar-section-plate,
-.sidebar-control-cluster,
-[data-testid="stMetric"],
-[data-testid="stExpander"],
-[data-testid="stVegaLiteChart"],
-[data-testid="element-container"] > iframe,
-.trade-timeline-wrap,
-.timeline-countdown-card {
-  transition: box-shadow 180ms ease, border-color 180ms ease, transform 180ms ease;
-}
-.strategy-console-intro:hover,
-.strategy-console-intro:focus-within,
-.sidebar-section-plate:hover,
-.sidebar-section-plate:focus-within,
-.sidebar-control-cluster:hover,
-.sidebar-control-cluster:focus-within,
-[data-testid="stMetric"]:hover,
-[data-testid="stExpander"]:hover,
-[data-testid="stExpander"]:focus-within,
-.trade-timeline-wrap:hover,
-.trade-timeline-wrap:focus-within,
-.timeline-countdown-card:hover {
-  box-shadow:
-    inset 0 1px 0 var(--leo-surface-top),
-    inset 0 -1px 0 var(--leo-surface-bot),
-    0 0 20px rgba(174, 143, 84, 0.20),
-    0 0 38px rgba(255, 255, 255, 0.05) !important;
-  border-color: rgba(174, 143, 84, 0.34) !important;
-}
-.sidebar-control-cluster.cluster-green {
-  background:
-    radial-gradient(circle at top right, var(--leo-racing-green-haze), transparent 42%),
-    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
-}
-.sidebar-control-cluster.cluster-red {
-  background:
-    radial-gradient(circle at top right, var(--leo-palace-red-haze), transparent 42%),
-    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
-}
-.sidebar-control-cluster .cluster-overline {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--leo-kicker);
-}
-.sidebar-control-cluster .cluster-title {
-  margin-top: 0.16rem;
-  font-size: 0.94rem;
-  font-weight: 700;
-  color: var(--leo-ink);
-}
-.sidebar-control-cluster .cluster-summary {
-  margin-top: 0.16rem;
-  font-size: 0.72rem;
-  line-height: 1.45;
-  color: var(--leo-ink-sub);
-}
-.sidebar-control-cluster .cluster-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.34rem;
-  margin-top: 0.45rem;
-}
-.sidebar-control-cluster .cluster-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.45rem;
-  padding: 0.18rem 0.5rem;
-  border-radius: 999px;
-  border: 1px solid rgba(174, 143, 84, 0.16);
-  background: rgba(255,255,255,0.07);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
-  color: var(--leo-ink-sub);
-}
-/* ── Sidebar control language — Jack R inspired ───────── */
-[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
-  margin-bottom: 0.26rem !important;
-}
-[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
-  font-size: 0.63rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.11em !important;
-  text-transform: uppercase !important;
-  color: var(--leo-racing-green) !important;
-}
-[data-testid="stSidebar"] [data-baseweb="input"],
-[data-testid="stSidebar"] [data-baseweb="base-input"] {
-  background: linear-gradient(145deg, var(--leo-surface-a), rgba(255,255,255,0.06)) !important;
-  border: 1px solid var(--leo-surface-rim) !important;
-  border-radius: 0 !important;
-  box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot) !important;
-  backdrop-filter: blur(8px) !important;
-}
-[data-testid="stSidebar"] [data-baseweb="input"] input,
-[data-testid="stSidebar"] [data-baseweb="base-input"] input {
-  color: var(--leo-ink) !important;
-  font-size: 0.92rem !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.01em !important;
-}
-[data-testid="stSidebar"] [data-baseweb="input"] input::placeholder,
-[data-testid="stSidebar"] [data-baseweb="base-input"] input::placeholder {
-  color: var(--leo-ink-sub) !important;
-}
-[data-testid="stSidebar"] [data-baseweb="input"]:focus-within,
-[data-testid="stSidebar"] [data-baseweb="base-input"]:focus-within {
-  border-color: rgba(31, 106, 83, 0.34) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.10),
-    0 0 0 1px rgba(31, 106, 83, 0.14) !important;
-}
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {
-  font-size: 0.70rem !important;
-  line-height: 1.45 !important;
-  color: var(--leo-ink-sub) !important;
-}
-[data-testid="stSidebar"] [data-baseweb="radio"] {
-  gap: 0.45rem !important;
-}
-[data-testid="stSidebar"] [data-baseweb="radio"] label {
-  min-height: 2rem !important;
-  padding: 0.18rem 0.32rem !important;
-  border: 1px solid transparent !important;
-  border-radius: 999px !important;
-  background: linear-gradient(145deg, rgba(255,255,255,0.10), rgba(31,106,83,0.05)) !important;
-}
-[data-testid="stSidebar"] [data-baseweb="radio"] input:checked + div,
-[data-testid="stSidebar"] [data-baseweb="radio"] input:checked ~ div {
-  border-color: rgba(31, 106, 83, 0.24) !important;
-}
-[data-testid="stSidebar"] [data-baseweb="radio"] label p {
-  font-size: 0.72rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.08em !important;
-}
-[data-testid="stSidebar"] [role="switch"] {
-  background: linear-gradient(90deg, rgba(31,106,83,0.16), rgba(31,106,83,0.08)) !important;
-  border: 1px solid var(--leo-surface-rim) !important;
-  border-radius: 999px !important;
-  box-shadow: inset 0 1px 0 var(--leo-surface-top) !important;
-}
-[data-testid="stSidebar"] [role="switch"][aria-checked="true"] {
-  background: linear-gradient(90deg, rgba(31,106,83,0.28), rgba(31,106,83,0.20)) !important;
-  border-color: rgba(31, 106, 83, 0.26) !important;
-  box-shadow: inset 0 1px 0 var(--leo-surface-top), 0 0 14px rgba(31,106,83,0.18) !important;
-}
-[data-testid="stSidebar"] [role="switch"] > div {
-  background: linear-gradient(145deg, rgba(244,240,232,0.86), rgba(217,208,188,0.74)) !important;
-  box-shadow: 0 1px 3px rgba(17,18,20,0.18), inset 0 1px 0 rgba(255,255,255,0.34) !important;
-}
-[data-testid="stSidebar"] [data-testid="stExpander"] summary {
-  min-height: 2.2rem !important;
-  display: flex !important;
-  align-items: center !important;
-  padding-inline: 0.2rem !important;
-}
-[data-testid="stSidebar"] [data-testid="stExpanderDetails"] {
-  padding-top: 0.35rem !important;
-}
-[data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button {
-  min-height: 2.55rem !important;
-  background:
-    radial-gradient(circle at 24% 28%, rgba(255,255,255,0.14) 0, transparent 28%),
-    linear-gradient(145deg, rgba(158,47,47,0.92), rgba(128,38,38,0.96)) !important;
-  border: 1px solid rgba(174, 143, 84, 0.22) !important;
-  border-radius: 0 !important;
-  clip-path: polygon(0.7rem 0, calc(100% - 0.7rem) 0, 100% 0.7rem,
-             100% calc(100% - 0.7rem), calc(100% - 0.7rem) 100%,
-             0.7rem 100%, 0 calc(100% - 0.7rem), 0 0.7rem) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 8px rgba(158,47,47,0.16) !important;
-  color: rgba(244,240,232,0.96) !important;
-  font-size: 0.76rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.12em !important;
-  text-transform: uppercase !important;
-}
-[data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button:hover {
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 4px 10px rgba(158,47,47,0.22) !important;
-  border-color: rgba(174, 143, 84, 0.30) !important;
-}
-[data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button:focus-visible {
-  outline: 1.5px solid rgba(158,47,47,0.36) !important;
-  outline-offset: 2px !important;
-}
-[data-theme="dark"] [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
-[data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="radio"] label p,
-[data-theme="dark"] [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
-[data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="slider"] [data-testid="stThumbValue"] {
-  color: rgba(244, 240, 232, 0.92) !important;
-}
-@media (prefers-color-scheme: dark) {
-  [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
-  [data-testid="stSidebar"] [data-baseweb="radio"] label p,
-  [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
-  [data-testid="stSidebar"] [data-baseweb="slider"] [data-testid="stThumbValue"] {
-    color: rgba(244, 240, 232, 0.92) !important;
-  }
-}
-/* ── Section header ────────────────────────────────────── */
-.leo-section-head {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin: 1.1rem 0 0.65rem;
-  padding-bottom: 0.35rem;
-  border-bottom: 1px solid rgba(174, 143, 84, 0.22);
-}
-.leo-section-overline {
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--leo-kicker);
-  white-space: nowrap;
-}
-.leo-section-rule {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(174,143,84,0.20) 0%, transparent 100%);
-}
-/* ── Section dot markers ───────────────────────────────── */
-.leo-section-dot {
-  display:     inline-block;
-  width:       0.36rem;
-  height:      0.36rem;
-  background:  rgba(174, 143, 84, 0.80);
-  flex-shrink: 0;
-}
-.leo-section-head--prussian .leo-section-dot      { background:   rgba(18, 57, 91, 0.85); }
-.leo-section-head--prussian .leo-section-overline { color:        rgba(18, 57, 91, 0.80); }
-.leo-section-head--prussian                       { border-bottom-color: rgba(18, 57, 91, 0.18); }
-.leo-section-head--green .leo-section-dot         { background:   rgba(22, 74, 60, 0.85); }
-.leo-section-head--green .leo-section-overline    { color:        rgba(22, 74, 60, 0.80); }
-.leo-section-head--green                          { border-bottom-color: rgba(22, 74, 60, 0.18); }
-.leo-section-head--red .leo-section-dot           { background:   rgba(158, 47, 47, 0.85); }
-.leo-section-head--red .leo-section-overline      { color:        rgba(158, 47, 47, 0.80); }
-.leo-section-head--red                            { border-bottom-color: rgba(158, 47, 47, 0.18); }
-/* ── st.subheader override ─────────────────────────────── */
-[data-testid="stHeading"] h3 {
-  font-size: 0.66rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.16em !important;
-  text-transform: uppercase !important;
-  color: var(--leo-kicker) !important;
-  border-bottom: 1px solid rgba(174, 143, 84, 0.22);
-  padding-bottom: 0.35rem;
-  margin-bottom: 0.65rem;
-}
-[data-theme="dark"] [data-testid="stHeading"] h3 {
-  color: rgba(244, 240, 232, 0.94) !important;
-}
-@media (prefers-color-scheme: dark) {
-  [data-testid="stHeading"] h3 { color: rgba(244, 240, 232, 0.94) !important; }
-}
-/* ── Metric card — pearl plate ─────────────────────────── */
-[data-testid="stMetric"] {
-  background:  linear-gradient(
-                 145deg,
-                 var(--leo-surface-a) 0%,
-                 var(--leo-surface-b) 55%,
-                 rgba(174, 143, 84,  0.025) 100%
-               );
-  border:      2px solid var(--leo-surface-rim);
-  clip-path:   polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
-               100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
-               0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
-  padding:     0.7rem 0.85rem 0.65rem;
-  box-shadow:  inset 0 1px 0 var(--leo-surface-top),
-               inset 1px 0 0 rgba(255,255,255,0.09),
-               inset 0 -1px 0 var(--leo-surface-bot),
-               0 1px 3px rgba(26,29,31,0.07),
-               0 0 14px var(--leo-metal-glow);
-  backdrop-filter: blur(8px);
-}
-/* ── Metric text — light mode (default) ────────────────── */
-[data-testid="stMetricLabel"] > div {
-  font-size:      0.64rem !important;
-  letter-spacing: 0.10em !important;
-  text-transform: uppercase !important;
-  color:          var(--leo-ink-sub) !important;
-}
-[data-testid="stMetricLabel"] * {
-  color: inherit !important;
-}
-[data-testid="stMetricLabel"] > div::before {
-  content:        '▪';
-  font-size:      0.52rem;
-  color:          rgba(174, 143, 84, 0.80);
-  margin-right:   0.28rem;
-  vertical-align: middle;
-}
-[data-testid="stMetricValue"] > div {
-  font-size:            1.45rem !important;
-  font-weight:          700 !important;
-  color:                var(--leo-ink) !important;
-  font-variant-numeric: tabular-nums;
-}
-[data-testid="stMetricValue"] *,
-[data-testid="stMetricDelta"] *,
-[data-testid="stMetric"] label,
-[data-testid="stMetric"] p,
-[data-testid="stMetric"] span,
-[data-testid="stMetric"] div {
-  color: inherit !important;
-}
-/* ── Metric card + text — dark mode ────────────────────── */
-@media (prefers-color-scheme: dark) {
-  [data-testid="stMetric"] {
-    background:  linear-gradient(
-                   145deg,
-                   var(--leo-surface-a) 0%,
-                   var(--leo-surface-b) 100%
-                 );
-    border-color: var(--leo-surface-rim);
-    box-shadow:  inset 0 1px 0 var(--leo-surface-top),
-                 inset 0 -1px 0 var(--leo-surface-bot),
-                 0 1px 3px rgba(0,0,0,0.28);
-  }
-  [data-testid="stMetricValue"],
-  [data-testid="stMetricValue"] > div,
-  [data-testid="stMetricValue"] * { color: rgba(244, 240, 232, 0.95) !important; }
-  [data-testid="stMetricLabel"],
-  [data-testid="stMetricLabel"] > div,
-  [data-testid="stMetricLabel"] * { color: rgba(244, 240, 232, 0.62) !important; }
-  [data-testid="stMetricDelta"],
-  [data-testid="stMetricDelta"] * { color: rgba(244, 240, 232, 0.86) !important; }
-}
-[data-theme="dark"] [data-testid="stMetric"] {
-  background:  linear-gradient(
-                 145deg,
-                 var(--leo-surface-a) 0%,
-                 var(--leo-surface-b) 100%
-               );
-  border-color: var(--leo-surface-rim);
-  box-shadow:  inset 0 1px 0 var(--leo-surface-top),
-               inset 0 -1px 0 var(--leo-surface-bot),
-               0 1px 3px rgba(0,0,0,0.28);
-}
-[data-theme="dark"] [data-testid="stMetricValue"],
-[data-theme="dark"] [data-testid="stMetricValue"] > div,
-[data-theme="dark"] [data-testid="stMetricValue"] * {
-  color: rgba(244, 240, 232, 0.95) !important;
-}
-[data-theme="dark"] [data-testid="stMetricLabel"],
-[data-theme="dark"] [data-testid="stMetricLabel"] > div,
-[data-theme="dark"] [data-testid="stMetricLabel"] * {
-  color: rgba(244, 240, 232, 0.62) !important;
-}
-[data-theme="dark"] [data-testid="stMetricDelta"],
-[data-theme="dark"] [data-testid="stMetricDelta"] * {
-  color: rgba(244, 240, 232, 0.86) !important;
-}
-/* ── Daily state metric with right badge ───────────────── */
-.leo-sidebadge-metric {
-  min-height: 100%;
-  padding: 0.7rem 0.85rem 0.65rem;
-  background: linear-gradient(
-    145deg,
-    var(--leo-surface-a) 0%,
-    var(--leo-surface-b) 55%,
-    rgba(174, 143, 84, 0.025) 100%
-  );
-  border: 2px solid var(--leo-surface-rim);
-  box-shadow:
-    inset 0 1px 0 var(--leo-surface-top),
-    inset 1px 0 0 rgba(255,255,255,0.09),
-    inset 0 -1px 0 var(--leo-surface-bot),
-    0 1px 3px rgba(26,29,31,0.07),
-    0 0 14px var(--leo-metal-glow);
-  backdrop-filter: blur(8px);
-}
-.leo-sidebadge-metric__label {
-  font-size: 0.64rem;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  color: var(--leo-ink-sub);
-}
-.leo-sidebadge-metric__label::before {
-  content: '▪';
-  font-size: 0.52rem;
-  color: rgba(174, 143, 84, 0.80);
-  margin-right: 0.28rem;
-  vertical-align: middle;
-}
-.leo-sidebadge-metric__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-  margin-top: 0.55rem;
-  min-height: 2.2rem;
-}
-.leo-sidebadge-metric__value {
-  flex: 1;
-  min-width: 0;
-  font-size: 1.45rem;
-  font-weight: 700;
-  color: var(--leo-ink);
-  line-height: 1.1;
-}
-.leo-sidebadge-metric__badge {
-  flex-shrink: 0;
-  padding: 0.28rem 0.62rem;
-  border: 1px solid rgba(31, 106, 83, 0.22);
-  background: rgba(31, 106, 83, 0.18);
-  color: rgba(134, 233, 161, 0.95);
-  font-size: 0.76rem;
-  font-weight: 700;
-  line-height: 1;
-  white-space: nowrap;
-}
-.leo-sidebadge-metric--red .leo-sidebadge-metric__badge {
-  border-color: rgba(158, 47, 47, 0.24);
-  background: rgba(158, 47, 47, 0.18);
-  color: rgba(255, 215, 215, 0.96);
-}
-@media (prefers-color-scheme: dark) {
-  .leo-sidebadge-metric__label { color: rgba(244, 240, 232, 0.62); }
-  .leo-sidebadge-metric__value { color: rgba(244, 240, 232, 0.95); }
-}
-[data-theme="dark"] .leo-sidebadge-metric__label { color: rgba(244, 240, 232, 0.62); }
-[data-theme="dark"] .leo-sidebadge-metric__value { color: rgba(244, 240, 232, 0.95); }
-/* ── Expander ──────────────────────────────────────────── */
-[data-testid="stExpander"] {
-  border:        2px solid var(--leo-surface-rim) !important;
-  border-radius: 0 !important;
-  clip-path:     polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
-                 100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
-                 0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
-  background:    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
-  box-shadow:    inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 12px var(--leo-metal-glow);
-  backdrop-filter: blur(8px);
-}
-[data-testid="stExpander"] summary {
-  font-size:      0.72rem !important;
-  font-weight:    600 !important;
-  letter-spacing: 0.08em !important;
-  color:          var(--leo-ink-sub) !important;
-}
-/* ── Chart container ───────────────────────────────────── */
-[data-testid="stVegaLiteChart"],
-[data-testid="element-container"] > iframe {
-  border:        2px solid var(--leo-surface-rim) !important;
-  border-radius: 0 !important;
-  clip-path:     polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
-                 100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
-                 0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
-  background:    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
-  box-shadow:    inset 0 1px 0 var(--leo-surface-top), 0 0 12px var(--leo-metal-glow);
-  backdrop-filter: blur(8px);
-}
-/* ── Responsive metric grid ────────────────────────────── */
-/* Desktop (> 1024px): up to 6 per row — Python layout controls column count */
-/* Tablet (≤ 1024px): wrap to 4 per row */
-@media (max-width: 1024px) {
-  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
-    min-width: 23% !important;
-    flex: 1 1 23% !important;
-  }
-}
-/* Mobile (≤ 480px): 2 per row, full-bleed padding */
-@media (max-width: 480px) {
-  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
-    min-width: 48% !important;
-    flex: 1 1 48% !important;
-  }
-  [data-testid="stMetric"] {
-    padding: 0.55rem 0.6rem 0.5rem;
-  }
-  [data-testid="stMetricValue"] > div {
-    font-size: 1.15rem !important;
-  }
-}
-/* ── Premium slider ────────────────────────────────────── */
-[data-baseweb="slider"] {
-  padding: 0.72rem 0 0.58rem !important;
-}
-[data-testid="stSidebar"] [data-baseweb="slider"] > div:first-child > div {
-  height: 6px !important;
-  background: linear-gradient(90deg, rgba(31,106,83,0.14), rgba(31,106,83,0.06)) !important;
-  border: 1px solid rgba(174, 143, 84, 0.14) !important;
-  border-radius: 999px !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10) !important;
-}
-[data-testid="stSidebar"] [data-baseweb="slider"] > div:first-child > div > div {
-  background: linear-gradient(90deg, rgba(31,106,83,0.76), var(--leo-racing-green)) !important;
-  border-radius: 999px !important;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 1px 4px rgba(31,106,83,0.18) !important;
-}
-[data-baseweb="slider"] [data-testid="stThumbValue"] {
-  font-size:   0.64rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.06em !important;
-  color:       var(--leo-racing-green) !important;
-  text-transform: uppercase !important;
-}
-[data-testid="stSidebar"] [role="slider"] {
-  width:   16px !important;
-  height:  16px !important;
-  background:
-    radial-gradient(circle at 32% 28%, rgba(255,255,255,0.28) 0, rgba(255,255,255,0.10) 24%, transparent 45%),
-    linear-gradient(145deg, rgba(31,106,83,0.94) 0%, rgba(46,132,105,0.88) 58%, rgba(174,143,84,0.44) 100%) !important;
-  border:     1px solid rgba(174, 143, 84, 0.42) !important;
-  border-radius: 0 !important;
-  clip-path: polygon(
-    2px 0, calc(100% - 2px) 0, 100% 2px, 100% calc(100% - 2px),
-    calc(100% - 2px) 100%, 2px 100%, 0 calc(100% - 2px), 0 2px
-  ) !important;
-  box-shadow:
-    0 2px 5px rgba(26,29,31,0.24),
-    inset 0 1px 0 rgba(255,255,255,0.18) !important;
-  transition: box-shadow 130ms ease, border-color 130ms ease !important;
-  cursor: grab !important;
-  touch-action: none !important;
-}
-[data-testid="stSidebar"] [role="slider"]:hover,
-[data-testid="stSidebar"] [role="slider"]:focus {
-  box-shadow:
-    0 3px 8px rgba(31,106,83,0.20),
-    inset 0 1px 0 rgba(255,255,255,0.18) !important;
-  outline: none !important;
-  border-color: rgba(31, 106, 83, 0.42) !important;
-}
-[data-testid="stSidebar"] [role="slider"]:active {
-  cursor: grabbing !important;
-  box-shadow:
-    0 0 18px rgba(31,106,83,0.24),
-    0 0 28px rgba(255,255,255,0.06),
-    inset 0 1px 0 rgba(255,255,255,0.18) !important;
-}
-@media (prefers-color-scheme: dark) {
-  [data-testid="stSidebar"] [role="slider"] {
-    background: linear-gradient(145deg, rgba(244,240,232,0.18) 0%, rgba(26,29,31,0.55) 100%) !important;
-    border-color: rgba(174, 143, 84, 0.40) !important;
-    box-shadow:
-      0 1px 3px rgba(0,0,0,0.50),
-      inset 0 1px 0 rgba(255,255,255,0.06) !important;
-  }
-}
-[data-theme="dark"] [data-testid="stSidebar"] [role="slider"] {
-  background: linear-gradient(145deg, rgba(244,240,232,0.18) 0%, rgba(26,29,31,0.55) 100%) !important;
-  border-color: rgba(174, 143, 84, 0.40) !important;
-  box-shadow:
-    0 1px 3px rgba(0,0,0,0.50),
-    inset 0 1px 0 rgba(255,255,255,0.06) !important;
-}
-/* ── Final hard edge reset: keep all non-pill surfaces rectangular ───── */
-div[data-testid="stSegmentedControl"] > div,
-div[data-testid="stSegmentedControl"] button,
-.strategy-console-intro,
-.strategy-console-chip,
-.sidebar-section-plate,
-.sidebar-control-cluster,
-.sidebar-control-cluster .cluster-chip,
-[data-testid="stMetric"],
-[data-testid="stExpander"],
-[data-testid="stVegaLiteChart"],
-[data-testid="element-container"] > iframe,
-[data-testid="stSidebar"] [data-baseweb="input"],
-[data-testid="stSidebar"] [data-baseweb="base-input"],
-[data-testid="stSidebar"] [data-baseweb="radio"] label,
-[data-testid="stSidebar"] [role="switch"],
-[data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button,
-[data-testid="stSidebar"] [data-baseweb="slider"] > div:first-child > div,
-[data-testid="stSidebar"] [data-baseweb="slider"] > div:first-child > div > div,
-[data-testid="stSidebar"] [role="slider"],
-.trade-timeline-wrap,
-.trade-timeline-track,
-.trade-timeline-segment,
-.trade-deadline-warning,
-.trade-action-item,
-.timeline-countdown-card,
-.timeline-legend-item span {
-  border-radius: 0 !important;
-  clip-path: none !important;
-}
-</style>
-""",
-        unsafe_allow_html=True,
-    )
-
+    shared_migrate_legacy_keys()
     config_options = _config_options()
     selected_config = st.sidebar.selectbox(
         "配置文件包",
@@ -1023,6 +166,9 @@ div[data-testid="stSegmentedControl"] button,
     settings = load_settings(config_path)
     working_settings = deepcopy(settings.raw)
     _apply_session_preferences(working_settings)
+    resolved_theme = shared_resolve_theme(working_settings)
+    st.session_state[SessionKeys.UI_THEME] = resolved_theme
+    shared_inject_styles(resolved_theme)
     working_settings = _settings_sidebar(working_settings, config_path)
     language = _ui_language(working_settings)
     language = _render_shell_header(working_settings, language)
@@ -1055,29 +201,16 @@ def _render_shell_header(settings: dict[str, Any], language: str) -> str:
         _tr(language, "界面语言", "Interface language"),
         ["EN", "中文"],
         default=current,
-        key="header_ui_language",
+        key=SessionKeys.HEADER_UI_LANGUAGE,
         label_visibility="collapsed",
         width="content",
     )
     resolved = "en" if selected == "EN" else "zh"
     if resolved != language:
-        st.session_state["ui_language"] = resolved
+        st.session_state[SessionKeys.UI_LANGUAGE] = resolved
         settings.setdefault("ui", {})["language"] = resolved
         st.rerun()
     return resolved
-
-
-def _sidebar_section_plate(language: str, overline: str, title: str, summary: str) -> None:
-    st.markdown(
-        f"""
-<div class="sidebar-section-plate">
-  <div class="sidebar-section-overline">{html.escape(overline)}</div>
-  <div class="sidebar-section-title">{html.escape(title)}</div>
-  <div class="sidebar-section-summary">{html.escape(summary)}</div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
 
 
 def _render_sidebar_console_intro(settings: dict[str, Any], language: str) -> None:
@@ -1091,49 +224,16 @@ def _render_sidebar_console_intro(settings: dict[str, Any], language: str) -> No
         _tr(language, "杠杆开启" if execution.get("allow_leverage", False) else "杠杆关闭", "Leverage on" if execution.get("allow_leverage", False) else "Leverage off"),
         _tr(language, "高级模块待命", "Advanced overlays ready"),
     ]
-    chip_markup = "".join(f'<span class="strategy-console-chip">{html.escape(chip)}</span>' for chip in chips)
-    st.markdown(
-        f"""
-<div class="strategy-console-intro">
-  <div class="strategy-console-title">{html.escape(_tr(language, "策略控制台", "Strategy Console"))}</div>
-  <div class="strategy-console-note">{html.escape(_tr(language, "先看控制台，再深入每一组参数。这个面板开始按决策意图，而不是按原始配置文件来理解。", "Scan the control deck first, then dive into each parameter group. This panel now starts to read by decision intent, not by raw config order."))}</div>
-  <div class="strategy-console-grid">{chip_markup}</div>
-</div>
-""",
-        unsafe_allow_html=True,
+    render_strategy_console_intro(
+        st,
+        title=_tr(language, "策略控制台", "Strategy Console"),
+        note=_tr(
+            language,
+            "先看控制台，再深入每一组参数。这个面板开始按决策意图，而不是按原始配置文件来理解。",
+            "Scan the control deck first, then dive into each parameter group. This panel now starts to read by decision intent, not by raw config order.",
+        ),
+        chips=chips,
     )
-
-
-def _sidebar_control_cluster(
-    language: str,
-    overline: str,
-    title: str,
-    summary: str,
-    chips: list[str] | None = None,
-    tone: str = "prussian",
-) -> None:
-    tone_class = {
-        "prussian": "",
-        "green": " cluster-green",
-        "red": " cluster-red",
-    }.get(tone, "")
-    chip_markup = ""
-    if chips:
-        chip_markup = '<div class="cluster-chip-row">' + "".join(
-            f'<span class="cluster-chip">{html.escape(chip)}</span>' for chip in chips
-        ) + "</div>"
-    st.markdown(
-        f"""
-<div class="sidebar-control-cluster{tone_class}">
-  <div class="cluster-overline">{html.escape(overline)}</div>
-  <div class="cluster-title">{html.escape(title)}</div>
-  <div class="cluster-summary">{html.escape(summary)}</div>
-  {chip_markup}
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
 
 def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, Any]:
     key_prefix = _widget_key_prefix(config_path)
@@ -1143,11 +243,11 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
         _render_sidebar_console_intro(settings, language)
 
         execution = settings["execution"]
-        _sidebar_section_plate(
-            language,
-            _tr(language, "第一组", "Group One"),
-            _tr(language, "Session & Market Context", "Session & Market Context"),
-            _tr(language, "先定义执行市场、本地与海外资产边界，再让后续信号有明确的执行语境。", "Define market selection and account asset boundaries first so every later signal has a clear execution context."),
+        render_sidebar_section_plate(
+            st,
+            overline=_tr(language, "第一组", "Group One"),
+            title=_tr(language, "Session & Market Context", "Session & Market Context"),
+            summary=_tr(language, "先定义执行市场、本地与海外资产边界，再让后续信号有明确的执行语境。", "Define market selection and account asset boundaries first so every later signal has a clear execution context."),
         )
         st.subheader(_tr(language, "执行资产与账户限制", "Execution Assets and Account Limits"))
         execution["default_market"] = st.radio(
@@ -1216,28 +316,63 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             1000.0,
             key=f"{key_prefix}_execution_foreign_assets_nzd_limit",
         )
-        st.caption(_tr(language, "打开后，VOO、SPXL 等非 NZX/ASX 标的目标市值合计折算后不超过这个纽币金额。IVV.AX、USF.NZ 不计入此限制。", "When enabled, non-NZX/ASX targets such as VOO and SPXL are capped at this NZD value. IVV.AX and USF.NZ are excluded."))
-        st.caption(_tr(language, "备注：这是基于新西兰 FIF 50,000 NZD 门槛的辅助监控。部分 ASX 标的是否豁免需以 IRD 规则和实际标的为准。", "Note: this is a helper for New Zealand's 50,000 NZD FIF threshold. Confirm actual treatment with IRD rules and the fund details."))
+        render_info_panel(
+            st,
+            [
+                _tr(language, "打开后，VOO、SPXL 等非 NZX/ASX 标的目标市值合计折算后不超过这个纽币金额。IVV.AX、USF.NZ 不计入此限制。", "When enabled, non-NZX/ASX targets such as VOO and SPXL are capped at this NZD value. IVV.AX and USF.NZ are excluded."),
+                _tr(language, "备注：这是基于新西兰 FIF 50,000 NZD 门槛的辅助监控。部分 ASX 标的是否豁免需以 IRD 规则和实际标的为准。", "Note: this is a helper for New Zealand's 50,000 NZD FIF threshold. Confirm actual treatment with IRD rules and the fund details."),
+            ],
+            title=_tr(language, "海外 FIF/NZ 资产说明", "Foreign FIF/NZ asset note"),
+            compact=True,
+        )
 
         trend = settings["trend"]
         position = settings["position"]
 
         # ── 复合模块 ─────────────────────────────────────────────────────────
         st.divider()
-        _sidebar_section_plate(
-            language,
-            _tr(language, "第二组", "Group Two"),
-            _tr(language, "Signal Construction", "Signal Construction"),
-            _tr(language, "先定义趋势感应器与简单门控，再决定后面的主仓位引擎如何解释它们。", "Define the trend sensors and simple gate first, then let the main position engine interpret them."),
+        render_sidebar_section_plate(
+            st,
+            overline=_tr(language, "第二组", "Group Two"),
+            title=_tr(language, "Signal Construction", "Signal Construction"),
+            summary=_tr(language, "先定义趋势感应器与简单门控，再决定后面的主仓位引擎如何解释它们。", "Define the trend sensors and simple gate first, then let the main position engine interpret them."),
         )
         st.subheader(_tr(language, "趋势信号", "Trend Signal"))
-        trend["short_window"] = st.number_input(_tr(language, "短期均线", "Short moving average"), 5, 100, int(trend["short_window"]))
+        trend["short_window"] = st.slider(
+            _tr(language, "短期均线", "Short moving average"),
+            5,
+            100,
+            int(trend["short_window"]),
+            1,
+            key=f"{key_prefix}_trend_short_window",
+        )
         st.caption(_tr(language, "反映短期动能。数值越小越敏感，越容易提前加仓或减仓。", "Tracks short-term momentum. Smaller values react faster."))
-        trend["medium_window"] = st.number_input(_tr(language, "中期均线", "Medium moving average"), 10, 150, int(trend["medium_window"]))
+        trend["medium_window"] = st.slider(
+            _tr(language, "中期均线", "Medium moving average"),
+            10,
+            150,
+            int(trend["medium_window"]),
+            1,
+            key=f"{key_prefix}_trend_medium_window",
+        )
         st.caption(_tr(language, "反映中期趋势。数值越大越稳，但信号会更慢。", "Tracks medium-term trend. Larger values are steadier but slower."))
-        trend["long_window"] = st.number_input(_tr(language, "长期均线", "Long moving average"), 50, 300, int(trend["long_window"]))
+        trend["long_window"] = st.slider(
+            _tr(language, "长期均线", "Long moving average"),
+            50,
+            300,
+            int(trend["long_window"]),
+            1,
+            key=f"{key_prefix}_trend_long_window",
+        )
         st.caption(_tr(language, "判断牛熊环境的主过滤器。越长越保守，越短越容易频繁切换。", "Main bull/bear environment filter. Longer is more conservative."))
-        trend["confirmation_days"] = st.number_input(_tr(language, "连续确认天数", "Confirmation days"), 1, 10, int(trend["confirmation_days"]))
+        trend["confirmation_days"] = st.slider(
+            _tr(language, "连续确认天数", "Confirmation days"),
+            1,
+            10,
+            int(trend["confirmation_days"]),
+            1,
+            key=f"{key_prefix}_trend_confirmation_days",
+        )
         st.caption(_tr(language, "要求信号连续成立多少天才确认。调高可减少假突破，但会牺牲反应速度。", "Requires a signal to hold for this many days. Higher values reduce false breaks but react slower."))
 
         st.divider()
@@ -1322,11 +457,11 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             )
 
         st.divider()
-        _sidebar_section_plate(
-            language,
-            _tr(language, "第三组", "Group Three"),
-            _tr(language, "Core Position Engine", "Core Position Engine"),
-            _tr(language, "这里决定基础仓位边界、复合引擎与 VIX 系数如何形成主要仓位姿态。", "This group shapes the base exposure range, composite engine, and VIX tiers that form the main posture."),
+        render_sidebar_section_plate(
+            st,
+            overline=_tr(language, "第三组", "Group Three"),
+            title=_tr(language, "Core Position Engine", "Core Position Engine"),
+            summary=_tr(language, "这里决定基础仓位边界、复合引擎与 VIX 系数如何形成主要仓位姿态。", "This group shapes the base exposure range, composite engine, and VIX tiers that form the main posture."),
         )
         st.subheader(_tr(language, "复合模块", "Composite Module"))
         position["composite_module_enabled"] = st.toggle(
@@ -1347,11 +482,11 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             )
         )
         st.subheader(_tr(language, "基础仓位边界", "Base Exposure Bounds"))
-        _sidebar_control_cluster(
-            language,
-            _tr(language, "主控制节点", "Primary Control Cluster"),
-            _tr(language, "仓位地板 / 顶盖 / 调仓阈值", "Exposure floor / cap / rebalance threshold"),
-            _tr(
+        render_sidebar_control_cluster(
+            st,
+            overline=_tr(language, "主控制节点", "Primary Control Cluster"),
+            title=_tr(language, "仓位地板 / 顶盖 / 调仓阈值", "Exposure floor / cap / rebalance threshold"),
+            summary=_tr(
                 language,
                 "这一组是策略控制台裡最重要的三根推杆，决定系统愿意压到多低、拉到多高，以及变化多大才值得执行。",
                 "This trio is the key control cluster in the strategy console: how low the system can compress, how high it can extend, and how much change is worth executing.",
@@ -1448,21 +583,20 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
                 f"Current tiers: VIX < {low_vix_upper:g} is low; {low_vix_upper:g} to {normal_vix_upper:g} is normal; {normal_vix_upper:g} to {danger_vix_upper:g} is danger; >= {danger_vix_upper:g} is crisis.",
             )
         )
-        _sidebar_control_cluster(
-            language,
-            _tr(language, "波动引擎", "Volatility Engine"),
-            _tr(language, "VIX 分档与乘数", "VIX thresholds and multipliers"),
-            _tr(
+        render_sidebar_control_cluster(
+            st,
+            overline=_tr(language, "波动引擎", "Volatility Engine"),
+            title=_tr(language, "VIX 分档与乘数", "VIX thresholds and multipliers"),
+            summary=_tr(
                 language,
                 "这段决定系统在低波动、正常和危险环境之间如何变速，是主仓位引擎后面的第一层节奏控制。",
                 "This block controls how the system changes speed across low, normal, and dangerous volatility regimes. It is the first tempo control after the main exposure engine.",
             ),
             chips=[_tr(language, "Low", "Low"), _tr(language, "Normal", "Normal"), _tr(language, "Danger", "Danger"), _tr(language, "Crisis", "Crisis")],
-            tone="green",
         )
         for rule in settings["vix"]["rules"]:
             label = rule["label"]
-            rule["multiplier"] = st.number_input(
+            rule["multiplier"] = st.slider(
                 _tr(language, f"{label} 系数", f"{label} multiplier"),
                 0.0,
                 5.0,
@@ -1470,14 +604,14 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
                 0.05,
                 key=f"{key_prefix}_vix_multiplier_{label}",
             )
-            st.caption(_vix_multiplier_note(label, language))
+            render_info_panel(st, _vix_multiplier_note(label, language), compact=True)
 
         st.divider()
-        _sidebar_section_plate(
-            language,
-            _tr(language, "第四组", "Group Four"),
-            _tr(language, "Leverage & Safety Gate", "Leverage & Safety Gate"),
-            _tr(language, "先定义杠杆放行条件，再进入附加安全阀与异常覆盖。", "Define leverage permission before entering the extra safety gates and exception overrides."),
+        render_sidebar_section_plate(
+            st,
+            overline=_tr(language, "第四组", "Group Four"),
+            title=_tr(language, "Leverage & Safety Gate", "Leverage & Safety Gate"),
+            summary=_tr(language, "先定义杠杆放行条件，再进入附加安全阀与异常覆盖。", "Define leverage permission before entering the extra safety gates and exception overrides."),
         )
         st.subheader(_tr(language, "杠杆门槛", "Leverage Gates"))
         execution["allow_leverage"] = st.toggle(
@@ -1519,11 +653,11 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
         )
 
         st.divider()
-        _sidebar_section_plate(
-            language,
-            _tr(language, "第五组", "Group Five"),
-            _tr(language, "Advanced Caps & Exception Modules", "Advanced Caps & Exception Modules"),
-            _tr(language, "把回撤、无新高、周期涨幅、趋势质量与极端风险模块视作附加的安全阀门。", "Treat drawdown, no-new-high, period-rise, trend-quality, and extreme-risk modules as additional safety valves."),
+        render_sidebar_section_plate(
+            st,
+            overline=_tr(language, "第五组", "Group Five"),
+            title=_tr(language, "Advanced Caps & Exception Modules", "Advanced Caps & Exception Modules"),
+            summary=_tr(language, "把回撤、无新高、周期涨幅、趋势质量与极端风险模块视作附加的安全阀门。", "Treat drawdown, no-new-high, period-rise, trend-quality, and extreme-risk modules as additional safety valves."),
         )
         _any_advanced = any([
             bool(position.get("vix_exposure_cap_enabled", False)),
@@ -1545,11 +679,11 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
 
             # ── VIX 风险模块
             st.subheader(_tr(language, "VIX 风险模块", "VIX Risk Module"))
-            _sidebar_control_cluster(
-                language,
-                _tr(language, "安全阀 A", "Safety Valve A"),
-                _tr(language, "VIX 仓位上限曲线", "VIX exposure cap curve"),
-                _tr(
+            render_sidebar_control_cluster(
+                st,
+                overline=_tr(language, "安全阀 A", "Safety Valve A"),
+                title=_tr(language, "VIX 仓位上限曲线", "VIX exposure cap curve"),
+                summary=_tr(
                     language,
                     "当波动真正升高时，这条曲线会直接压低允许的上限，比前面的乘数更像一条硬护栏。",
                     "When volatility truly rises, this curve directly compresses the allowed cap. It behaves more like a hard guardrail than the softer multipliers above.",
@@ -1661,17 +795,17 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
 
             st.divider()
             st.subheader(_tr(language, "回撤风险模块", "Drawdown Risk Module"))
-            _sidebar_control_cluster(
-                language,
-                _tr(language, "安全阀 B", "Safety Valve B"),
-                _tr(language, "回撤仓位上限曲线", "Drawdown exposure cap curve"),
-                _tr(
+            render_sidebar_control_cluster(
+                st,
+                overline=_tr(language, "安全阀 B", "Safety Valve B"),
+                title=_tr(language, "回撤仓位上限曲线", "Drawdown exposure cap curve"),
+                summary=_tr(
                     language,
                     "这一段处理的是慢性走弱而不是瞬时恐慌，让系统在连续失血阶段更早降低上限。",
                     "This block is for slow deterioration rather than panic spikes, helping the system lower its cap earlier during extended drawdown phases.",
                 ),
                 chips=[_tr(language, "Lookback", "Lookback"), _tr(language, "Cap ladder", "Cap ladder")],
-                tone="red",
+                tone="green",
             )
             position["drawdown_exposure_cap_enabled"] = st.toggle(
                 _tr(language, "启用回撤仓位上限曲线", "Enable drawdown exposure cap curve"),
@@ -1789,6 +923,18 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
 
             st.divider()
             st.subheader(_tr(language, "区段无新高锁仓模块", "Windowed No-New-High Lock Module"))
+            render_sidebar_control_cluster(
+                st,
+                overline=_tr(language, "安全阀 C", "Safety Valve C"),
+                title=_tr(language, "区段无新高锁仓", "Windowed no-new-high lock"),
+                summary=_tr(
+                    language,
+                    "这段针对的是长期修复不足的市场，即便短线没崩，也可以因为迟迟不创新高而压低允许仓位。",
+                    "This valve targets markets that fail to repair over time, lowering allowed exposure when price action cannot make fresh highs for too long.",
+                ),
+                chips=[_tr(language, "Observation", "Observation"), _tr(language, "High window", "High window")],
+                tone="green",
+            )
             position["no_new_high_cap_enabled"] = st.toggle(
                 _tr(
                     language,
@@ -1837,6 +983,18 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
 
             st.divider()
             st.subheader(_tr(language, "周期涨幅锁仓模块", "Period Rise Lock Module"))
+            render_sidebar_control_cluster(
+                st,
+                overline=_tr(language, "安全阀 D", "Safety Valve D"),
+                title=_tr(language, "周期涨幅锁仓", "Period-rise lock"),
+                summary=_tr(
+                    language,
+                    "这段处理的是涨得太快的阶段，让系统在周期内已经大幅上冲后先锁住部分成果，不再无限追高。",
+                    "This valve handles markets that rise too far too fast, locking in part of the gain after a sharp period move instead of endlessly chasing higher.",
+                ),
+                chips=[_tr(language, "Bi-monthly", "Bi-monthly"), _tr(language, "Rise trigger", "Rise trigger")],
+                tone="green",
+            )
             position["period_rise_cap_enabled"] = st.toggle(
                 _tr(
                     language,
@@ -1887,6 +1045,18 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
 
             st.divider()
             st.subheader(_tr(language, "趋势质量模块", "Trend Quality Module"))
+            render_sidebar_control_cluster(
+                st,
+                overline=_tr(language, "安全阀 E", "Safety Valve E"),
+                title=_tr(language, "趋势质量上限", "Trend-quality cap"),
+                summary=_tr(
+                    language,
+                    "这段更像结构诊断器：它通过 120/200 日均线关系与斜率变化，提前识别慢性走弱，而不是等到回撤已经很深。",
+                    "This one behaves like a structural diagnostic layer, using 120/200-day MA relationships and slope changes to catch slow deterioration before drawdown gets deep.",
+                ),
+                chips=[_tr(language, "MA slope", "MA slope"), _tr(language, "120/200", "120/200")],
+                tone="green",
+            )
             position["trend_quality_cap_enabled"] = st.toggle(
                 _tr(language, "启用 120 日趋势质量上限", "Enable 120-day trend quality cap"),
                 bool(position.get("trend_quality_cap_enabled", False)),
@@ -1996,6 +1166,18 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
 
             st.divider()
             st.subheader(_tr(language, "极端风险模块", "Extreme Risk Module"))
+            render_sidebar_control_cluster(
+                st,
+                overline=_tr(language, "安全阀 F", "Safety Valve F"),
+                title=_tr(language, "极端风险地板覆盖", "Extreme-risk floor override"),
+                summary=_tr(
+                    language,
+                    "这段不是压上限，而是允许系统在真正失控的行情里把仓位地板也降下去，留出彻底防守的空间。",
+                    "This valve does not cap the upside; it lowers the minimum floor during truly broken markets so the system can move fully defensive when needed.",
+                ),
+                chips=[_tr(language, "Floor override", "Floor override"), _tr(language, "200MA", "200MA")],
+                tone="green",
+            )
             position["extreme_risk_cap_enabled"] = st.toggle(
                 _tr(language, "启用极端风险最低仓位覆盖", "Enable extreme risk floor override"),
                 bool(position.get("extreme_risk_cap_enabled", False)),
@@ -2116,7 +1298,6 @@ def _backtest_tab(settings: dict[str, Any]) -> None:
             pdf_filename=_pdf_filename,
             cached_prices=_cached_prices,
             strategy_summary_rows=_strategy_summary_rows,
-            parameter_debug_section=_parameter_debug_section,
             trade_summary_rows=_trade_summary_rows,
             equity_columns_for_pdf=equity_columns_for_pdf,
             exposure_columns_for_timing=_exposure_columns_for_timing,
@@ -2125,6 +1306,7 @@ def _backtest_tab(settings: dict[str, Any]) -> None:
             backtest_date_defaults=_backtest_date_defaults,
             fingerprint=_fingerprint,
             is_stale=_is_stale,
+            default_raw_settings=lambda: load_settings(DEFAULT_CONFIG).raw,
         ),
     )
 
@@ -2181,312 +1363,6 @@ def _release_notes_path(language: str = "zh") -> Path:
     )
 
 
-def _parameter_debug_section(settings: dict[str, Any], start: date, end: date, language: str) -> dict[str, Any] | None:
-    with st.expander(_tr(language, "调试模式：参数扫描", "Debug mode: parameter sweep")):
-        st.caption(
-            _tr(
-                language,
-                "在当前回测区间内，把核心模型参数按当前值的 50%、75%、100%、125%、150% 测试，并额外围绕目标日期生成时间窗口优化。结果会同时对比当前配置基准线和默认配置基准线。",
-                "Within the current backtest range, test core model parameters at 50%, 75%, 100%, 125%, and 150% of their current values, then run an additional target-date window optimization. Results compare against both the current configuration baseline and the default configuration baseline.",
-            )
-        )
-        controls = st.columns([1, 1, 1, 1])
-        target_date = controls[0].date_input(
-            _tr(language, "目标日期", "Target date"),
-            value=end,
-            min_value=start,
-            max_value=end,
-            key="parameter_sweep_target_date",
-        )
-        months_before = controls[1].number_input(
-            _tr(language, "目标日前月数", "Months before"),
-            min_value=0,
-            max_value=120,
-            value=6,
-            step=1,
-            key="parameter_sweep_months_before",
-        )
-        months_after = controls[2].number_input(
-            _tr(language, "目标日后月数", "Months after"),
-            min_value=0,
-            max_value=120,
-            value=6,
-            step=1,
-            key="parameter_sweep_months_after",
-        )
-        sort_options = {
-            _tr(language, "策略总收益", "Strategy total return"): "total_return_pct",
-            "CAGR": "cagr_pct",
-            "Sharpe": "sharpe_no_rf",
-            _tr(language, "最大回撤（越高越好）", "Max drawdown, higher is better"): "max_drawdown_pct",
-            _tr(language, "年化波动（越低越好）", "Annual volatility, lower is better"): "annual_volatility_pct",
-            _tr(language, "调仓次数（越少越好）", "Rebalances, lower is better"): "trades",
-        }
-        sort_label = controls[3].selectbox(
-            _tr(language, "排序目标", "Ranking objective"),
-            list(sort_options.keys()),
-            key="parameter_sweep_sort_metric",
-        )
-        sort_metric = sort_options[sort_label]
-        run_sweep = st.button(
-            _tr(language, "运行 50% 参数扫描", "Run 50% parameter sweep"),
-            use_container_width=True,
-        )
-        if not run_sweep and "parameter_sweep" not in st.session_state:
-            return None
-        if not run_sweep and not isinstance(st.session_state.get("parameter_sweep"), dict):
-            st.session_state.pop("parameter_sweep", None)
-            return None
-
-        if run_sweep:
-            with st.spinner(_tr(language, "正在扫描参数组合...", "Scanning parameter variants...")):
-                primary = settings["signals"]["primary"]
-                vix_symbol = settings["signals"]["volatility"]
-                price_field = settings["signals"].get("price_field", "Close")
-                default_raw = load_settings(DEFAULT_CONFIG).raw
-                data_start = min(history_start_date(start, settings), history_start_date(start, default_raw))
-                prices = _cached_prices((primary, vix_symbol), str(data_start), _inclusive_end(end), True)
-                price = prices[primary][price_field]
-                vix = prices[vix_symbol][price_field]
-                open_price = prices[primary].get("Open")
-                model_settings = _model_settings(settings)
-                default_settings = _model_settings(default_raw)
-                individual, unified, ranges, recommendations = _cached_parameter_sweep(
-                    price,
-                    vix,
-                    model_settings,
-                    open_price=prices[primary].get("Open"),
-                    result_start=str(start),
-                    baseline_settings=default_settings,
-                    sort_metric=sort_metric,
-                )
-                individual = _with_parameter_ui_names(individual, model_settings, language)
-                unified = _with_parameter_ui_names(unified, model_settings, language)
-                ranges = _with_parameter_ui_names(ranges, model_settings, language)
-                recommendations = _with_parameter_ui_names(recommendations, model_settings, language)
-                window_start = max(start, target_date - timedelta(days=int(months_before) * 30))
-                window_end = min(end, target_date + timedelta(days=int(months_after) * 30))
-                target_price = price.loc[: pd.Timestamp(window_end)]
-                target_vix = vix.loc[: pd.Timestamp(window_end)]
-                target_open_price = open_price.loc[: pd.Timestamp(window_end)] if open_price is not None else None
-                target_individual, target_unified, target_ranges, target_recommendations = _cached_parameter_sweep(
-                    target_price,
-                    target_vix,
-                    model_settings,
-                    open_price=target_open_price,
-                    result_start=str(window_start),
-                    baseline_settings=default_settings,
-                    sort_metric=sort_metric,
-                )
-                target_individual = _with_parameter_ui_names(target_individual, model_settings, language)
-                target_unified = _with_parameter_ui_names(target_unified, model_settings, language)
-                target_ranges = _with_parameter_ui_names(target_ranges, model_settings, language)
-                target_recommendations = _with_parameter_ui_names(target_recommendations, model_settings, language)
-                full_curves = _sweep_comparison_curves(
-                    price,
-                    vix,
-                    model_settings,
-                    default_settings,
-                    individual,
-                    unified,
-                    open_price=open_price,
-                    result_start=str(start),
-                )
-                target_curves = _sweep_comparison_curves(
-                    target_price,
-                    target_vix,
-                    model_settings,
-                    default_settings,
-                    target_individual,
-                    target_unified,
-                    open_price=target_open_price,
-                    result_start=str(window_start),
-                )
-                st.session_state["parameter_sweep"] = {
-                    "full": (individual, unified, ranges, recommendations),
-                    "target": (target_individual, target_unified, target_ranges, target_recommendations),
-                    "target_date": target_date,
-                    "window_start": window_start,
-                    "window_end": window_end,
-                    "sort_label": sort_label,
-                    "sort_metric": sort_metric,
-                    "full_curves": full_curves,
-                    "target_curves": target_curves,
-                    "full_factor_curves": _sweep_factor_curves(individual, sort_metric),
-                    "target_factor_curves": _sweep_factor_curves(target_individual, sort_metric),
-                }
-
-        stored = st.session_state["parameter_sweep"]
-        individual, unified, ranges, recommendations = stored["full"]
-        target_individual, target_unified, target_ranges, target_recommendations = stored["target"]
-        st.markdown(f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "全区间参数调整建议", "Full-Range Parameter Recommendations")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
-        st.dataframe(_localized_recommendations(recommendations, language), use_container_width=True, hide_index=True)
-        st.markdown(f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "最适合的参数范围", "Preferred Parameter Ranges")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
-        st.dataframe(_localized_parameter_frame(ranges, language), use_container_width=True, hide_index=True)
-        st.markdown(f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "逐个测试最佳结果", "Best Individual Tests")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
-        st.dataframe(_localized_parameter_frame(individual.head(25), language), use_container_width=True, hide_index=True)
-        st.markdown(f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "统一测试结果", "Unified Test Results")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
-        st.dataframe(_localized_parameter_frame(unified, language), use_container_width=True, hide_index=True)
-        st.markdown(f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "全区间对比净值曲线", "Full-Range Comparison Equity Curves")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
-        _zoomable_line_chart(
-            stored["full_curves"],
-            list(stored["full_curves"].columns),
-            _tr(language, "扫描对比净值", "Sweep comparison equity"),
-            key="parameter_sweep_full_curves",
-            language=language,
-        )
-        _sweep_metric_line_chart(
-            stored["full_factor_curves"],
-            _tr(language, "全区间单参数扫描折线", "Full-range individual sweep lines"),
-            stored["sort_metric"],
-            language,
-            key="parameter_sweep_full_factor_lines",
-        )
-        st.markdown(f'<div class="leo-section-head leo-section-head--green"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "目标日期参数建议表", "Target-Date Parameter Recommendations")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
-        st.caption(
-            _tr(
-                language,
-                f"目标日期：{stored['target_date']}；时间窗口：{stored['window_start']} ~ {stored['window_end']}；排序目标：{stored['sort_label']}",
-                f"Target date: {stored['target_date']}; window: {stored['window_start']} to {stored['window_end']}; objective: {stored['sort_label']}",
-            )
-        )
-        st.dataframe(_localized_recommendations(target_recommendations, language), use_container_width=True, hide_index=True)
-        st.markdown(f'<div class="leo-section-head leo-section-head--green"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "目标日期窗口最适合的参数范围", "Target Window Preferred Parameter Ranges")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
-        st.dataframe(_localized_parameter_frame(target_ranges, language), use_container_width=True, hide_index=True)
-        st.markdown(f'<div class="leo-section-head leo-section-head--green"><span class="leo-section-dot"></span><span class="leo-section-overline">{_tr(language, "目标日期窗口对比净值曲线", "Target Window Comparison Equity Curves")}</span><span class="leo-section-rule"></span></div>', unsafe_allow_html=True)
-        _zoomable_line_chart(
-            stored["target_curves"],
-            list(stored["target_curves"].columns),
-            _tr(language, "目标窗口扫描对比净值", "Target window sweep comparison equity"),
-            key="parameter_sweep_target_curves",
-            language=language,
-        )
-        _sweep_metric_line_chart(
-            stored["target_factor_curves"],
-            _tr(language, "目标窗口单参数扫描折线", "Target-window individual sweep lines"),
-            stored["sort_metric"],
-            language,
-            key="parameter_sweep_target_factor_lines",
-        )
-        return {
-            "sections": _parameter_pdf_sections(stored, language),
-            "charts": [
-                (_tr(language, "全区间扫描对比净值曲线", "Full-range sweep comparison equity"), stored["full_curves"], list(stored["full_curves"].columns)),
-                (_tr(language, "全区间单参数扫描折线", "Full-range individual sweep lines"), stored["full_factor_curves"], list(stored["full_factor_curves"].columns)),
-                (_tr(language, "目标窗口扫描对比净值曲线", "Target-window sweep comparison equity"), stored["target_curves"], list(stored["target_curves"].columns)),
-                (_tr(language, "目标窗口单参数扫描折线", "Target-window individual sweep lines"), stored["target_factor_curves"], list(stored["target_factor_curves"].columns)),
-            ],
-        }
-
-
-def _localized_recommendations(frame: pd.DataFrame, language: str) -> pd.DataFrame:
-    if language == "en":
-        return frame
-    localized = frame.copy()
-    direction = {
-        "increase": "上调",
-        "decrease": "下调",
-        "keep": "保持",
-    }
-    action = {
-        "keep current": "保持当前值",
-    }
-    localized["recommended_direction"] = localized["recommended_direction"].map(direction).fillna(
-        localized["recommended_direction"]
-    )
-    localized["recommended_action"] = localized["recommended_action"].map(action).fillna(
-        localized["recommended_action"]
-    )
-    return localized.rename(
-        columns={
-            "parameter": "参数",
-            "parameter_ui_name": "UI 命名",
-            "current_value": "当前值",
-            "recommended_value": "建议值",
-            "recommended_direction": "建议方向",
-            "recommended_action": "建议动作",
-            "sort_metric": "排序目标",
-            "best_total_return_pct": "最佳总收益(%)",
-            "baseline_delta_pct": "相对当前提升(百分点)",
-            "default_baseline_delta_pct": "相对默认配置提升(百分点)",
-            "preferred_value_min": "适合范围下限",
-            "preferred_value_max": "适合范围上限",
-        }
-    )
-
-
-def _localized_parameter_frame(frame: pd.DataFrame, language: str) -> pd.DataFrame:
-    if language == "en":
-        return frame
-    return frame.rename(
-        columns={
-            "mode": "模式",
-            "parameter": "参数",
-            "parameter_ui_name": "UI 命名",
-            "factor": "倍率",
-            "original_value": "原始值",
-            "tested_value": "测试值",
-            "total_return_pct": "总收益(%)",
-            "cagr_pct": "CAGR(%)",
-            "max_drawdown_pct": "最大回撤(%)",
-            "annual_volatility_pct": "年化波动(%)",
-            "sharpe_no_rf": "Sharpe",
-            "trades": "调仓次数",
-            "current_baseline_delta_pct": "相对当前提升(百分点)",
-            "default_baseline_delta_pct": "相对默认配置提升(百分点)",
-            "note": "备注",
-            "best_factor": "最佳倍率",
-            "best_value": "最佳值",
-            "best_total_return_pct": "最佳总收益(%)",
-            "preferred_factor_min": "适合倍率下限",
-            "preferred_factor_max": "适合倍率上限",
-            "preferred_value_min": "适合值下限",
-            "preferred_value_max": "适合值上限",
-        }
-    )
-
-
-def _with_parameter_ui_names(frame: pd.DataFrame, settings: dict[str, Any], language: str) -> pd.DataFrame:
-    if frame.empty or "parameter" not in frame.columns:
-        return frame
-    labelled = frame.copy()
-    names = labelled["parameter"].apply(lambda parameter: _parameter_ui_name(str(parameter), settings, language))
-    if "parameter_ui_name" in labelled.columns:
-        labelled["parameter_ui_name"] = names
-    else:
-        labelled.insert(min(1, len(labelled.columns)), "parameter_ui_name", names)
-    return labelled
-
-
-def _parameter_ui_name(parameter: str, settings: dict[str, Any], language: str) -> str:
-    labels = {
-        "trend.short_window": ("短期均线", "Short moving average"),
-        "trend.medium_window": ("中期均线", "Medium moving average"),
-        "trend.long_window": ("长期均线", "Long moving average"),
-        "trend.confirmation_days": ("连续确认天数", "Confirmation days"),
-        "trend.exposure.below_long": ("跌破长期均线仓位", "Below long MA exposure"),
-        "trend.exposure.above_long": ("站上长期均线仓位", "Above long MA exposure"),
-        "trend.exposure.medium_above_long": ("中期均线站上长期均线仓位", "Medium MA above long MA exposure"),
-        "trend.exposure.short_above_medium_above_long": ("短期/中期/长期均线多头排列仓位", "Short/medium/long MA bullish stack exposure"),
-        "position.max_exposure": ("最大等效仓位", "Maximum equivalent exposure"),
-        "position.rebalance_threshold": ("最小调仓阈值", "Minimum rebalance threshold"),
-        "all_parameters": ("全部参数统一调整", "All parameters scaled together"),
-    }
-    if parameter.startswith("vix.rules.") and parameter.endswith(".multiplier"):
-        label = _vix_rule_label(parameter, settings)
-        return _tr(language, f"{label} 系数", f"{label} multiplier")
-    zh, en = labels.get(parameter, (parameter, parameter))
-    return _tr(language, zh, en)
-
-
-def _vix_rule_label(parameter: str, settings: dict[str, Any]) -> str:
-    try:
-        index = int(parameter.split(".")[2])
-        return str(settings.get("vix", {}).get("rules", [])[index].get("label", f"rule {index + 1}"))
-    except (IndexError, ValueError, AttributeError):
-        return parameter
-
-
 def equity_columns_for_pdf(
     show_leveraged_buy_hold: bool,
     show_ma120_timing: bool,
@@ -2504,136 +1380,6 @@ def equity_columns_for_pdf(
 
 def _exposure_columns_for_timing(execution_timing: str) -> list[str]:
     return ["target_exposure", "actual_equivalent_exposure"]
-
-
-def _sweep_comparison_curves(
-    price: pd.Series,
-    vix: pd.Series,
-    settings: dict[str, Any],
-    default_settings: dict[str, Any],
-    individual: pd.DataFrame,
-    unified: pd.DataFrame,
-    *,
-    open_price: pd.Series | None,
-    result_start: str,
-) -> pd.DataFrame:
-    curves: dict[str, pd.Series] = {}
-    curves["current_config"] = run_backtest(
-        price, vix, settings, open_price=open_price, result_start=result_start
-    ).equity_curve["equity"]
-    curves["default_config"] = run_backtest(
-        price, vix, default_settings, open_price=open_price, result_start=result_start
-    ).equity_curve["equity"]
-    if not individual.empty:
-        row = individual.iloc[0]
-        candidate = build_parameter_sweep_candidate(
-            settings,
-            str(row["mode"]),
-            str(row["parameter"]),
-            float(row["factor"]),
-        )
-        curves["best_individual"] = run_backtest(
-            price, vix, candidate, open_price=open_price, result_start=result_start
-        ).equity_curve["equity"]
-    if not unified.empty:
-        row = unified.iloc[0]
-        candidate = build_parameter_sweep_candidate(
-            settings,
-            str(row["mode"]),
-            str(row["parameter"]),
-            float(row["factor"]),
-        )
-        curves["best_unified"] = run_backtest(
-            price, vix, candidate, open_price=open_price, result_start=result_start
-        ).equity_curve["equity"]
-    return pd.DataFrame(curves).dropna(how="all")
-
-
-def _sweep_factor_curves(frame: pd.DataFrame, metric: str, *, limit: int = 8) -> pd.DataFrame:
-    if frame.empty or metric not in frame.columns:
-        return pd.DataFrame()
-    label_column = "parameter_ui_name" if "parameter_ui_name" in frame.columns else "parameter"
-    top_parameters = (
-        frame.sort_values(metric, ascending=metric in {"annual_volatility_pct", "trades"})
-        ["parameter"]
-        .drop_duplicates()
-        .head(limit)
-        .tolist()
-    )
-    filtered = frame[frame["parameter"].isin(top_parameters)]
-    pivot = filtered.pivot_table(index="factor", columns=label_column, values=metric, aggfunc="first")
-    return pivot.sort_index()
-
-
-def _sweep_metric_line_chart(
-    frame: pd.DataFrame,
-    title: str,
-    metric: str,
-    language: str,
-    *,
-    key: str,
-) -> None:
-    if frame.empty:
-        st.info(_tr(language, "没有足够数据生成扫描折线。", "Not enough data to render sweep lines."))
-        return
-    chart_data = (
-        frame.reset_index()
-        .melt(id_vars="factor", var_name="parameter", value_name="value")
-        .dropna()
-    )
-    chart = (
-        alt.Chart(chart_data)
-        .mark_line(point=True, strokeCap="round")
-        .encode(
-            x=alt.X("factor:Q", title=_tr(language, "参数倍率", "Parameter factor")),
-            y=alt.Y("value:Q", title=metric),
-            color=alt.Color("parameter:N", title=_tr(language, "参数", "Parameter")),
-            tooltip=[
-                alt.Tooltip("factor:Q", title=_tr(language, "参数倍率", "Parameter factor"), format=".2f"),
-                alt.Tooltip("parameter:N", title=_tr(language, "参数", "Parameter")),
-                alt.Tooltip("value:Q", title=metric, format=",.2f"),
-            ],
-        )
-        .properties(title=title, height=320)
-        .interactive()
-    )
-    st.altair_chart(chart, use_container_width=True, key=key)
-
-
-def _parameter_pdf_sections(stored: dict[str, Any], language: str) -> list[tuple[str, list[tuple[str, str]]]]:
-    _, _, _, recommendations = stored["full"]
-    _, _, _, target_recommendations = stored["target"]
-    full_rows = [
-        (_tr(language, "扫描范围", "Sweep range"), "50% / 75% / 100% / 125% / 150%"),
-        (_tr(language, "排序目标", "Ranking objective"), str(stored["sort_label"])),
-    ]
-    full_rows.extend(_recommendation_rows_for_pdf(recommendations, language))
-    target_rows = [
-        (_tr(language, "目标日期", "Target date"), str(stored["target_date"])),
-        (_tr(language, "时间窗口", "Time window"), f"{stored['window_start']} ~ {stored['window_end']}"),
-        (_tr(language, "排序目标", "Ranking objective"), str(stored["sort_label"])),
-    ]
-    target_rows.extend(_recommendation_rows_for_pdf(target_recommendations, language))
-    return [
-        (_tr(language, "全区间参数扫描建议", "Full-Range Parameter Sweep Recommendations"), full_rows),
-        (_tr(language, "目标日期参数建议表", "Target-Date Parameter Recommendations"), target_rows),
-    ]
-
-
-def _recommendation_rows_for_pdf(frame: pd.DataFrame, language: str, *, limit: int = 8) -> list[tuple[str, str]]:
-    rows: list[tuple[str, str]] = []
-    for _, row in frame.head(limit).iterrows():
-        label = str(row.get("parameter", ""))
-        ui_name = str(row.get("parameter_ui_name", label))
-        value = (
-            f"{_tr(language, 'UI 命名', 'UI name')} {ui_name} | "
-            f"{_tr(language, '当前', 'current')} {row.get('current_value')} -> "
-            f"{_tr(language, '建议', 'recommended')} {row.get('recommended_value')} | "
-            f"{_tr(language, '相对当前', 'vs current')} {row.get('baseline_delta_pct', 0):.2f}pp | "
-            f"{_tr(language, '相对默认', 'vs default')} {row.get('default_baseline_delta_pct', 0):.2f}pp"
-        )
-        rows.append((label, value))
-    return rows
 
 
 def _execution_timing_labels(language: str) -> dict[str, str]:
@@ -3389,34 +2135,8 @@ def _cached_backtest(
     )
 
 
-@st.cache_data(ttl=3600)
-def _cached_parameter_sweep(
-    price: pd.Series,
-    vix: pd.Series,
-    settings: dict[str, Any],
-    *,
-    open_price: pd.Series | None,
-    result_start: str | None,
-    baseline_settings: dict | None = None,
-    sort_metric: str = "total_return_pct",
-):
-    return run_parameter_sweep(
-        price,
-        vix,
-        settings,
-        open_price=open_price,
-        result_start=result_start,
-        baseline_settings=baseline_settings,
-        sort_metric=sort_metric,
-    )
-
-
 def _option_index(options: list[str], value: str) -> int:
     return shared_option_index(options, value)
-
-
-def _inclusive_end(value: date) -> str:
-    return str(value + timedelta(days=1))
 
 
 def _portfolio_adjustment_section(
@@ -4092,10 +2812,6 @@ def _fingerprint(settings: dict[str, Any], extras: dict[str, str]) -> str:
 
 def _is_stale(session_key: str, settings: dict[str, Any], extras: dict[str, str]) -> bool:
     return shared_is_stale(session_key, settings, extras)
-
-
-def _model_settings(settings: dict[str, Any]) -> dict[str, Any]:
-    return shared_model_settings(settings)
 
 
 def _state_label(label: str, language: str) -> str:
