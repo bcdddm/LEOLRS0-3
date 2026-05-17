@@ -7,6 +7,9 @@ from typing import Any, Callable
 import streamlit as st
 import toml
 
+from trend_system.interfaces.streamlit.components import render_info_panel, render_section_head
+from trend_system.interfaces.streamlit.shared.session_state import SessionKeys
+
 
 @dataclass(frozen=True)
 class SettingsPageDeps:
@@ -41,40 +44,49 @@ def render_settings_page(
     st.subheader(tr(language, "当前设置", "Current Settings"))
     st.caption(f"{tr(language, '来源', 'Source')}: {Path(config_path).resolve()}")
 
-    st.markdown(
-        f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{tr(language, "个人偏好", "Preferences")}</span><span class="leo-section-rule"></span></div>',
-        unsafe_allow_html=True,
-    )
-    pref_cols = st.columns(3)
+    render_section_head(st, tr(language, "个人偏好", "Preferences"), tone="prussian")
+    pref_cols = st.columns(4)
     ui = settings.setdefault("ui", {})
     profile = settings.setdefault("profile", {})
+    current_theme = ui.get("theme", "dark")
     selected_language = pref_cols[0].selectbox(
         tr(language, "界面语言", "Interface language"),
         ["zh", "en"],
         index=deps.option_index(["zh", "en"], ui.get("language", "en")),
         format_func=lambda value: "中文" if value == "zh" else "English",
-        key="settings_ui_language",
+        key=SessionKeys.SETTINGS_UI_LANGUAGE,
     )
     timezones = ["Pacific/Auckland", "Australia/Sydney", "Asia/Shanghai", "America/New_York", "UTC"]
     selected_timezone = pref_cols[1].selectbox(
         tr(language, "居住地区", "Home region"),
         timezones,
         index=deps.option_index(timezones, profile.get("home_timezone", "Pacific/Auckland")),
-        key="settings_home_timezone",
+        key=SessionKeys.SETTINGS_HOME_TIMEZONE,
+    )
+    theme_options = ["dark", "light"]
+    selected_theme = pref_cols[2].selectbox(
+        tr(language, "界面主题", "Interface theme"),
+        theme_options,
+        index=deps.option_index(theme_options, ui.get("theme", "dark")),
+        format_func=lambda value: tr(language, "深色" if value == "dark" else "浅色", "Dark" if value == "dark" else "Light"),
+        key=SessionKeys.SETTINGS_UI_THEME,
     )
     currencies = ["NZD", "AUD", "USD", "CNY"]
-    selected_currency = pref_cols[2].selectbox(
+    selected_currency = pref_cols[3].selectbox(
         tr(language, "基础货币", "Base currency"),
         currencies,
         index=deps.option_index(currencies, profile.get("base_currency", "NZD")),
-        key="settings_base_currency",
+        key=SessionKeys.SETTINGS_BASE_CURRENCY,
     )
     ui["language"] = selected_language
+    ui["theme"] = selected_theme
     profile["home_timezone"] = selected_timezone
     profile["base_currency"] = selected_currency
-    st.session_state["ui_language"] = selected_language
-    st.session_state["home_timezone"] = selected_timezone
-    st.session_state["base_currency"] = selected_currency
+    st.session_state[SessionKeys.UI_LANGUAGE] = selected_language
+    st.session_state[SessionKeys.HOME_TIMEZONE] = selected_timezone
+    st.session_state[SessionKeys.BASE_CURRENCY] = selected_currency
+    if selected_theme != current_theme:
+        st.rerun()
     st.caption(
         tr(
             language,
@@ -130,10 +142,7 @@ def render_settings_page(
         and path.resolve() != Path(config_path).resolve()
     }
     if deletable:
-        st.markdown(
-            f'<div class="leo-section-head leo-section-head--red"><span class="leo-section-dot"></span><span class="leo-section-overline">{tr(language, "删除配置文件包", "Delete Profile")}</span><span class="leo-section-rule"></span></div>',
-            unsafe_allow_html=True,
-        )
+        render_section_head(st, tr(language, "删除配置文件包", "Delete Profile"), tone="red")
         del_cols = st.columns([3, 1])
         del_target_name = del_cols[0].selectbox(
             tr(language, "选择要删除的配置", "Select profile to delete"),
@@ -142,8 +151,8 @@ def render_settings_page(
             label_visibility="collapsed",
         )
         if del_cols[1].button(tr(language, "删除", "Delete"), use_container_width=True):
-            st.session_state["pending_delete"] = del_target_name
-        if st.session_state.get("pending_delete") == del_target_name:
+            st.session_state[SessionKeys.SETTINGS_PENDING_DELETE] = del_target_name
+        if st.session_state.get(SessionKeys.SETTINGS_PENDING_DELETE) == del_target_name:
             st.warning(
                 f"⚠️ {tr(language, '确认删除配置文件包', 'Confirm delete profile')}"
                 f" **{del_target_name}**？{tr(language, '此操作不可撤销。', 'This cannot be undone.')}"
@@ -158,7 +167,7 @@ def render_settings_page(
                 else:
                     rel = str(del_path.relative_to(deps.app_root))
                     ok, msg = deps.delete_config_github(rel)
-                    st.session_state.pop("pending_delete", None)
+                    st.session_state.pop(SessionKeys.SETTINGS_PENDING_DELETE, None)
                     if ok:
                         st.success(f"{tr(language, '已删除', 'Deleted')}: {del_target_name}。{msg}")
                     else:
@@ -168,15 +177,16 @@ def render_settings_page(
                         )
                     st.rerun()
             if confirm_cols[1].button(tr(language, "取消", "Cancel"), key="confirm_delete_no"):
-                st.session_state.pop("pending_delete", None)
+                st.session_state.pop(SessionKeys.SETTINGS_PENDING_DELETE, None)
                 st.rerun()
 
     st.json(settings, expanded=False)
-    st.info(tr(language, "保存前，当前修改只影响本次界面运行。", "Until saved, changes only affect the current app session."))
-    st.markdown(
-        f'<div class="leo-section-head leo-section-head--red"><span class="leo-section-dot"></span><span class="leo-section-overline">{tr(language, "GitHub 推送设置", "GitHub Push Settings")}</span><span class="leo-section-rule"></span></div>',
-        unsafe_allow_html=True,
+    render_info_panel(
+        st,
+        tr(language, "保存前，当前修改只影响本次界面运行。", "Until saved, changes only affect the current app session."),
+        title=tr(language, "保存说明", "Save Note"),
     )
+    render_section_head(st, tr(language, "GitHub 推送设置", "GitHub Push Settings"), tone="red")
     wf_config, wf_nz_time, wf_us_time = deps.read_workflow_push_config()
     push_config_options = {name: path for name, path in deps.config_options().items() if name != "自定义路径"}
     push_config_names = list(push_config_options.keys())
@@ -209,9 +219,10 @@ def render_settings_page(
             st.success(f"{tr(language, '已恢复为默认配置。', 'Restored to default config.')} {msg}")
         else:
             st.error(f"{tr(language, '恢复失败', 'Restore failed')}: {msg}")
-    st.markdown(
-        f'<div class="leo-section-head leo-section-head--green"><span class="leo-section-dot"></span><span class="leo-section-overline">{tr(language, "系统版本", "System Version")}</span><span class="leo-section-rule"></span></div>',
-        unsafe_allow_html=True,
+    render_section_head(st, tr(language, "系统版本", "System Version"), tone="green")
+    render_info_panel(
+        st,
+        f"v{deps.version}",
+        title=tr(language, "当前版本", "Current version"),
     )
-    st.metric(tr(language, "当前版本", "Current version"), f"v{deps.version}")
     deps.release_notes_renderer(language)

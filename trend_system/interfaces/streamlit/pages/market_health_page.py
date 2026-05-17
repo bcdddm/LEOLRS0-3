@@ -7,7 +7,9 @@ from typing import Any, Callable
 import pandas as pd
 import streamlit as st
 
+from trend_system.interfaces.streamlit.components import render_info_panel, render_section_head
 from trend_system.interfaces.streamlit.shared.preparing import render_preparing
+from trend_system.interfaces.streamlit.shared.session_state import SessionKeys
 from trend_system.models import HealthcheckRequest
 from trend_system.services.healthcheck_service import run_healthcheck
 
@@ -34,12 +36,14 @@ def render_market_health_page(
 ) -> None:
     tr = deps.tr
     st.subheader(tr(language, "市场健康度", "Market Health"))
-    st.caption(
+    render_info_panel(
+        st,
         tr(
             language,
             "这个页面把高杠杆是否可用拆成独立的市场健康度判断：只有趋势结构修复后，才允许系统重新进入进攻模式。",
             "This page separates leveraged exposure permission into a market-health check: the system only returns to offensive mode after the trend structure repairs.",
-        )
+        ),
+        title=tr(language, "市场健康度说明", "Market Health Note"),
     )
     cols = st.columns([1, 1, 1])
     start = cols[0].date_input(
@@ -54,7 +58,7 @@ def render_market_health_page(
         use_container_width=True,
     )
     primary = settings["signals"]["primary"]
-    should_prepare = run or "market_health_price" not in st.session_state
+    should_prepare = run or SessionKeys.MARKET_HEALTH_PRICE not in st.session_state
     if should_prepare:
         preparing = st.empty()
         render_preparing(
@@ -77,15 +81,15 @@ def render_market_health_page(
         except RuntimeError as exc:
             preparing.empty()
             st.error(f"{tr(language, '市场健康度计算失败。', 'Market health calculation failed.')}\n\n`{exc}`")
-            st.session_state.pop("market_health_price", None)
+            st.session_state.pop(SessionKeys.MARKET_HEALTH_PRICE, None)
             _market_health_strategy_notes(language, tr)
             return
-        st.session_state["market_health_price"] = result.price
-        st.session_state["market_health_symbol"] = result.symbol
-        st.session_state["market_health_display_start"] = start
+        st.session_state[SessionKeys.MARKET_HEALTH_PRICE] = result.price
+        st.session_state[SessionKeys.MARKET_HEALTH_SYMBOL] = result.symbol
+        st.session_state[SessionKeys.MARKET_HEALTH_DISPLAY_START] = start
         preparing.empty()
 
-    price = st.session_state["market_health_price"]
+    price = st.session_state[SessionKeys.MARKET_HEALTH_PRICE]
     ma120 = price.rolling(120, min_periods=1).mean()
     ma200 = price.rolling(200, min_periods=1).mean()
     latest_price = float(price.iloc[-1])
@@ -142,7 +146,7 @@ def render_market_health_page(
             )
         )
 
-    display_start = pd.Timestamp(st.session_state.get("market_health_display_start", start))
+    display_start = pd.Timestamp(st.session_state.get(SessionKeys.MARKET_HEALTH_DISPLAY_START, start))
     display_price = price.loc[price.index >= display_start]
     display_ma120 = ma120.loc[ma120.index >= display_start]
     display_ma200 = ma200.loc[ma200.index >= display_start]
@@ -165,14 +169,8 @@ def render_market_health_page(
 
 
 def _market_health_strategy_notes(language: str, tr: Callable[[str, str, str], str]) -> None:
-    st.markdown(
-        f'<div class="leo-section-head leo-section-head--prussian">'
-        f'<span class="leo-section-dot"></span>'
-        f'<span class="leo-section-overline">{tr(language, "操作纪律", "Operating Rules")}</span>'
-        f'<span class="leo-section-rule"></span></div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown("\n".join(_market_health_note_lines(language)))
+    render_section_head(st, tr(language, "操作纪律", "Operating Rules"), tone="prussian")
+    render_info_panel(st, _market_health_note_lines(language), title=tr(language, "操作记录", "Operating Log"))
 
 
 def _market_health_note_lines(language: str) -> list[str]:

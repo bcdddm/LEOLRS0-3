@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
-from html import escape
 from typing import Any, Callable
 
 import pandas as pd
 import streamlit as st
 
+from trend_system.interfaces.streamlit.components import render_section_head
 from trend_system.interfaces.streamlit.shared.preparing import render_preparing
+from trend_system.interfaces.streamlit.shared.session_state import SessionKeys
 from trend_system.models import DailySignalRequest
 from trend_system.services.daily_signal_service import run_daily_signal
 
@@ -34,28 +35,6 @@ class DailyPageDeps:
     required_symbols_from_raw: Callable[[dict[str, Any]], list[str]]
 
 
-def _render_side_badge_metric(
-    container: Any,
-    label: str,
-    value: str,
-    badge: str,
-    *,
-    tone: str = "green",
-) -> None:
-    container.markdown(
-        f"""
-<div class="leo-sidebadge-metric leo-sidebadge-metric--{escape(tone, quote=True)}">
-  <div class="leo-sidebadge-metric__label">{escape(label)}</div>
-  <div class="leo-sidebadge-metric__row">
-    <div class="leo-sidebadge-metric__value">{escape(value)}</div>
-    <div class="leo-sidebadge-metric__badge">{escape(badge)}</div>
-  </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-
 def render_daily_page(
     settings: dict[str, Any],
     language: str,
@@ -73,17 +52,17 @@ def render_daily_page(
     run = deps.aligned_button(ctrl_cols[1], tr(language, "更新今日信号", "Update daily signal"), type="primary", use_container_width=True)
     timeline_mode_labels = deps.daily_timeline_mode_labels(language)
     nz_label = tr(language, "NZ 盘末 / 美股开盘", "NZ close / US open")
-    if "daily_timeline_mode" not in st.session_state:
-        st.session_state["daily_timeline_mode"] = nz_label
+    if SessionKeys.DAILY_TIMELINE_MODE not in st.session_state:
+        st.session_state[SessionKeys.DAILY_TIMELINE_MODE] = nz_label
     selected_timeline_mode_label = ctrl_cols[2].selectbox(
         tr(language, "交易时间轴模式", "Timeline mode"),
         list(timeline_mode_labels.keys()),
-        key="daily_timeline_mode",
+        key=SessionKeys.DAILY_TIMELINE_MODE,
     )
     timeline_mode = timeline_mode_labels[selected_timeline_mode_label]
     settings.setdefault("backtest", {})["execution_timing"] = timeline_mode
 
-    should_prepare = run or "daily_result" not in st.session_state
+    should_prepare = run or SessionKeys.DAILY_RESULT not in st.session_state
     if should_prepare:
         preparing = st.empty()
         render_preparing(
@@ -110,19 +89,26 @@ def render_daily_page(
                 f"{tr(language, '信号计算失败，数据不足，请尝试将数据起始日期调早。', 'Signal calculation failed — not enough data. Try moving the data start date further back.')}"
                 f"\n\n`{exc}`"
             )
-            st.session_state.pop("daily_result", None)
+            st.session_state.pop(SessionKeys.DAILY_RESULT, None)
             deps.market_windows(settings, timeline_mode)
             return
         prices = deps.cached_prices(symbols, str(start), None, True)
-        st.session_state["daily_result"] = (result.signal, result.allocation)
-        st.session_state["daily_prices"] = prices
-        st.session_state["daily_fingerprint"] = deps.fingerprint(settings, {"start": str(start)})
+        st.session_state[SessionKeys.DAILY_RESULT] = (
+            result.signal,
+            result.allocation,
+            result.previous_signal,
+            result.previous_allocation,
+        )
+        st.session_state[SessionKeys.DAILY_PRICES] = prices
+        st.session_state[SessionKeys.DAILY_FINGERPRINT] = deps.fingerprint(settings, {"start": str(start)})
         preparing.empty()
 
-    if deps.is_stale("daily_fingerprint", settings, {"start": str(start)}):
+    if deps.is_stale(SessionKeys.DAILY_FINGERPRINT, settings, {"start": str(start)}):
         st.warning(tr(language, "数据已更改，请重新回测并刷新数据。", "Settings changed. Please refresh the data."))
 
-    signal, allocation = st.session_state["daily_result"]
+    daily_result = st.session_state[SessionKeys.DAILY_RESULT]
+    signal, allocation = daily_result[0], daily_result[1]
+    previous_signal = daily_result[2] if len(daily_result) > 2 else None
     ma_short_label, ma_medium_label, ma_long_label = deps.trend_ma_labels(settings)
     ma_summary_label = f"{ma_short_label} / {ma_medium_label} / {ma_long_label}"
     daily_rows = [
@@ -139,6 +125,7 @@ def render_daily_page(
     ]
     # Zone A — PDF button (right slot of command bar)
     with ctrl_cols[3]:
+        st.markdown('<div class="leo-control-spacer"></div>', unsafe_allow_html=True)
         deps.pdf_download_button(
             language,
             "PDF",
@@ -157,33 +144,36 @@ def render_daily_page(
         )
 
     # Zone B — Market State (full-width, 4 per row)
-    st.markdown(
-        f'<div class="leo-section-head leo-section-head--prussian">'
-        f'<span class="leo-section-dot"></span>'
-        f'<span class="leo-section-overline">{tr(language, "市场状态", "Market State")}</span>'
-        f'<span class="leo-section-rule"></span></div>',
-        unsafe_allow_html=True,
-    )
+    render_section_head(st, tr(language, "市场状态", "Market State"), tone="prussian")
+    signal_deltas = _daily_signal_deltas(signal, previous_signal, language, deps)
     sig_r1 = st.columns(4)
-    sig_r1[0].metric(tr(language, "SPY 收盘价", "SPY close"), f"{signal.price:,.2f}")
-    _render_side_badge_metric(
-        sig_r1[1],
+    sig_r1[0].metric(
+        tr(language, "SPY 收盘价", "SPY close"),
+        f"{signal.price:,.2f}",
+        signal_deltas["price"],
+    )
+    sig_r1[1].metric(
         tr(language, "趋势", "Trend"),
         deps.state_label(signal.trend_label, language),
-        f"{signal.trend_exposure:,.0f}%",
+        signal_deltas["trend"],
     )
-    _render_side_badge_metric(
-        sig_r1[2],
+    sig_r1[2].metric(
         "VIX",
         f"{signal.vix:.2f}",
-        deps.state_label(signal.vix_label, language),
+        signal_deltas["vix"],
+        delta_color="inverse",
     )
-    sig_r1[3].metric(tr(language, "VIX 系数", "VIX multiplier"), f"x{signal.vix_multiplier:.2f}")
+    sig_r1[3].metric(
+        tr(language, "VIX 系数", "VIX multiplier"),
+        f"x{signal.vix_multiplier:.2f}",
+        signal_deltas["vix_multiplier"],
+    )
+    st.markdown('<div class="leo-market-state-gap"></div>', unsafe_allow_html=True)
     sig_r2 = st.columns(4)
-    sig_r2[0].metric(tr(language, "目标等效仓位", "Target exposure"), f"{signal.target_exposure:,.0f}%")
-    sig_r2[1].metric(ma_short_label, f"{signal.ma_short:,.2f}")
-    sig_r2[2].metric(ma_medium_label, f"{signal.ma_medium:,.2f}")
-    sig_r2[3].metric(ma_long_label, f"{signal.ma_long:,.2f}")
+    sig_r2[0].metric(tr(language, "目标等效仓位", "Target exposure"), f"{signal.target_exposure:,.0f}%", signal_deltas["target_exposure"])
+    sig_r2[1].metric(ma_short_label, f"{signal.ma_short:,.2f}", signal_deltas["ma_short"])
+    sig_r2[2].metric(ma_medium_label, f"{signal.ma_medium:,.2f}", signal_deltas["ma_medium"])
+    sig_r2[3].metric(ma_long_label, f"{signal.ma_long:,.2f}", signal_deltas["ma_long"])
     if settings.get("position", {}).get("trend_quality_ma_cross_slow_decline_enabled", False) and signal.trend_quality_slow_decline:
         st.warning(
             tr(
@@ -194,13 +184,7 @@ def render_daily_page(
         )
 
     # Zone C — Execution Allocation (full-width, 4 per row)
-    st.markdown(
-        f'<div class="leo-section-head leo-section-head--green">'
-        f'<span class="leo-section-dot"></span>'
-        f'<span class="leo-section-overline">{tr(language, "执行仓位", "Execution Allocation")}</span>'
-        f'<span class="leo-section-rule"></span></div>',
-        unsafe_allow_html=True,
-    )
+    render_section_head(st, tr(language, "执行仓位", "Execution Allocation"), tone="green")
     alloc_row = st.columns(4)
     alloc_row[0].metric(allocation.core_asset, f"{allocation.core_percent:,.2f}%")
     alloc_row[1].metric(allocation.leveraged_asset or tr(language, "无杠杆", "No leverage"), f"{allocation.leveraged_percent:,.2f}%")
@@ -214,4 +198,54 @@ def render_daily_page(
 
     # Zone E — portfolio adjustment (collapsed by default)
     with st.expander(tr(language, "组合调整", "Portfolio Adjustment"), expanded=False):
-        deps.portfolio_adjustment_section(settings, allocation, st.session_state.get("daily_prices", {}), signal.date)
+        deps.portfolio_adjustment_section(settings, allocation, st.session_state.get(SessionKeys.DAILY_PRICES, {}), signal.date)
+
+
+def _daily_signal_deltas(signal: Any, previous_signal: Any | None, language: str, deps: DailyPageDeps) -> dict[str, str | None]:
+    if previous_signal is None:
+        return {
+            "price": None,
+            "trend": f"{signal.trend_exposure:,.0f}%",
+            "vix": deps.state_label(signal.vix_label, language),
+            "vix_multiplier": None,
+            "target_exposure": None,
+            "ma_short": None,
+            "ma_medium": None,
+            "ma_long": None,
+        }
+    trend_delta = _format_pp_delta(signal.trend_exposure - previous_signal.trend_exposure)
+    previous_trend = deps.state_label(previous_signal.trend_label, language)
+    current_trend = deps.state_label(signal.trend_label, language)
+    if previous_trend != current_trend:
+        trend_delta = f"{previous_trend} -> {current_trend} · {trend_delta}"
+    vix_delta = _format_abs_delta(signal.vix - previous_signal.vix, digits=2)
+    previous_vix = deps.state_label(previous_signal.vix_label, language)
+    current_vix = deps.state_label(signal.vix_label, language)
+    if previous_vix != current_vix:
+        vix_delta = f"{previous_vix} -> {current_vix} · {vix_delta}"
+    else:
+        vix_delta = f"{current_vix} · {vix_delta}"
+    return {
+        "price": _format_price_delta(signal.price, previous_signal.price),
+        "trend": trend_delta,
+        "vix": vix_delta,
+        "vix_multiplier": f"{_format_abs_delta(signal.vix_multiplier - previous_signal.vix_multiplier, digits=2)}x",
+        "target_exposure": _format_pp_delta(signal.target_exposure - previous_signal.target_exposure),
+        "ma_short": _format_abs_delta(signal.ma_short - previous_signal.ma_short, digits=2),
+        "ma_medium": _format_abs_delta(signal.ma_medium - previous_signal.ma_medium, digits=2),
+        "ma_long": _format_abs_delta(signal.ma_long - previous_signal.ma_long, digits=2),
+    }
+
+
+def _format_price_delta(current: float, previous: float) -> str:
+    absolute = current - previous
+    pct = (absolute / previous * 100.0) if previous else 0.0
+    return f"{absolute:+,.2f} ({pct:+.2f}%)"
+
+
+def _format_abs_delta(value: float, *, digits: int = 2) -> str:
+    return f"{value:+,.{digits}f}"
+
+
+def _format_pp_delta(value: float) -> str:
+    return f"{value:+,.0f} pp"
