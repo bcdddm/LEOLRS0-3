@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
+from pathlib import Path
 from typing import Callable
 
 import pandas as pd
@@ -10,17 +12,23 @@ import streamlit.components.v1 as components
 from trend_system.interfaces.streamlit.shared.preparing import render_preparing
 
 
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+
+
+@lru_cache(maxsize=1)
+def _chart_stylesheet() -> str:
+    return (ASSETS_DIR / "tradingview_chart.css").read_text(encoding="utf-8")
+
+
 def build_lightweight_chart_payload(
     frame: pd.DataFrame,
     columns: list[str],
     *,
     label_resolver: Callable[[str], str],
     line_styles: dict[str, str] | None = None,
-    color_overrides: dict[str, str] | None = None,
 ) -> list[dict[str, object]]:
     payload: list[dict[str, object]] = []
     styles = line_styles or {}
-    colors = color_overrides or {}
     for column in columns:
         if column not in frame.columns:
             continue
@@ -36,7 +44,6 @@ def build_lightweight_chart_payload(
                 "key": column,
                 "label": label_resolver(column),
                 "style": styles.get(column, "solid"),
-                "color": colors.get(column),
                 "points": points,
             }
         )
@@ -51,15 +58,12 @@ def render_lightweight_chart(
     key: str,
     label_resolver: Callable[[str], str],
     line_styles: dict[str, str] | None = None,
-    color_overrides: dict[str, str] | None = None,
 ) -> None:
-    forced_theme = st.session_state.get("ui_theme", "dark")
     series_payload = build_lightweight_chart_payload(
         frame,
         columns,
         label_resolver=label_resolver,
         line_styles=line_styles,
-        color_overrides=color_overrides,
     )
     if not series_payload:
         render_preparing(
@@ -85,67 +89,24 @@ def render_lightweight_chart(
   </div>
 </div>
 <style>
-  .tv-lightweight-chart-card {{
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    border-radius: 0;
-    padding: 12px 12px 10px;
-    background:
-      linear-gradient(180deg, rgba(15, 23, 42, 0.02), rgba(15, 23, 42, 0.00)),
-      rgba(255, 255, 255, 0.02);
-  }}
-  .tv-lightweight-chart-head {{
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: flex-start;
-    margin-bottom: 8px;
-  }}
-  .tv-lightweight-chart-title {{
-    font-size: 14px;
-    font-weight: 700;
-    color: inherit;
-  }}
-  .tv-lightweight-chart-legend {{
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 8px 12px;
-    font-size: 12px;
-  }}
-  .tv-lightweight-chart-legend-item {{
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: inherit;
-    opacity: 0.88;
-  }}
-  .tv-lightweight-chart-legend-swatch {{
-    width: 14px;
-    height: 3px;
-    border-radius: 0;
-    display: inline-block;
-  }}
-  .tv-lightweight-chart-wrap {{
-    width: 100%;
-    height: 380px;
-  }}
-  .tv-lightweight-chart {{
-    width: 100%;
-    height: 100%;
-  }}
-  .tv-lightweight-chart-foot {{
-    margin-top: 8px;
-    font-size: 11px;
-    opacity: 0.72;
-  }}
-  .tv-lightweight-chart-foot a {{
-    color: inherit;
-  }}
+  {_chart_stylesheet()}
 </style>
 <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 <script>
+  const parentTheme =
+    (() => {{
+      try {{
+        const parentDoc = window.parent?.document;
+        const explicitTheme = parentDoc?.documentElement?.getAttribute("data-theme");
+        if (explicitTheme === "dark" || explicitTheme === "light") return explicitTheme;
+        const parentInk = parentDoc ? getComputedStyle(parentDoc.documentElement).getPropertyValue("--leo-ink").trim() : "";
+        return parentInk.startsWith("rgba(244") ? "dark" : "light";
+      }} catch (error) {{
+        return "light";
+      }}
+    }})();
+  document.body.setAttribute("data-theme", parentTheme);
   const seriesPayload = {json.dumps(series_payload)};
-  const forcedTheme = {json.dumps(forced_theme)};
   const chartRoot = document.getElementById("{chart_id}");
   const legendRoot = document.getElementById("{chart_id}-legend");
   const lineStyleMap = {{
@@ -153,22 +114,7 @@ def render_lightweight_chart(
     dashed: "Dashed",
     dotted: "Dotted",
   }};
-  const palette = ["#1f6a53", "#12395b", "#9e2f2f", "#3f8a70", "#7a3d2f", "#4b6f92", "#8d6b2c", "#6b7280"];
-
-  function getTheme() {{
-    const isDark = forcedTheme === "dark";
-    return {{
-      isDark,
-      textColor: isDark ? "rgba(244, 240, 232, 0.94)" : "#111214",
-      mutedText: isDark ? "rgba(244, 240, 232, 0.74)" : "rgba(17, 18, 20, 0.76)",
-      gridColor: isDark ? "rgba(148, 163, 184, 0.16)" : "rgba(71, 85, 105, 0.16)",
-      borderColor: isDark ? "rgba(148, 163, 184, 0.20)" : "rgba(71, 85, 105, 0.18)",
-      crosshair: isDark ? "rgba(31, 106, 83, 0.34)" : "rgba(31, 106, 83, 0.26)",
-    }};
-  }}
-  const theme = getTheme();
-  chartRoot.style.color = theme.textColor;
-  legendRoot.style.color = theme.mutedText;
+  const palette = ["#2563eb", "#dc2626", "#059669", "#a855f7", "#ea580c", "#0891b2", "#9333ea", "#475569"];
 
   function createLegendItem(color, label) {{
     const item = document.createElement("div");
@@ -188,32 +134,36 @@ def render_lightweight_chart(
     return price.toLocaleString("en-US", {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }});
   }}
 
+  const chartTextColor = parentTheme === "dark" ? "rgba(244, 240, 232, 0.72)" : "#64748b";
+  const chartGridColor = parentTheme === "dark" ? "rgba(174, 143, 84, 0.12)" : "rgba(148, 163, 184, 0.16)";
+  const chartBorderColor = parentTheme === "dark" ? "rgba(174, 143, 84, 0.18)" : "rgba(148, 163, 184, 0.20)";
+
   const chart = LightweightCharts.createChart(chartRoot, {{
     autoSize: true,
     layout: {{
       background: {{ color: "transparent" }},
-      textColor: theme.textColor,
+      textColor: chartTextColor,
       attributionLogo: true,
     }},
     grid: {{
-      vertLines: {{ color: theme.gridColor }},
-      horzLines: {{ color: theme.gridColor }},
+      vertLines: {{ color: chartGridColor }},
+      horzLines: {{ color: chartGridColor }},
     }},
     rightPriceScale: {{
-      borderColor: theme.borderColor,
+      borderColor: chartBorderColor,
     }},
     timeScale: {{
-      borderColor: theme.borderColor,
+      borderColor: chartBorderColor,
       timeVisible: false,
       secondsVisible: false,
     }},
     crosshair: {{
       vertLine: {{
-        color: theme.crosshair,
+        color: "rgba(37, 99, 235, 0.25)",
         width: 1,
       }},
       horzLine: {{
-        color: theme.crosshair,
+        color: "rgba(37, 99, 235, 0.25)",
         width: 1,
       }},
     }},
@@ -236,7 +186,7 @@ def render_lightweight_chart(
 
   const allSeriesItems = [];
   seriesPayload.forEach((seriesConfig, index) => {{
-    const color = seriesConfig.color || palette[index % palette.length];
+    const color = palette[index % palette.length];
     const lineStyleName = lineStyleMap[seriesConfig.style] || "Solid";
     const series = addCompatibleLineSeries(chart, {{
       color,

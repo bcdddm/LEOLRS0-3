@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
-import re
+from types import SimpleNamespace
 
+from trend_system.interfaces.streamlit.shared import SessionKeys
 from trend_system.interfaces.streamlit.shared.release_notes import (
     release_notes_path,
     release_notes_text,
 )
-from trend_system.interfaces.streamlit.shared.cobe_globe import (
-    MARKET_REGION_SAMPLES,
-    build_cobe_globe_html,
-)
 from trend_system.interfaces.streamlit.shared.preparing import preparing_markup
+from trend_system.interfaces.streamlit.shared import session_state as session_state_module
 from trend_system.interfaces.streamlit.shared.state import fingerprint
+from trend_system.interfaces.streamlit.shared.theme import theme_override_text
 from trend_system.interfaces.streamlit.shared.text import option_index, tr
 
 
@@ -75,18 +73,67 @@ def test_fingerprint_ignores_chart_only_backtest_toggles():
     assert fingerprint(base, {"start": "2026-01-01"}) == fingerprint(changed, {"start": "2026-01-01"})
 
 
-def test_cobe_globe_uses_low_contrast_region_blocks():
-    markup = build_cobe_globe_html({"us", "asia"}, theme="dark", size=720)
-    config_match = re.search(r"const config = (\{.*?\});", markup, re.S)
+def test_session_keys_match_historical_streamlit_state_names():
+    assert SessionKeys.UI_LANGUAGE == "ui_language"
+    assert SessionKeys.UI_THEME == "ui_theme"
+    assert SessionKeys.HOME_TIMEZONE == "home_timezone"
+    assert SessionKeys.BASE_CURRENCY == "base_currency"
+    assert SessionKeys.HEADER_UI_LANGUAGE == "header_ui_language"
+    assert SessionKeys.HEADER_UI_THEME == "header_ui_theme"
+    assert SessionKeys.MOBILE_UI_LANGUAGE == "app_shell_mobile_language"
+    assert SessionKeys.MOBILE_UI_THEME == "app_shell_mobile_theme"
+    assert SessionKeys.SETTINGS_UI_LANGUAGE == "settings_ui_language"
+    assert SessionKeys.SETTINGS_UI_THEME == "settings_ui_theme"
+    assert SessionKeys.SETTINGS_HOME_TIMEZONE == "settings_home_timezone"
+    assert SessionKeys.SETTINGS_BASE_CURRENCY == "settings_base_currency"
+    assert SessionKeys.SHELL_ACTIVE_PAGE == "app_shell_active_page"
+    assert SessionKeys.SETTINGS_PENDING_DELETE == "settings_pending_delete"
+    assert SessionKeys.DAILY_TIMELINE_MODE == "daily_timeline_mode"
+    assert SessionKeys.DAILY_RESULT == "daily_result"
+    assert SessionKeys.DAILY_PRICES == "daily_prices"
+    assert SessionKeys.DAILY_FINGERPRINT == "daily_fingerprint"
+    assert SessionKeys.MARKET_HEALTH_PRICE == "market_health_price"
+    assert SessionKeys.MARKET_HEALTH_SYMBOL == "market_health_symbol"
+    assert SessionKeys.MARKET_HEALTH_DISPLAY_START == "market_health_display_start"
+    assert SessionKeys.BACKTEST_RESULT == "backtest_result"
+    assert SessionKeys.BACKTEST_FINGERPRINT == "backtest_fingerprint"
+    assert SessionKeys.EQUITY_CHART_RESET == "backtest_equity_chart_reset"
+    assert SessionKeys.EXPOSURE_CHART_RESET == "backtest_exposure_chart_reset"
+    assert SessionKeys.PARAMETER_SWEEP == "backtest_parameter_sweep"
+    assert SessionKeys.SWEEP_TARGET_DATE == "parameter_sweep_target_date"
+    assert SessionKeys.SWEEP_MONTHS_BEFORE == "parameter_sweep_months_before"
+    assert SessionKeys.SWEEP_MONTHS_AFTER == "parameter_sweep_months_after"
+    assert SessionKeys.SWEEP_SORT_METRIC == "parameter_sweep_sort_metric"
 
-    assert config_match
-    config = json.loads(config_match.group(1))
-    assert config["width"] == 1440
-    assert config["height"] == 1440
-    assert config["dark"] == 1
-    assert config["mapBrightness"] >= 1.0
-    assert config["diffuse"] >= 0.75
-    assert config["baseColor"][0] > 0.9
-    assert config["glowColor"][2] > 0.1
-    assert len(config["markers"]) == len(MARKET_REGION_SAMPLES["us"]) + len(MARKET_REGION_SAMPLES["asia"])
-    assert {marker["size"] for marker in config["markers"]} == {0.11}
+
+def test_migrate_legacy_keys_promotes_old_session_state_names(monkeypatch):
+    fake_state = {
+        "equity_chart_reset": 3,
+        "exposure_chart_reset": 5,
+        "parameter_sweep": {"status": "ready"},
+    }
+    monkeypatch.setattr(session_state_module, "st", SimpleNamespace(session_state=fake_state))
+
+    session_state_module.migrate_legacy_keys()
+
+    assert fake_state[SessionKeys.EQUITY_CHART_RESET] == 3
+    assert fake_state[SessionKeys.EXPOSURE_CHART_RESET] == 5
+    assert fake_state[SessionKeys.PARAMETER_SWEEP] == {"status": "ready"}
+    assert "equity_chart_reset" not in fake_state
+    assert "exposure_chart_reset" not in fake_state
+    assert "parameter_sweep" not in fake_state
+
+
+def test_theme_override_text_converts_data_theme_rules_to_root_overrides():
+    dark_css = theme_override_text("dark")
+    light_css = theme_override_text("light")
+
+    assert ":root" in dark_css
+    assert '[data-theme="dark"]' not in dark_css
+    assert "rgba(244, 240, 232, 0.92)" in dark_css
+    assert ":root" in light_css
+    assert '[data-theme="light"]' not in light_css
+    assert "#0A0C0D" in light_css
+    assert "--leo-surface-a:    rgba(230, 238, 246, 0.68);" in light_css
+    assert "--leo-page-bg:      #E6EEF6;" in light_css
+    assert "--leo-sidebar-bg:   #DCE7F1;" in light_css
