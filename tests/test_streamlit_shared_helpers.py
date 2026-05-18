@@ -80,6 +80,8 @@ def test_session_keys_match_historical_streamlit_state_names():
     assert SessionKeys.BASE_CURRENCY == "base_currency"
     assert SessionKeys.HEADER_UI_LANGUAGE == "header_ui_language"
     assert SessionKeys.HEADER_UI_THEME == "header_ui_theme"
+    assert SessionKeys.MOBILE_UI_LANGUAGE == "app_shell_mobile_language"
+    assert SessionKeys.MOBILE_UI_THEME == "app_shell_mobile_theme"
     assert SessionKeys.SETTINGS_UI_LANGUAGE == "settings_ui_language"
     assert SessionKeys.SETTINGS_UI_THEME == "settings_ui_theme"
     assert SessionKeys.SETTINGS_HOME_TIMEZONE == "settings_home_timezone"
@@ -132,6 +134,6 @@ def test_theme_override_text_converts_data_theme_rules_to_root_overrides():
     assert ":root" in light_css
     assert '[data-theme="light"]' not in light_css
     assert "#0A0C0D" in light_css
-    assert "--leo-surface-a:    rgba(244, 240, 232, 0.25);" in light_css
-    assert "--leo-page-bg:      #F5F1EB;" in light_css
-    assert "--leo-sidebar-bg:   rgba(244, 240, 232, 0.55);" in light_css
+    assert "--leo-surface-a:    rgba(230, 238, 246, 0.68);" in light_css
+    assert "--leo-page-bg:      #E6EEF6;" in light_css
+    assert "--leo-sidebar-bg:   #DCE7F1;" in light_css

@@ -27,6 +27,10 @@ class Settings:
     def price_field(self) -> str:
         return self.raw["signals"].get("price_field", "Close")
 
+    @property
+    def benchmark_symbol(self) -> str:
+        return self.raw.get("backtest", {}).get("benchmark_symbol", self.primary_symbol)
+
 
 def load_settings(path: str | Path) -> Settings:
     config_path = Path(path)

@@ -40,6 +40,27 @@
 .leo-section-head--red .leo-section-overline      { color: rgba(158, 47, 47, 0.80); }
 .leo-section-head--red                            { border-bottom-color: rgba(158, 47, 47, 0.18); }
 
+.leo-inline-kicker {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  margin: 0.55rem 0 0.45rem;
+  padding: 0.24rem 0.58rem;
+  border: 1px solid rgba(174, 143, 84, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--leo-ink-sub);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.leo-inline-kicker--green {
+  border-color: rgba(31, 106, 83, 0.34);
+  background: rgba(31, 106, 83, 0.12);
+  color: var(--leo-racing-green);
+}
+
 [data-testid="stHeading"] h3 {
   font-size: 0.66rem !important;
   font-weight: 700 !important;
@@ -139,6 +160,18 @@
 
 .leo-control-spacer {
   height: 1.75rem;
+}
+
+.leo-control-label {
+  min-height: 1.75rem;
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 0.24rem;
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--leo-ink-sub);
 }
 
 .leo-info-panel {
@@ -271,7 +304,7 @@
   font-size: 0.64rem !important;
   font-weight: 700 !important;
   letter-spacing: 0.06em !important;
-  color: var(--leo-racing-green) !important;
+  color: rgba(214, 198, 164, 0.95) !important;
   text-transform: uppercase !important;
 }
 

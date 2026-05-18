@@ -219,7 +219,12 @@ def render_backtest_page(
     metric_cols[5].metric(tr(language, "策略 Calmar", "Strategy Calmar"), f"{_strat_calmar:.2f}")
 
     benchmark_symbol = settings["signals"]["primary"]
-    render_section_head(st, f"{tr(language, '买入并持有基准', 'Buy-and-hold benchmark')}: {benchmark_symbol}", tone="green")
+    st.markdown(
+        f'<div class="leo-inline-kicker leo-inline-kicker--green">'
+        f'{tr(language, "买入并持有基准", "Buy-and-hold benchmark")}: {benchmark_symbol}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
     _bh_cagr = metrics.get("buy_hold_cagr_pct", 0)
     _bh_dd   = metrics.get("buy_hold_max_drawdown_pct", 0)
     _bh_calmar = abs(_bh_cagr / _bh_dd) if _bh_dd else 0.0

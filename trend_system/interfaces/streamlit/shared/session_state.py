@@ -13,6 +13,8 @@ class SessionKeys:
 
     HEADER_UI_LANGUAGE = "header_ui_language"
     HEADER_UI_THEME = "header_ui_theme"
+    MOBILE_UI_LANGUAGE = "app_shell_mobile_language"
+    MOBILE_UI_THEME = "app_shell_mobile_theme"
     SETTINGS_UI_LANGUAGE = "settings_ui_language"
     SETTINGS_UI_THEME = "settings_ui_theme"
     SETTINGS_HOME_TIMEZONE = "settings_home_timezone"

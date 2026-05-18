@@ -5,6 +5,7 @@ base_currency = "NZD"
 
 [ui]
 language = "en"
+theme = "dark"
 
 [signals]
 primary = "SPY"
@@ -154,6 +155,7 @@ clear_leverage_when_vix_at_or_above = 40.0
 
 [backtest]
 start = "2010-01-01"
+benchmark_symbol = "SPY"
 initial_capital = 1000000.0
 weekly_contribution = 0.0
 annual_cash_return = 0.0

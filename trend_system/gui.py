@@ -11,6 +11,7 @@ from typing import Any
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import toml
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -77,6 +78,7 @@ from trend_system.interfaces.streamlit.shared import (
     tr as shared_tr,
     ui_language as shared_ui_language,
 )
+from trend_system.interfaces.streamlit.shared.cobe_globe import build_cobe_globe_html
 from trend_system.portfolio import build_allocation
 from trend_system.services.backtest_service import run_backtest_use_case
 from trend_system.services.daily_signal_service import run_daily_signal
@@ -123,14 +125,30 @@ def _as_settings(settings: dict[str, Any]) -> Settings:
 def _apply_session_preferences(settings: dict[str, Any]) -> None:
     ui = settings.setdefault("ui", {})
     profile = settings.setdefault("profile", {})
+
+    def _theme_value(value: Any) -> str:
+        text = str(value).lower()
+        return text if text in {"dark", "light"} else "dark"
+
+    def _language_value(value: Any) -> str:
+        if value == "EN":
+            return "en"
+        if value == "中文":
+            return "zh"
+        return str(value) if str(value) in {"en", "zh"} else "zh"
+
     if SessionKeys.SETTINGS_UI_LANGUAGE in st.session_state:
-        st.session_state[SessionKeys.UI_LANGUAGE] = st.session_state[SessionKeys.SETTINGS_UI_LANGUAGE]
+        st.session_state[SessionKeys.UI_LANGUAGE] = _language_value(st.session_state[SessionKeys.SETTINGS_UI_LANGUAGE])
     if SessionKeys.HEADER_UI_LANGUAGE in st.session_state:
-        st.session_state[SessionKeys.UI_LANGUAGE] = "en" if st.session_state[SessionKeys.HEADER_UI_LANGUAGE] == "EN" else "zh"
+        st.session_state[SessionKeys.UI_LANGUAGE] = _language_value(st.session_state[SessionKeys.HEADER_UI_LANGUAGE])
+    if SessionKeys.MOBILE_UI_LANGUAGE in st.session_state:
+        st.session_state[SessionKeys.UI_LANGUAGE] = _language_value(st.session_state[SessionKeys.MOBILE_UI_LANGUAGE])
     if SessionKeys.SETTINGS_UI_THEME in st.session_state:
-        st.session_state[SessionKeys.UI_THEME] = st.session_state[SessionKeys.SETTINGS_UI_THEME]
+        st.session_state[SessionKeys.UI_THEME] = _theme_value(st.session_state[SessionKeys.SETTINGS_UI_THEME])
     if SessionKeys.HEADER_UI_THEME in st.session_state:
-        st.session_state[SessionKeys.UI_THEME] = st.session_state[SessionKeys.HEADER_UI_THEME]
+        st.session_state[SessionKeys.UI_THEME] = _theme_value(st.session_state[SessionKeys.HEADER_UI_THEME])
+    if SessionKeys.MOBILE_UI_THEME in st.session_state:
+        st.session_state[SessionKeys.UI_THEME] = _theme_value(st.session_state[SessionKeys.MOBILE_UI_THEME])
     if SessionKeys.SETTINGS_HOME_TIMEZONE in st.session_state:
         st.session_state[SessionKeys.HOME_TIMEZONE] = st.session_state[SessionKeys.SETTINGS_HOME_TIMEZONE]
     if SessionKeys.SETTINGS_BASE_CURRENCY in st.session_state:
@@ -172,6 +190,7 @@ def main() -> None:
     working_settings = _settings_sidebar(working_settings, config_path)
     language = _ui_language(working_settings)
     language = _render_shell_header(working_settings, language)
+    _render_global_cobe_globe_background(working_settings)
 
     render_app_shell(
         settings=working_settings,
@@ -185,7 +204,8 @@ def main() -> None:
 
 
 def _render_shell_header(settings: dict[str, Any], language: str) -> str:
-    title_cols = st.columns([5, 1.15])
+    theme = shared_resolve_theme(settings)
+    title_cols = st.columns([5, 1.0, 1.15])
     title_cols[0].markdown(
         f"""
 <div class="shell-title-band">
@@ -196,11 +216,20 @@ def _render_shell_header(settings: dict[str, Any], language: str) -> str:
 """,
         unsafe_allow_html=True,
     )
-    current = "EN" if language == "en" else "中文"
-    selected = title_cols[1].segmented_control(
+    selected_theme_label = title_cols[1].segmented_control(
+        _tr(language, "界面主题", "Interface theme"),
+        ["Dark", "Light"],
+        default="Dark" if theme == "dark" else "Light",
+        key=SessionKeys.HEADER_UI_THEME,
+        label_visibility="collapsed",
+        width="content",
+    )
+    selected_theme = "dark" if selected_theme_label == "Dark" else "light"
+    current_language = "EN" if language == "en" else "中文"
+    selected = title_cols[2].segmented_control(
         _tr(language, "界面语言", "Interface language"),
         ["EN", "中文"],
-        default=current,
+        default=current_language,
         key=SessionKeys.HEADER_UI_LANGUAGE,
         label_visibility="collapsed",
         width="content",
@@ -209,8 +238,93 @@ def _render_shell_header(settings: dict[str, Any], language: str) -> str:
     if resolved != language:
         st.session_state[SessionKeys.UI_LANGUAGE] = resolved
         settings.setdefault("ui", {})["language"] = resolved
-        st.rerun()
+    if selected_theme != theme:
+        st.session_state[SessionKeys.UI_THEME] = selected_theme
+        settings.setdefault("ui", {})["theme"] = selected_theme
     return resolved
+
+
+def _active_background_markets(settings: dict[str, Any]) -> set[str]:
+    now = pd.Timestamp.now(tz=settings["profile"]["home_timezone"]).to_pydatetime()
+    active: set[str] = set()
+    for market in ("us", "asx", "nzx"):
+        local_open, local_close = _relevant_local_window(settings, market, now)
+        if local_open <= now <= local_close:
+            active.add(market)
+    return active
+
+
+def _render_global_cobe_globe_background(settings: dict[str, Any]) -> None:
+    theme = shared_resolve_theme(settings)
+    active_markets = _active_background_markets(settings)
+    globe_size = 980
+    top = "52%" if theme == "dark" else "54%"
+    right = "clamp(-360px, -11vw, -140px)" if theme == "dark" else "clamp(-340px, -10vw, -120px)"
+    opacity = "0.58" if theme == "dark" else "0.42"
+    st.markdown(
+        f"""
+<style>
+.stApp {{
+  isolation: isolate;
+}}
+[data-testid="stSidebar"] > div:first-child {{
+  height: 100vh !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}}
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"],
+.main .block-container,
+[data-testid="stSidebar"] {{
+  position: relative;
+  z-index: 2;
+}}
+[class*="st-key-global_cobe_globe_bg"] {{
+  position: fixed;
+  top: {top};
+  right: {right};
+  transform: translateY(-50%);
+  width: {globe_size}px;
+  height: {globe_size}px;
+  z-index: 0;
+  opacity: {opacity};
+  pointer-events: none;
+  overflow: visible;
+}}
+[class*="st-key-global_cobe_globe_bg"] iframe {{
+  background: transparent !important;
+  border: 0 !important;
+  pointer-events: none;
+  width: {globe_size}px !important;
+  height: {globe_size}px !important;
+}}
+@media (max-width: 900px) {{
+  [class*="st-key-global_cobe_globe_bg"] {{
+    top: 60%;
+    right: -440px;
+    width: {globe_size}px;
+    height: {globe_size}px;
+    opacity: {"0.42" if theme == "dark" else "0.28"};
+  }}
+}}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+    try:
+        with st.container(key="global_cobe_globe_bg"):
+            components.html(
+                build_cobe_globe_html(active_markets, theme=theme, size=globe_size),
+                height=globe_size,
+                scrolling=False,
+            )
+    except Exception:
+        pass
+
+
+def _normalize_trend_windows(short: int, medium: int, long: int) -> tuple[int, int, int]:
+    ordered = sorted((int(short), int(medium), int(long)))
+    return ordered[0], ordered[1], ordered[2]
 
 
 def _render_sidebar_console_intro(settings: dict[str, Any], language: str) -> None:
@@ -338,31 +452,32 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             summary=_tr(language, "先定义趋势感应器与简单门控，再决定后面的主仓位引擎如何解释它们。", "Define the trend sensors and simple gate first, then let the main position engine interpret them."),
         )
         st.subheader(_tr(language, "趋势信号", "Trend Signal"))
-        trend["short_window"] = st.slider(
+        ma_cols = st.columns(3)
+        short_window = ma_cols[0].slider(
             _tr(language, "短期均线", "Short moving average"),
             5,
             100,
             int(trend["short_window"]),
-            1,
             key=f"{key_prefix}_trend_short_window",
         )
-        st.caption(_tr(language, "反映短期动能。数值越小越敏感，越容易提前加仓或减仓。", "Tracks short-term momentum. Smaller values react faster."))
-        trend["medium_window"] = st.slider(
+        medium_window = ma_cols[1].slider(
             _tr(language, "中期均线", "Medium moving average"),
             10,
             150,
             int(trend["medium_window"]),
-            1,
             key=f"{key_prefix}_trend_medium_window",
         )
-        st.caption(_tr(language, "反映中期趋势。数值越大越稳，但信号会更慢。", "Tracks medium-term trend. Larger values are steadier but slower."))
-        trend["long_window"] = st.slider(
+        long_window = ma_cols[2].slider(
             _tr(language, "长期均线", "Long moving average"),
             50,
             300,
             int(trend["long_window"]),
-            1,
             key=f"{key_prefix}_trend_long_window",
+        )
+        trend["short_window"], trend["medium_window"], trend["long_window"] = _normalize_trend_windows(
+            short_window,
+            medium_window,
+            long_window,
         )
         st.caption(_tr(language, "判断牛熊环境的主过滤器。越长越保守，越短越容易频繁切换。", "Main bull/bear environment filter. Longer is more conservative."))
         trend["confirmation_days"] = st.slider(
@@ -1361,6 +1476,35 @@ def _release_notes_path(language: str = "zh") -> Path:
         changelog_path=CHANGELOG_PATH,
         changelog_en_path=CHANGELOG_EN_PATH,
     )
+
+
+def _parameter_ui_name(parameter: str, settings: dict[str, Any], language: str) -> str:
+    labels = {
+        "trend.short_window": ("短期均线", "Short moving average"),
+        "trend.medium_window": ("中期均线", "Medium moving average"),
+        "trend.long_window": ("长期均线", "Long moving average"),
+        "trend.confirmation_days": ("连续确认天数", "Confirmation days"),
+        "trend.exposure.below_long": ("跌破长期均线仓位", "Below long MA exposure"),
+        "trend.exposure.above_long": ("站上长期均线仓位", "Above long MA exposure"),
+        "trend.exposure.medium_above_long": ("中期均线站上长期均线仓位", "Medium MA above long MA exposure"),
+        "trend.exposure.short_above_medium_above_long": ("短期/中期/长期均线多头排列仓位", "Short/medium/long MA bullish stack exposure"),
+        "position.max_exposure": ("最大等效仓位", "Maximum equivalent exposure"),
+        "position.rebalance_threshold": ("最小调仓阈值", "Minimum rebalance threshold"),
+        "all_parameters": ("全部参数统一调整", "All parameters scaled together"),
+    }
+    if parameter.startswith("vix.rules.") and parameter.endswith(".multiplier"):
+        label = _vix_rule_label(parameter, settings)
+        return _tr(language, f"{label} 系数", f"{label} multiplier")
+    zh, en = labels.get(parameter, (parameter, parameter))
+    return _tr(language, zh, en)
+
+
+def _vix_rule_label(parameter: str, settings: dict[str, Any]) -> str:
+    try:
+        index = int(parameter.split(".")[2])
+        return str(settings.get("vix", {}).get("rules", [])[index].get("label", f"rule {index + 1}"))
+    except (IndexError, ValueError, AttributeError):
+        return parameter
 
 
 def equity_columns_for_pdf(

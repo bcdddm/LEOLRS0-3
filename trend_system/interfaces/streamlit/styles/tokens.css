@@ -1,6 +1,6 @@
 :root {
-  --leo-page-bg:      #F5F1EB;
-  --leo-sidebar-bg:   rgba(244, 240, 232, 0.55);
+  --leo-page-bg:      #E6EEF6;
+  --leo-sidebar-bg:   #DCE7F1;
   --leo-ink:          #111214;
   --leo-ink-sub:      rgba(17, 18, 20, 0.78);
   --leo-kicker:       rgba(18, 57, 91, 0.85);
@@ -27,9 +27,9 @@
   --leo-sw-shadow:    rgba(26, 29, 31, 0.10);
   --leo-sw-text:      rgba(17, 18, 20, 0.72);
   --leo-sw-text-on:   #111214;
-  --leo-bead-en:      rgba(18, 57, 91, 0.92);
+  --leo-bead-en:      rgba(31, 106, 83, 0.92);
   --leo-bead-en-txt:  #F4F0E8;
-  --leo-bead-zh:      rgba(158, 47, 47, 0.92);
+  --leo-bead-zh:      rgba(31, 106, 83, 0.92);
   --leo-bead-zh-txt:  #F4F0E8;
   /* ── Metallic input border tokens (dark BRG × aged gold) ───────────── */
   /* BRG = #004225 = rgb(0,66,37) — deep olive green, zero blue component  */
@@ -38,13 +38,13 @@
 }
 
 [data-theme="light"] {
-  --leo-page-bg:      #F5F1EB;
-  --leo-sidebar-bg:   rgba(244, 240, 232, 0.55);
+  --leo-page-bg:      #E6EEF6;
+  --leo-sidebar-bg:   #DCE7F1;
   --leo-ink:          #0A0C0D;
   --leo-ink-sub:      rgba(10, 12, 13, 0.82);
   --leo-kicker:       rgb(18, 57, 91);
-  --leo-surface-a:    rgba(244, 240, 232, 0.25);
-  --leo-surface-b:    rgba(255, 255, 255, 0.10);
+  --leo-surface-a:    rgba(230, 238, 246, 0.68);
+  --leo-surface-b:    rgba(255, 255, 255, 0.26);
   --leo-surface-chip: rgba(255, 255, 255, 0.14);
   --leo-surface-rim:  rgba(174, 143, 84, 0.22);
   --leo-surface-top:  rgba(255, 255, 255, 0.17);

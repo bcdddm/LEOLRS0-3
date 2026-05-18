@@ -6,3 +6,5 @@ outputs/
 *.egg-info/
 .DS_Store
 build/
+.claude/
+tmp_ui/

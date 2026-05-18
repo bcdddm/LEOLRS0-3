@@ -21,8 +21,10 @@ from trend_system.interfaces.streamlit.shared.tradingview_chart import (
     build_lightweight_chart_payload,
     render_lightweight_chart,
 )
+from trend_system.interfaces.streamlit.shared.cobe_globe import build_cobe_globe_html
 
 __all__ = [
+    "build_cobe_globe_html",
     "build_lightweight_chart_payload",
     "fingerprint",
     "get_value",

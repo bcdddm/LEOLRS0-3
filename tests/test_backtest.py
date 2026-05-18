@@ -66,6 +66,61 @@ def test_backtest_includes_buy_and_hold_benchmark():
     assert result.equity_curve["leveraged_buy_hold_equity"].iloc[-1] > result.equity_curve["buy_hold_equity"].iloc[-1]
 
 
+def test_backtest_can_use_custom_benchmark_series_for_benchmark_and_ma120_curves():
+    dates = pd.bdate_range("2020-01-01", periods=260)
+    price = pd.Series(200.0, index=dates)
+    benchmark_price = pd.Series(list(range(100, 360)), index=dates, dtype=float)
+    vix = pd.Series(16.0, index=dates)
+    settings = {
+        "trend": {
+            "short_window": 20,
+            "medium_window": 50,
+            "long_window": 200,
+            "confirmation_days": 1,
+            "exposure": {
+                "below_long": 0.0,
+                "above_long": 50.0,
+                "medium_above_long": 80.0,
+                "short_above_medium_above_long": 100.0,
+            },
+        },
+        "position": {
+            "min_exposure": 0.0,
+            "max_exposure": 300.0,
+            "rebalance_threshold": 0.0,
+        },
+        "vix": {
+            "rules": [
+                {"label": "low", "max_exclusive": 20.0, "multiplier": 1.2},
+                {"label": "normal", "min_inclusive": 20.0, "max_exclusive": 30.0, "multiplier": 1.0},
+            ]
+        },
+        "execution": {
+            "core_asset": "VOO",
+            "asx_core_asset": "IVV.AX",
+            "default_market": "us",
+            "defensive_asset": "SGOV",
+            "leveraged_asset": "SPXL",
+            "leverage_multiple": 3.0,
+            "allow_leverage": True,
+            "leverage_only_when_vix_below": 20.0,
+            "clear_leverage_when_vix_at_or_above": 30.0,
+        },
+        "backtest": {
+            "initial_capital": 100000.0,
+            "annual_cash_return": 0.0,
+            "annual_leveraged_fee": 0.0,
+            "signal_effective_next_day": True,
+            "benchmark_symbol": "QQQ",
+        },
+    }
+
+    result = run_backtest(price, vix, settings, benchmark_price=benchmark_price)
+
+    assert result.equity_curve["buy_hold_equity"].iloc[-1] > result.equity_curve["equity"].iloc[-1]
+    assert result.equity_curve["ma120_timing_equity"].iloc[-1] > result.equity_curve["equity"].iloc[-1]
+
+
 def test_backtest_includes_leveraged_ma120_timing_hold_curve():
     dates = pd.to_datetime(
         ["2026-01-01", "2026-01-02", "2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08"]

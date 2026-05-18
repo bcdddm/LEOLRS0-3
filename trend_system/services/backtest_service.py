@@ -22,7 +22,7 @@ def run_backtest_use_case(
 ) -> BacktestUseCaseResult:
     settings = request.settings
     data_start = history_start_date(request.start, settings.raw)
-    symbols = [settings.primary_symbol, settings.vix_symbol]
+    symbols = [settings.primary_symbol, settings.vix_symbol, settings.benchmark_symbol]
     leveraged_symbol = settings.raw["execution"]["leveraged_asset"]
     if request.use_actual_leveraged_returns:
         symbols.append(leveraged_symbol)
@@ -44,6 +44,7 @@ def run_backtest_use_case(
         _price_series(prices[settings.primary_symbol], price_field),
         _price_series(prices[settings.vix_symbol], price_field),
         _model_settings(settings.raw),
+        benchmark_price=_price_series(prices[settings.benchmark_symbol], price_field),
         open_price=open_price,
         leveraged_price=leveraged_price,
         leveraged_open_price=leveraged_open_price,

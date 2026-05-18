@@ -19,6 +19,7 @@ from trend_system.gui import (
     _exposure_columns_for_timing,
     _format_duration,
     _market_segments,
+    _normalize_trend_windows,
     _parameter_ui_name,
     _pdf_filename,
     _price_series,
@@ -124,6 +125,10 @@ def test_trend_ma_labels_follow_configured_windows():
     settings = {"trend": {"short_window": 10, "medium_window": 40, "long_window": 120}}
 
     assert _trend_ma_labels(settings) == ("MA10", "MA40", "MA120")
+
+
+def test_normalize_trend_windows_orders_values_from_small_to_large():
+    assert _normalize_trend_windows(120, 20, 50) == (20, 50, 120)
 
 
 def test_timeline_bounds_expand_to_include_next_trade_deadline():

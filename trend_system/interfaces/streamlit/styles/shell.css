@@ -27,7 +27,7 @@
 div[data-testid="stSegmentedControl"] > div {
   background:      var(--leo-sw-bg) !important;
   border:          1px solid var(--leo-sw-rim) !important;
-  border-radius:   999px !important;
+  border-radius:   0 !important;
   padding:         3px !important;
   box-shadow:
     inset 0 1px 0 var(--leo-sw-inner),
@@ -37,7 +37,7 @@ div[data-testid="stSegmentedControl"] > div {
 }
 
 div[data-testid="stSegmentedControl"] button {
-  border-radius:   999px !important;
+  border-radius:   0 !important;
   border:          none !important;
   background:      transparent !important;
   color:           var(--leo-sw-text) !important;
@@ -66,7 +66,7 @@ div[data-testid="stSegmentedControl"] button:nth-child(2)[aria-selected="true"] 
   color:      var(--leo-bead-zh-txt) !important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.08),
-    0 1px 3px rgba(158,47,47,0.22) !important;
+    0 1px 3px rgba(31,106,83,0.22) !important;
 }
 
 div[data-testid="stSegmentedControl"] button:not([aria-pressed="true"]):not([aria-selected="true"]):hover {
@@ -256,6 +256,48 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin: 0.25rem 0 1rem;
+}
+
+[class*="st-key-app_shell_mobile_row"] {
+  display: none;
+}
+
+[class*="st-key-app_shell_mobile_row"] [data-testid="stPopover"] > button,
+[class*="st-key-app_shell_mobile_row"] [data-testid="baseButton-secondary"] {
+  border-radius: 0 !important;
+  border: 1px solid rgba(174, 143, 84, 0.30) !important;
+  background: rgba(244, 240, 232, 0.10) !important;
+  color: var(--leo-ink) !important;
+  font-weight: 700 !important;
+  min-width: 2.9rem;
+  height: 2.55rem;
+}
+
+@media (max-width: 640px) {
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) {
+    display: none !important;
+  }
+  [class*="st-key-app_shell_mobile_row"] {
+    display: block !important;
+    margin: 0.1rem 0 0.75rem;
+  }
+  [class*="st-key-app_shell_mobile_row"] [data-testid="stHorizontalBlock"] {
+    display: grid !important;
+    grid-template-columns: minmax(2.75rem, 0.78fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.45rem;
+    align-items: center;
+  }
+  [class*="st-key-app_shell_mobile_row"] [data-testid="stColumn"] {
+    min-width: 0 !important;
+  }
+  [class*="st-key-header_theme_control"],
+  [class*="st-key-header_language_control"] {
+    display: none !important;
+  }
+  [data-testid="stSidebar"] {
+    position: fixed !important;
+    z-index: 1000 !important;
+  }
 }
 
 [data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stColumn"] {

@@ -10,7 +10,7 @@ import streamlit as st
 from trend_system.interfaces.streamlit.components import render_section_head
 from trend_system.interfaces.streamlit.shared.preparing import render_preparing
 from trend_system.interfaces.streamlit.shared.session_state import SessionKeys
-from trend_system.models import DailySignalRequest
+from trend_system.models import DailySignalRequest, DailySignalResult
 from trend_system.services.daily_signal_service import run_daily_signal
 
 
@@ -43,12 +43,13 @@ def render_daily_page(
 ) -> None:
     tr = deps.tr
     # Zone A — command bar
-    ctrl_cols = st.columns([2, 1.2, 2, 0.8])
+    ctrl_cols = st.columns(4, vertical_alignment="bottom")
     start = ctrl_cols[0].date_input(
         tr(language, "数据起始日期", "Data start date"),
         value=date.today() - timedelta(days=420),
         key="daily_start",
     )
+    _render_control_label(ctrl_cols[1], tr(language, "更新", "Update"))
     run = deps.aligned_button(ctrl_cols[1], tr(language, "更新今日信号", "Update daily signal"), type="primary", use_container_width=True)
     timeline_mode_labels = deps.daily_timeline_mode_labels(language)
     nz_label = tr(language, "NZ 盘末 / 美股开盘", "NZ close / US open")
@@ -125,7 +126,7 @@ def render_daily_page(
     ]
     # Zone A — PDF button (right slot of command bar)
     with ctrl_cols[3]:
-        st.markdown('<div class="leo-control-spacer"></div>', unsafe_allow_html=True)
+        _render_control_label(st, "PDF")
         deps.pdf_download_button(
             language,
             "PDF",
@@ -199,6 +200,59 @@ def render_daily_page(
     # Zone E — portfolio adjustment (collapsed by default)
     with st.expander(tr(language, "组合调整", "Portfolio Adjustment"), expanded=False):
         deps.portfolio_adjustment_section(settings, allocation, st.session_state.get(SessionKeys.DAILY_PRICES, {}), signal.date)
+
+
+def _render_control_label(container: Any, label: str) -> None:
+    container.markdown(f'<div class="leo-control-label">{label}</div>', unsafe_allow_html=True)
+
+
+def _delta_text(
+    language: str,
+    current: float,
+    previous: float | None,
+    *,
+    decimals: int = 2,
+    prefix: str = "",
+    suffix: str = "",
+) -> str:
+    if previous is None:
+        return ""
+    change = current - previous
+    return (
+        f"{'较昨' if language == 'zh' else 'vs prev'} "
+        f"{prefix}{change:+,.{decimals}f}{suffix}"
+    )
+
+
+def _state_delta_text(
+    language: str,
+    current_label: str,
+    previous_label: str | None,
+    current_detail: str,
+    previous_detail: str | None,
+) -> str:
+    if previous_label is None:
+        return ""
+    previous_text = previous_label
+    if previous_detail:
+        previous_text = f"{previous_text} | {previous_detail}"
+    if current_label == previous_label and current_detail == (previous_detail or ""):
+        return "和昨天相同" if language == "zh" else "Same as previous day"
+    return f"{'昨' if language == 'zh' else 'Prev'}: {previous_text}"
+
+
+def _coerce_daily_result(raw_result: Any) -> tuple[Any, Any, Any | None, Any | None]:
+    if isinstance(raw_result, DailySignalResult):
+        return (
+            raw_result.signal,
+            raw_result.allocation,
+            raw_result.previous_signal,
+            raw_result.previous_allocation,
+        )
+    signal, allocation = raw_result[:2]
+    previous_signal = raw_result[2] if len(raw_result) > 2 else None
+    previous_allocation = raw_result[3] if len(raw_result) > 3 else None
+    return signal, allocation, previous_signal, previous_allocation
 
 
 def _daily_signal_deltas(signal: Any, previous_signal: Any | None, language: str, deps: DailyPageDeps) -> dict[str, str | None]:
