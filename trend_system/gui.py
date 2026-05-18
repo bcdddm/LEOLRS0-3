@@ -139,16 +139,12 @@ def _apply_session_preferences(settings: dict[str, Any]) -> None:
 
     if SessionKeys.SETTINGS_UI_LANGUAGE in st.session_state:
         st.session_state[SessionKeys.UI_LANGUAGE] = _language_value(st.session_state[SessionKeys.SETTINGS_UI_LANGUAGE])
-    if SessionKeys.HEADER_UI_LANGUAGE in st.session_state:
-        st.session_state[SessionKeys.UI_LANGUAGE] = _language_value(st.session_state[SessionKeys.HEADER_UI_LANGUAGE])
+    if SessionKeys.SHELL_UI_LANGUAGE in st.session_state:
+        st.session_state[SessionKeys.UI_LANGUAGE] = _language_value(st.session_state[SessionKeys.SHELL_UI_LANGUAGE])
     if SessionKeys.MOBILE_UI_LANGUAGE in st.session_state:
         st.session_state[SessionKeys.UI_LANGUAGE] = _language_value(st.session_state[SessionKeys.MOBILE_UI_LANGUAGE])
     if SessionKeys.SETTINGS_UI_THEME in st.session_state:
         st.session_state[SessionKeys.UI_THEME] = _theme_value(st.session_state[SessionKeys.SETTINGS_UI_THEME])
-    if SessionKeys.HEADER_UI_THEME in st.session_state:
-        st.session_state[SessionKeys.UI_THEME] = _theme_value(st.session_state[SessionKeys.HEADER_UI_THEME])
-    if SessionKeys.MOBILE_UI_THEME in st.session_state:
-        st.session_state[SessionKeys.UI_THEME] = _theme_value(st.session_state[SessionKeys.MOBILE_UI_THEME])
     if SessionKeys.SETTINGS_HOME_TIMEZONE in st.session_state:
         st.session_state[SessionKeys.HOME_TIMEZONE] = st.session_state[SessionKeys.SETTINGS_HOME_TIMEZONE]
     if SessionKeys.SETTINGS_BASE_CURRENCY in st.session_state:
@@ -167,7 +163,7 @@ def main() -> None:
     st.set_page_config(
         page_title="LEOLRS0-3",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="collapsed",
     )
     shared_migrate_legacy_keys()
     config_options = _config_options()
@@ -189,7 +185,7 @@ def main() -> None:
     shared_inject_styles(resolved_theme)
     working_settings = _settings_sidebar(working_settings, config_path)
     language = _ui_language(working_settings)
-    language = _render_shell_header(working_settings, language)
+    _render_shell_header(working_settings, language)
     _render_global_cobe_globe_background(working_settings)
 
     render_app_shell(
@@ -203,46 +199,26 @@ def main() -> None:
     )
 
 
-def _render_shell_header(settings: dict[str, Any], language: str) -> str:
-    theme = shared_resolve_theme(settings)
-    title_cols = st.columns([5, 1.0, 1.15])
+def _render_shell_header(settings: dict[str, Any], language: str) -> None:
+    current_language_label = "EN" if language == "en" else "中文"
+    st.session_state[SessionKeys.SHELL_UI_LANGUAGE] = current_language_label
+    title_cols = st.columns([1, 0.42], vertical_alignment="center")
     title_cols[0].markdown(
         f"""
 <div class="shell-title-band">
-  <div class="shell-kicker">LEOLRS0-3</div>
   <div class="shell-title">LEOLRS0-3</div>
-  <div class="shell-subtitle">{html.escape(_tr(language, "新西兰时区默认 · 日线级别 · 风险控制优先", "New Zealand time zone defaults · Daily signals · Risk control first"))}</div>
 </div>
 """,
         unsafe_allow_html=True,
     )
-    selected_theme_label = title_cols[1].segmented_control(
-        _tr(language, "界面主题", "Interface theme"),
-        ["Dark", "Light"],
-        default="Dark" if theme == "dark" else "Light",
-        key=SessionKeys.HEADER_UI_THEME,
-        label_visibility="collapsed",
-        width="content",
-    )
-    selected_theme = "dark" if selected_theme_label == "Dark" else "light"
-    current_language = "EN" if language == "en" else "中文"
-    selected = title_cols[2].segmented_control(
-        _tr(language, "界面语言", "Interface language"),
+    title_cols[1].segmented_control(
+        "Language",
         ["EN", "中文"],
-        default=current_language,
-        key=SessionKeys.HEADER_UI_LANGUAGE,
+        default=current_language_label,
+        key=SessionKeys.SHELL_UI_LANGUAGE,
         label_visibility="collapsed",
-        width="content",
+        width="stretch",
     )
-    resolved = "en" if selected == "EN" else "zh"
-    if resolved != language:
-        st.session_state[SessionKeys.UI_LANGUAGE] = resolved
-        settings.setdefault("ui", {})["language"] = resolved
-    if selected_theme != theme:
-        st.session_state[SessionKeys.UI_THEME] = selected_theme
-        settings.setdefault("ui", {})["theme"] = selected_theme
-    return resolved
-
 
 def _active_background_markets(settings: dict[str, Any]) -> set[str]:
     now = pd.Timestamp.now(tz=settings["profile"]["home_timezone"]).to_pydatetime()
@@ -532,28 +508,39 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             help=_tr(language, "收盘价须超出两条均线此百分比才触发。默认 2%。", "Close must exceed both MAs by this percentage to trigger. Default is 2%."),
             key=f"{key_prefix}_simple_module_threshold_pct",
         )
-        position["simple_module_off_exposure"] = st.slider(
-            _tr(language, "条件不满足时的目标仓位 (%)", "Off-state target exposure (%)"),
-            0.0,
-            300.0,
-            min(float(position.get("simple_module_off_exposure", 0.0)), 300.0),
-            5.0,
-            help=_tr(
-                language,
-                "简单模块条件不满足时（价格未超过均线阈值）使用的目标仓位。",
-                "Target exposure when simple module conditions are not met (price not above MA threshold).",
-            ),
-            key=f"{key_prefix}_simple_module_off_exposure",
-        )
+        simple_off_default = min(float(position.get("simple_module_off_exposure", 0.0)), 300.0)
         if _simple_on and not _composite_on:
-            position["simple_module_on_exposure"] = st.slider(
-                _tr(language, "条件满足时的目标仓位 (%)", "On-state target exposure (%)"),
+            simple_on_default = min(float(position.get("simple_module_on_exposure", 300.0)), 300.0)
+            simple_range = st.slider(
+                _tr(language, "简单模块目标仓位范围 (%)", "Simple module exposure range (%)"),
                 0.0,
                 300.0,
-                min(float(position.get("simple_module_on_exposure", 300.0)), 300.0),
+                (
+                    min(simple_off_default, simple_on_default),
+                    max(simple_off_default, simple_on_default),
+                ),
                 5.0,
-                help=_tr(language, "仅简单模块模式：触发条件时的目标仓位。默认 300%。", "Simple-only mode: target exposure when conditions are met. Default is 300%."),
-                key=f"{key_prefix}_simple_module_on_exposure",
+                help=_tr(
+                    language,
+                    "双滑块分别表示简单模块条件不满足时与满足时的目标仓位。",
+                    "The two thumbs represent target exposure when the simple module is off and on.",
+                ),
+                key=f"{key_prefix}_simple_module_exposure_range",
+            )
+            position["simple_module_off_exposure"], position["simple_module_on_exposure"] = simple_range
+        else:
+            position["simple_module_off_exposure"] = st.slider(
+                _tr(language, "条件不满足时的目标仓位 (%)", "Off-state target exposure (%)"),
+                0.0,
+                300.0,
+                simple_off_default,
+                5.0,
+                help=_tr(
+                    language,
+                    "简单模块条件不满足时（价格未超过均线阈值）使用的目标仓位。",
+                    "Target exposure when simple module conditions are not met (price not above MA threshold).",
+                ),
+                key=f"{key_prefix}_simple_module_off_exposure",
             )
         st.caption(
             _tr(
@@ -608,32 +595,32 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             ),
             chips=[_tr(language, "Floor", "Floor"), _tr(language, "Cap", "Cap"), _tr(language, "Trigger", "Trigger")],
         )
-        position["min_exposure"] = st.slider(
-            _tr(language, "最小等效仓位", "Minimum equivalent exposure"),
+        exposure_range = st.slider(
+            _tr(language, "等效仓位范围", "Equivalent exposure range"),
             0.0,
             300.0,
-            min(float(position.get("min_exposure", 0.0)), 300.0),
+            (
+                min(float(position.get("min_exposure", 0.0)), 300.0),
+                max(
+                    min(float(position.get("min_exposure", 0.0)), 300.0),
+                    min(float(position.get("max_exposure", 300.0)), 300.0),
+                ),
+            ),
             5.0,
             help=_tr(
                 language,
-                "目标等效仓位不会低于这个下限。设为 0% 表示允许完全空仓或只持有防御资产。",
-                "Target equivalent exposure will not fall below this floor. Set 0% to allow fully defensive positioning.",
+                "双滑块分别表示最小等效仓位和最大等效仓位。",
+                "The two thumbs represent the minimum and maximum equivalent exposure.",
             ),
+            key=f"{key_prefix}_base_exposure_range",
         )
+        position["min_exposure"], position["max_exposure"] = exposure_range
         st.caption(
             _tr(
                 language,
                 "这是仓位下限，不是目标仓位。实际目标 = 趋势仓位 × VIX 系数，再受这个下限保护。",
                 "This is a floor, not the target. Target = trend exposure x VIX multiplier, floored here.",
             )
-        )
-        position["max_exposure"] = st.slider(
-            _tr(language, "最大等效仓位", "Maximum equivalent exposure"),
-            max(50.0, float(position["min_exposure"])),
-            300.0,
-            max(float(position["min_exposure"]), min(float(position["max_exposure"]), 300.0)),
-            5.0,
-            help=_tr(language, "300% 约等于 100% 资金买入 3x ETF。120% 约等于 90% 核心资产 + 10% 3x ETF。", "300% is roughly 100% in a 3x ETF. 120% is roughly 90% core plus 10% in a 3x ETF."),
         )
         st.caption(_tr(language, "这是仓位上限，不是目标仓位。实际目标 = 趋势仓位 × VIX 系数，再受这个上限限制。", "This is a cap, not the target. Target = trend exposure x VIX multiplier, capped here."))
         position["rebalance_threshold"] = st.slider(
@@ -1857,11 +1844,17 @@ def _parallel_market_trade_timeline(
 .timeline-countdown-grid {{
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
-  margin: 10px 0 2px;
+  gap: 12px;
+  margin: 12px 0 4px;
+}}
+.timeline-countdown-sections {{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 12px 0 4px;
 }}
 .timeline-countdown-section {{
-  margin: 10px 0 2px;
+  margin: 0;
 }}
 .timeline-countdown-section-title {{
   font-size: 11px;
@@ -1869,7 +1862,7 @@ def _parallel_market_trade_timeline(
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--leo-kicker);
-  margin: 0 0 6px;
+  margin: 0 0 8px;
 }}
 .timeline-countdown-card {{
   border: 2px solid var(--leo-surface-rim);
@@ -1877,7 +1870,7 @@ def _parallel_market_trade_timeline(
   clip-path: polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
              100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
              0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
   box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 10px var(--leo-metal-glow);
   color: var(--leo-ink);
@@ -1950,7 +1943,8 @@ def _parallel_market_trade_timeline(
     margin-top: 26px;
   }}
   .trade-action-list,
-  .timeline-countdown-grid {{
+  .timeline-countdown-grid,
+  .timeline-countdown-sections {{
     grid-template-columns: 1fr;
   }}
 }}
@@ -2167,7 +2161,7 @@ def _timeline_countdowns(
             action_cards,
         ))
     if sections:
-        st.markdown("".join(sections), unsafe_allow_html=True)
+        st.markdown(f'<div class="timeline-countdown-sections">{"".join(sections)}</div>', unsafe_allow_html=True)
 
 
 def _countdown_section_html(title: str, cards: list[str]) -> str:

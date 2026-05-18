@@ -8,7 +8,7 @@
 }
 
 .leo-section-overline {
-  font-size: 0.66rem;
+  font-size: 0.70rem;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -49,7 +49,7 @@
   border: 1px solid rgba(174, 143, 84, 0.24);
   background: rgba(255, 255, 255, 0.08);
   color: var(--leo-ink-sub);
-  font-size: 0.64rem;
+  font-size: 0.70rem;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -62,7 +62,7 @@
 }
 
 [data-testid="stHeading"] h3 {
-  font-size: 0.66rem !important;
+  font-size: 0.70rem !important;
   font-weight: 700 !important;
   letter-spacing: 0.16em !important;
   text-transform: uppercase !important;
@@ -95,7 +95,7 @@
 }
 
 [data-testid="stMetricLabel"] > div {
-  font-size: 0.64rem !important;
+  font-size: 0.70rem !important;
   letter-spacing: 0.10em !important;
   text-transform: uppercase !important;
   color: var(--leo-ink-sub) !important;
@@ -154,6 +154,109 @@
   color: rgba(244, 240, 232, 0.86) !important;
 }
 
+.leo-comparison-card {
+  min-height: 7.25rem;
+  padding: 0.7rem 0.85rem 0.72rem;
+  background: linear-gradient(
+    145deg,
+    var(--leo-surface-a) 0%,
+    var(--leo-surface-b) 55%,
+    rgba(174, 143, 84, 0.025) 100%
+  );
+  border: 2px solid var(--leo-surface-rim);
+  box-shadow:
+    inset 0 1px 0 var(--leo-surface-top),
+    inset 1px 0 0 rgba(255,255,255,0.09),
+    inset 0 -1px 0 var(--leo-surface-bot),
+    0 1px 3px rgba(26,29,31,0.07),
+    0 0 14px var(--leo-metal-glow);
+  backdrop-filter: blur(8px);
+}
+
+.leo-comparison-card--better {
+  background:
+    radial-gradient(circle at 86% 18%, rgba(92, 210, 150, 0.10), transparent 28%),
+    linear-gradient(145deg, rgba(8, 42, 25, 0.22), var(--leo-surface-b) 42%, var(--leo-surface-a) 100%);
+  border-color: rgba(31, 106, 83, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 -1px 0 var(--leo-surface-bot),
+    0 0 18px rgba(31,106,83,0.10);
+}
+
+.leo-comparison-card--worse {
+  background:
+    radial-gradient(circle at 86% 18%, rgba(188, 84, 84, 0.10), transparent 28%),
+    linear-gradient(145deg, rgba(62, 22, 22, 0.18), var(--leo-surface-b) 42%, var(--leo-surface-a) 100%);
+  border-color: rgba(158, 47, 47, 0.26);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 -1px 0 var(--leo-surface-bot),
+    0 0 18px rgba(158,47,47,0.08);
+}
+
+.leo-comparison-card__label {
+  font-size: 0.70rem;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--leo-ink-sub);
+}
+
+.leo-comparison-card__label::before {
+  content: "▪";
+  font-size: 0.52rem;
+  color: rgba(174, 143, 84, 0.80);
+  margin-right: 0.28rem;
+  vertical-align: middle;
+}
+
+.leo-comparison-card__strategy {
+  margin-top: 0.55rem;
+}
+
+.leo-comparison-card__benchmark {
+  margin-top: 0.62rem;
+  padding-top: 0.48rem;
+  border-top: 1px solid rgba(18, 57, 91, 0.26);
+}
+
+.leo-comparison-card__meta {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: rgba(244, 240, 232, 0.58);
+}
+
+.leo-comparison-card__meta--benchmark {
+  color: rgba(116, 168, 224, 0.82);
+}
+
+.leo-comparison-card__value {
+  margin-top: 0.12rem;
+  font-size: 1.38rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: rgba(244, 240, 232, 0.96);
+  font-variant-numeric: tabular-nums;
+}
+
+.leo-comparison-card__value--benchmark {
+  color: rgba(136, 184, 238, 0.94);
+}
+
+[data-theme="dark"] .leo-comparison-card--better {
+  background:
+    radial-gradient(circle at 86% 18%, rgba(112, 228, 170, 0.10), transparent 28%),
+    linear-gradient(145deg, rgba(8, 42, 25, 0.24), var(--leo-surface-b) 42%, var(--leo-surface-a) 100%);
+}
+
+[data-theme="dark"] .leo-comparison-card--worse {
+  background:
+    radial-gradient(circle at 86% 18%, rgba(205, 96, 96, 0.10), transparent 28%),
+    linear-gradient(145deg, rgba(62, 22, 22, 0.20), var(--leo-surface-b) 42%, var(--leo-surface-a) 100%);
+}
+
 .leo-market-state-gap {
   min-height: 0.55rem;
 }
@@ -167,7 +270,7 @@
   display: flex;
   align-items: flex-end;
   padding-bottom: 0.24rem;
-  font-size: 0.63rem;
+  font-size: 0.70rem;
   font-weight: 700;
   letter-spacing: 0.11em;
   text-transform: uppercase;
@@ -367,6 +470,68 @@
 
 [data-theme="dark"] [data-testid="stStatusWidget"] * {
   color: rgba(244, 240, 232, 0.92) !important;
+}
+
+div[data-testid="stSegmentedControl"] > div {
+  border-color: var(--leo-border-interactive) !important;
+}
+
+div[data-testid="stSegmentedControl"] button:nth-child(1)[aria-pressed="true"],
+div[data-testid="stSegmentedControl"] button:nth-child(1)[aria-selected="true"],
+div[data-testid="stSegmentedControl"] button:nth-child(2)[aria-pressed="true"],
+div[data-testid="stSegmentedControl"] button:nth-child(2)[aria-selected="true"] {
+  outline: 1px solid var(--leo-border-interactive-strong) !important;
+  outline-offset: -1px !important;
+}
+
+div[data-testid="stSegmentedControl"] button:not([aria-pressed="true"]):not([aria-selected="true"]):hover {
+  box-shadow: inset 0 0 0 1px rgba(158, 47, 47, 0.30) !important;
+}
+
+div[data-testid="stSegmentedControl"] button:focus-visible {
+  outline: 1.5px solid var(--leo-border-interactive-strong) !important;
+}
+
+[data-testid="stButton"] > button,
+[data-testid="stDownloadButton"] button {
+  border-color: var(--leo-border-info) !important;
+}
+
+[data-testid="stButton"] > button:hover,
+[data-testid="stDownloadButton"] button:hover {
+  border-color: var(--leo-border-info-strong) !important;
+}
+
+[data-testid="stButton"] > button[kind="primary"] {
+  border-color: var(--leo-border-action) !important;
+}
+
+[data-testid="stButton"] > button[kind="primary"]:hover,
+[data-testid="stButton"] > button[kind="primary"]:focus-visible {
+  border-color: var(--leo-border-action-strong) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 0 0 1px rgba(0, 66, 37, 0.22),
+    0 0 16px rgba(0, 66, 37, 0.14) !important;
+}
+
+[data-testid="stButton"] > button:disabled,
+[data-testid="stDownloadButton"] button:disabled {
+  border-color: rgba(174, 143, 84, 0.20) !important;
+  color: rgba(127, 127, 127, 0.78) !important;
+  box-shadow: none !important;
+  opacity: 0.72 !important;
+}
+
+[data-baseweb="input"]:focus-within,
+[data-baseweb="base-input"]:focus-within,
+[data-baseweb="select"]:focus-within > div[data-baseweb="control"],
+[data-testid="stTextArea"] textarea:focus,
+[data-testid="stDateInput"]:focus-within [data-baseweb="input"] {
+  box-shadow:
+    0 0 0 1px rgba(0, 66, 37, 0.20),
+    0 0 0 2px rgba(0, 80, 45, 0.12),
+    0 0 16px rgba(0, 66, 37, 0.10) !important;
 }
 
 .strategy-console-intro,

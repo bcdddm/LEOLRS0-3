@@ -41,18 +41,19 @@ def render_settings_page(
 ) -> None:
     language = deps.ui_language(settings)
     tr = deps.tr
+    current_session_language = st.session_state.get(SessionKeys.UI_LANGUAGE, settings.get("ui", {}).get("language", "en"))
+    current_session_theme = st.session_state.get(SessionKeys.UI_THEME, settings.get("ui", {}).get("theme", "dark"))
     st.subheader(tr(language, "当前设置", "Current Settings"))
     st.caption(f"{tr(language, '来源', 'Source')}: {Path(config_path).resolve()}")
 
     render_section_head(st, tr(language, "个人偏好", "Preferences"), tone="prussian")
-    pref_cols = st.columns(4)
     ui = settings.setdefault("ui", {})
     profile = settings.setdefault("profile", {})
-    current_theme = ui.get("theme", "dark")
+    pref_cols = st.columns(4)
     selected_language = pref_cols[0].selectbox(
         tr(language, "界面语言", "Interface language"),
         ["zh", "en"],
-        index=deps.option_index(["zh", "en"], ui.get("language", "en")),
+        index=deps.option_index(["zh", "en"], current_session_language),
         format_func=lambda value: "中文" if value == "zh" else "English",
         key=SessionKeys.SETTINGS_UI_LANGUAGE,
     )
@@ -67,7 +68,7 @@ def render_settings_page(
     selected_theme = pref_cols[2].selectbox(
         tr(language, "界面主题", "Interface theme"),
         theme_options,
-        index=deps.option_index(theme_options, ui.get("theme", "dark")),
+        index=deps.option_index(theme_options, current_session_theme),
         format_func=lambda value: tr(language, "深色" if value == "dark" else "浅色", "Dark" if value == "dark" else "Light"),
         key=SessionKeys.SETTINGS_UI_THEME,
     )
@@ -83,10 +84,13 @@ def render_settings_page(
     profile["home_timezone"] = selected_timezone
     profile["base_currency"] = selected_currency
     st.session_state[SessionKeys.UI_LANGUAGE] = selected_language
+    st.session_state[SessionKeys.UI_THEME] = selected_theme
     st.session_state[SessionKeys.HOME_TIMEZONE] = selected_timezone
     st.session_state[SessionKeys.BASE_CURRENCY] = selected_currency
-    if selected_theme != current_theme:
-        st.rerun()
+    should_refresh_ui = (
+        selected_language != current_session_language
+        or selected_theme != current_session_theme
+    )
     st.caption(
         tr(
             language,
@@ -94,8 +98,10 @@ def render_settings_page(
             "These preferences affect the current session immediately; save current settings to write them to the config file.",
         )
     )
+    if should_refresh_ui:
+        st.rerun()
 
-    save_cols = st.columns([1, 1, 2])
+    save_cols = st.columns(4)
     if deps.aligned_button(save_cols[0], tr(language, "保存当前设置", "Save current settings"), type="primary", use_container_width=True):
         try:
             deps.save_config(Path(config_path), settings)
@@ -143,7 +149,7 @@ def render_settings_page(
     }
     if deletable:
         render_section_head(st, tr(language, "删除配置文件包", "Delete Profile"), tone="red")
-        del_cols = st.columns([3, 1])
+        del_cols = st.columns(4)
         del_target_name = del_cols[0].selectbox(
             tr(language, "选择要删除的配置", "Select profile to delete"),
             list(deletable.keys()),
@@ -194,7 +200,7 @@ def render_settings_page(
         (name for name, path in push_config_options.items() if str(path.relative_to(deps.app_root)) == wf_config),
         push_config_names[0],
     )
-    push_cols = st.columns([2, 1, 1])
+    push_cols = st.columns(4)
     push_selected_name = push_cols[0].selectbox(
         tr(language, "推送配置", "Push config"),
         push_config_names,
@@ -204,8 +210,7 @@ def render_settings_page(
     push_nz_time = push_cols[1].text_input(tr(language, "NZ 推送时间", "NZ push time"), value=wf_nz_time, placeholder="15:45", key="push_nz_time")
     push_us_time = push_cols[2].text_input(tr(language, "US 推送时间", "US push time"), value=wf_us_time, placeholder="15:00", key="push_us_time")
     st.caption(tr(language, "时间格式 HH:MM（本地时间）。NZ 时间对应 Pacific/Auckland，US 时间对应 America/New_York。", "Format HH:MM (local time). NZ uses Pacific/Auckland, US uses America/New_York."))
-    push_action_cols = st.columns([1, 1, 2])
-    if push_action_cols[0].button(tr(language, "保存推送设置", "Save push settings"), type="primary", use_container_width=True):
+    if push_cols[3].button(tr(language, "保存推送设置", "Save push settings"), type="primary", use_container_width=True):
         selected_path = push_config_options[push_selected_name]
         rel = str(selected_path.relative_to(deps.app_root)) if push_selected_name != "默认配置" else deps.default_push_config
         ok, msg = deps.update_workflow_github(rel, push_nz_time.strip(), push_us_time.strip())
@@ -213,7 +218,8 @@ def render_settings_page(
             st.success(f"{tr(language, '推送设置已保存。', 'Push settings saved.')} {msg}")
         else:
             st.error(f"{tr(language, '保存失败', 'Save failed')}: {msg}")
-    if push_action_cols[1].button(tr(language, "恢复默认配置", "Restore defaults"), use_container_width=True):
+    restore_cols = st.columns(4)
+    if restore_cols[0].button(tr(language, "恢复默认配置", "Restore defaults"), use_container_width=True):
         ok, msg = deps.update_workflow_github(deps.default_push_config, deps.default_nz_time, deps.default_us_time)
         if ok:
             st.success(f"{tr(language, '已恢复为默认配置。', 'Restored to default config.')} {msg}")

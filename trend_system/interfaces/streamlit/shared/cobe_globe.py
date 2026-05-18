@@ -148,7 +148,7 @@ def build_cobe_globe_html(
   config.onRender = (state) => {{
     state.phi = phi;
     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {{
-      phi += 0.0016;
+      phi += 0.0008;
     }}
   }};
   try {{
