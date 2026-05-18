@@ -5,6 +5,15 @@
   margin-bottom: 0.5rem;
 }
 
+[data-testid="stHorizontalBlock"]:has([class*="st-key-shell_ui_language"]) {
+  align-items: center;
+  margin-bottom: 0.65rem;
+}
+
+[class*="st-key-shell_ui_language"] {
+  min-width: 0 !important;
+}
+
 .shell-kicker {
   font-size: 0.72rem;
   letter-spacing: 0.16em;
@@ -134,7 +143,7 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
 }
 
 .sidebar-section-overline {
-  font-size: 0.68rem;
+  font-size: 0.70rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--leo-kicker);
@@ -209,7 +218,7 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
 }
 
 .sidebar-control-cluster .cluster-overline {
-  font-size: 0.65rem;
+  font-size: 0.70rem;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -246,7 +255,7 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
   border: 1px solid rgba(174, 143, 84, 0.16);
   background: rgba(255,255,255,0.07);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-  font-size: 0.68rem;
+  font-size: 0.70rem;
   letter-spacing: 0.06em;
   color: var(--leo-ink-sub);
 }
@@ -256,9 +265,14 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin: 0.25rem 0 1rem;
+  align-items: stretch;
 }
 
 [class*="st-key-app_shell_mobile_row"] {
+  display: none;
+}
+
+[class*="st-key-app_shell_mobile_title_menu"] {
   display: none;
 }
 
@@ -273,26 +287,92 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
   height: 2.55rem;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 720px) {
   [data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) {
     display: none !important;
   }
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-shell_ui_language"]) {
+    display: none !important;
+  }
+  [class*="st-key-app_shell_mobile_title_menu"] {
+    display: block !important;
+    margin: 0.15rem 0 0.35rem;
+  }
+  .shell-title-band {
+    display: none !important;
+  }
+  [class*="st-key-app_shell_mobile_title_menu"] [data-testid="stPopover"] > button {
+    position: relative;
+    width: 100%;
+    min-height: auto;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    border-radius: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    color: var(--leo-ink) !important;
+    font-size: clamp(2rem, 9vw, 2.8rem) !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    letter-spacing: 0.01em !important;
+    text-align: left !important;
+    padding: 0 3.35rem 0 0 !important;
+    box-shadow: none !important;
+  }
+  [class*="st-key-app_shell_mobile_title_menu"] [data-testid="stPopover"] > button > div {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 0.45rem !important;
+  }
+  [class*="st-key-app_shell_mobile_title_menu"] [data-testid="stPopover"] > button p,
+  [class*="st-key-app_shell_mobile_title_menu"] [data-testid="stPopover"] > button span {
+    margin: 0 !important;
+    color: var(--leo-ink) !important;
+    font-size: clamp(2rem, 9vw, 2.8rem) !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    letter-spacing: 0.01em !important;
+  }
+  [class*="st-key-app_shell_mobile_title_menu"] [data-testid="stPopover"] > button svg {
+    width: 1.15rem !important;
+    height: 1.15rem !important;
+    margin-top: 0.12rem !important;
+  }
+  [class*="st-key-app_shell_mobile_title_menu"] [data-testid="stPopover"] > button::after {
+    content: "☰";
+    position: absolute;
+    right: 0.15rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.5rem;
+    color: rgba(244, 240, 232, 0.90);
+  }
   [class*="st-key-app_shell_mobile_row"] {
     display: block !important;
-    margin: 0.1rem 0 0.75rem;
+    width: min(9rem, 36vw);
+    margin: 0 0 0.95rem auto;
   }
   [class*="st-key-app_shell_mobile_row"] [data-testid="stHorizontalBlock"] {
     display: grid !important;
-    grid-template-columns: minmax(2.75rem, 0.78fr) minmax(0, 1fr) minmax(0, 1fr);
-    gap: 0.45rem;
+    grid-template-columns: 1fr;
+    gap: 0;
     align-items: center;
+    justify-items: stretch;
   }
   [class*="st-key-app_shell_mobile_row"] [data-testid="stColumn"] {
     min-width: 0 !important;
   }
-  [class*="st-key-header_theme_control"],
-  [class*="st-key-header_language_control"] {
-    display: none !important;
+  [class*="st-key-app_shell_mobile_row"] div[data-testid="stSegmentedControl"] > div {
+    min-width: 0 !important;
+    min-height: 2.7rem;
+  }
+  [class*="st-key-app_shell_mobile_row"] div[data-testid="stSegmentedControl"] button {
+    min-width: 0 !important;
+    min-height: 2.35rem;
+    padding-inline: 0.75rem !important;
   }
   [data-testid="stSidebar"] {
     position: fixed !important;
@@ -302,11 +382,16 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
 
 [data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stColumn"] {
   flex: 1 1 10rem;
+  display: flex;
 }
 
 [data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stButton"] > button {
   width: 100%;
   min-height: 2.8rem;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 0;
   border: 1px solid rgba(126, 101, 58, 0.30);
   background: linear-gradient(145deg, rgba(244, 240, 232, 0.08), rgba(18, 57, 91, 0.03));
@@ -377,4 +462,13 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
   color: rgba(244, 240, 232, 0.96) !important;
   border-color: rgba(74, 110, 150, 0.54) !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 18px rgba(18, 57, 91, 0.20) !important;
+}
+
+@media (max-width: 720px) {
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-shell_ui_language"]) [data-testid="stColumn"]:first-child {
+    flex: 1 1 auto;
+  }
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-shell_ui_language"]) [data-testid="stColumn"]:last-child {
+    flex: 0 0 min(10rem, 36vw);
+  }
 }

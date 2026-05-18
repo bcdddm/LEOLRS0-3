@@ -42,34 +42,24 @@ def render_app_shell(
     if st.session_state.get(nav_state_key) not in page_labels:
         st.session_state[nav_state_key] = page_labels[0]
 
-    theme = settings.get("ui", {}).get("theme", "dark")
-    mobile_theme_label = "Dark" if theme == "dark" else "Light"
-    mobile_language_label = "EN" if language == "en" else "中文"
+    with st.container(key="app_shell_mobile_title_menu"):
+        with st.popover("LEOLRS0-3"):
+            for index, label in enumerate(page_labels):
+                active = st.session_state[nav_state_key] == label
+                if st.button(
+                    label,
+                    key=f"app_shell_mobile_burger_{index}",
+                    use_container_width=True,
+                    type="primary" if active else "secondary",
+                ):
+                    st.session_state[nav_state_key] = label
+                    st.rerun()
 
     with st.container(key="app_shell_mobile_row"):
-        mobile_cols = st.columns([0.78, 1, 1], vertical_alignment="center")
+        mobile_cols = st.columns([1], vertical_alignment="center")
         with mobile_cols[0]:
-            with st.popover("☰"):
-                for index, label in enumerate(page_labels):
-                    active = st.session_state[nav_state_key] == label
-                    if st.button(
-                        label,
-                        key=f"app_shell_mobile_burger_{index}",
-                        use_container_width=True,
-                        type="primary" if active else "secondary",
-                    ):
-                        st.session_state[nav_state_key] = label
-                        st.rerun()
-        with mobile_cols[1]:
-            selected_mobile_theme = st.segmented_control(
-                "Theme",
-                ["Dark", "Light"],
-                default=mobile_theme_label,
-                key=SessionKeys.MOBILE_UI_THEME,
-                label_visibility="collapsed",
-                width="stretch",
-            )
-        with mobile_cols[2]:
+            mobile_language_label = "EN" if language == "en" else "中文"
+            st.session_state[SessionKeys.MOBILE_UI_LANGUAGE] = mobile_language_label
             selected_mobile_language = st.segmented_control(
                 "Language",
                 ["EN", "中文"],
@@ -78,14 +68,10 @@ def render_app_shell(
                 label_visibility="collapsed",
                 width="stretch",
             )
-        resolved_mobile_theme = "dark" if selected_mobile_theme == "Dark" else "light"
-        resolved_mobile_language = "en" if selected_mobile_language == "EN" else "zh"
-        if resolved_mobile_theme != theme:
-            st.session_state[SessionKeys.UI_THEME] = resolved_mobile_theme
-            settings.setdefault("ui", {})["theme"] = resolved_mobile_theme
-        if resolved_mobile_language != language:
-            st.session_state[SessionKeys.UI_LANGUAGE] = resolved_mobile_language
-            settings.setdefault("ui", {})["language"] = resolved_mobile_language
+            resolved_mobile_language = "en" if selected_mobile_language == "EN" else "zh"
+            if resolved_mobile_language != language:
+                st.session_state[SessionKeys.UI_LANGUAGE] = resolved_mobile_language
+                settings.setdefault("ui", {})["language"] = resolved_mobile_language
 
     nav_cols = st.columns(len(page_labels))
     for index, label in enumerate(page_labels):

@@ -42,24 +42,38 @@ def render_daily_page(
     deps: DailyPageDeps,
 ) -> None:
     tr = deps.tr
-    # Zone A — command bar
+    # Zone A — 4-up control grid on desktop, wraps on small screens
     ctrl_cols = st.columns(4, vertical_alignment="bottom")
+    latest_anchor = date.today()
+    latest_default_start = latest_anchor - timedelta(days=420)
+    last_anchor_raw = st.session_state.get(SessionKeys.DAILY_START_ANCHOR)
+    try:
+        last_anchor = date.fromisoformat(last_anchor_raw) if isinstance(last_anchor_raw, str) else latest_anchor
+    except ValueError:
+        last_anchor = latest_anchor
+    previous_default_start = last_anchor - timedelta(days=420)
+    if "daily_start" not in st.session_state:
+        st.session_state["daily_start"] = latest_default_start
+    elif last_anchor != latest_anchor and st.session_state.get("daily_start") == previous_default_start:
+        # Keep the default start window rolling forward each day unless the user chose a custom date.
+        st.session_state["daily_start"] = latest_default_start
+    st.session_state[SessionKeys.DAILY_START_ANCHOR] = latest_anchor.isoformat()
     start = ctrl_cols[0].date_input(
         tr(language, "数据起始日期", "Data start date"),
-        value=date.today() - timedelta(days=420),
+        value=st.session_state["daily_start"],
         key="daily_start",
     )
-    _render_control_label(ctrl_cols[1], tr(language, "更新", "Update"))
-    run = deps.aligned_button(ctrl_cols[1], tr(language, "更新今日信号", "Update daily signal"), type="primary", use_container_width=True)
     timeline_mode_labels = deps.daily_timeline_mode_labels(language)
     nz_label = tr(language, "NZ 盘末 / 美股开盘", "NZ close / US open")
     if SessionKeys.DAILY_TIMELINE_MODE not in st.session_state:
         st.session_state[SessionKeys.DAILY_TIMELINE_MODE] = nz_label
-    selected_timeline_mode_label = ctrl_cols[2].selectbox(
+    selected_timeline_mode_label = ctrl_cols[1].selectbox(
         tr(language, "交易时间轴模式", "Timeline mode"),
         list(timeline_mode_labels.keys()),
         key=SessionKeys.DAILY_TIMELINE_MODE,
     )
+    _render_control_label(ctrl_cols[2], tr(language, "更新", "Update"))
+    run = deps.aligned_button(ctrl_cols[2], tr(language, "更新今日信号", "Update daily signal"), type="primary", use_container_width=True)
     timeline_mode = timeline_mode_labels[selected_timeline_mode_label]
     settings.setdefault("backtest", {})["execution_timing"] = timeline_mode
 
@@ -124,7 +138,92 @@ def render_daily_page(
         (allocation.leveraged_asset or tr(language, "无杠杆", "No leverage"), f"{allocation.leveraged_percent:,.2f}%"),
         (allocation.defensive_asset, f"{allocation.defensive_percent:,.2f}%"),
     ]
-    # Zone A — PDF button (right slot of command bar)
+    # Zone B — Market State (4-up desktop grid)
+    render_section_head(st, tr(language, "市场状态", "Market State"), tone="prussian")
+    signal_deltas = _daily_signal_deltas(signal, previous_signal, language, deps)
+    _render_metric_rows(
+        [
+            {
+                "label": tr(language, "SPY 收盘价", "SPY close"),
+                "value": f"{signal.price:,.2f}",
+                "delta": signal_deltas["price"],
+            },
+            {
+                "label": tr(language, "趋势", "Trend"),
+                "value": deps.state_label(signal.trend_label, language),
+                "delta": signal_deltas["trend"],
+            },
+            {
+                "label": "VIX",
+                "value": f"{signal.vix:.2f}",
+                "delta": signal_deltas["vix"],
+                "delta_color": "inverse",
+            },
+            {
+                "label": tr(language, "VIX 系数", "VIX multiplier"),
+                "value": f"x{signal.vix_multiplier:.2f}",
+                "delta": signal_deltas["vix_multiplier"],
+            },
+            {
+                "label": tr(language, "目标等效仓位", "Target exposure"),
+                "value": f"{signal.target_exposure:,.0f}%",
+                "delta": signal_deltas["target_exposure"],
+            },
+            {
+                "label": ma_short_label,
+                "value": f"{signal.ma_short:,.2f}",
+                "delta": signal_deltas["ma_short"],
+            },
+            {
+                "label": ma_medium_label,
+                "value": f"{signal.ma_medium:,.2f}",
+                "delta": signal_deltas["ma_medium"],
+            },
+            {
+                "label": ma_long_label,
+                "value": f"{signal.ma_long:,.2f}",
+                "delta": signal_deltas["ma_long"],
+            },
+        ]
+    )
+    if settings.get("position", {}).get("trend_quality_ma_cross_slow_decline_enabled", False) and signal.trend_quality_slow_decline:
+        st.warning(
+            tr(
+                language,
+                f"趋势质量警告：120 日均线（{signal.trend_quality_ma_120:,.2f}）低于 200 日均线（{signal.trend_quality_ma_200:,.2f}），系统判定当前处于（阴跌）状态。",
+                f"Trend quality warning: the 120-day MA ({signal.trend_quality_ma_120:,.2f}) is below the 200-day MA ({signal.trend_quality_ma_200:,.2f}), so the system treats the market as being in slow-decline state.",
+            )
+        )
+
+    # Zone C — Execution Allocation (4-up desktop grid)
+    render_section_head(st, tr(language, "执行仓位", "Execution Allocation"), tone="green")
+    _render_metric_rows(
+        [
+            {
+                "label": allocation.core_asset,
+                "value": f"{allocation.core_percent:,.2f}%",
+            },
+            {
+                "label": allocation.leveraged_asset or tr(language, "无杠杆", "No leverage"),
+                "value": f"{allocation.leveraged_percent:,.2f}%",
+            },
+            {
+                "label": allocation.defensive_asset,
+                "value": f"{allocation.defensive_percent:,.2f}%",
+            },
+            {
+                "label": tr(language, "等效仓位", "Equivalent exposure"),
+                "value": f"{allocation.equivalent_exposure:,.2f}%",
+            },
+        ]
+    )
+    if allocation.notes:
+        st.warning("\n".join(allocation.notes))
+
+    # Zone D — market windows (full-width, unchanged)
+    deps.market_windows(settings, timeline_mode)
+
+    # Zone E — PDF slot in the control grid
     with ctrl_cols[3]:
         _render_control_label(st, "PDF")
         deps.pdf_download_button(
@@ -144,66 +243,27 @@ def render_daily_page(
             key="daily_pdf_download",
         )
 
-    # Zone B — Market State (full-width, 4 per row)
-    render_section_head(st, tr(language, "市场状态", "Market State"), tone="prussian")
-    signal_deltas = _daily_signal_deltas(signal, previous_signal, language, deps)
-    sig_r1 = st.columns(4)
-    sig_r1[0].metric(
-        tr(language, "SPY 收盘价", "SPY close"),
-        f"{signal.price:,.2f}",
-        signal_deltas["price"],
-    )
-    sig_r1[1].metric(
-        tr(language, "趋势", "Trend"),
-        deps.state_label(signal.trend_label, language),
-        signal_deltas["trend"],
-    )
-    sig_r1[2].metric(
-        "VIX",
-        f"{signal.vix:.2f}",
-        signal_deltas["vix"],
-        delta_color="inverse",
-    )
-    sig_r1[3].metric(
-        tr(language, "VIX 系数", "VIX multiplier"),
-        f"x{signal.vix_multiplier:.2f}",
-        signal_deltas["vix_multiplier"],
-    )
-    st.markdown('<div class="leo-market-state-gap"></div>', unsafe_allow_html=True)
-    sig_r2 = st.columns(4)
-    sig_r2[0].metric(tr(language, "目标等效仓位", "Target exposure"), f"{signal.target_exposure:,.0f}%", signal_deltas["target_exposure"])
-    sig_r2[1].metric(ma_short_label, f"{signal.ma_short:,.2f}", signal_deltas["ma_short"])
-    sig_r2[2].metric(ma_medium_label, f"{signal.ma_medium:,.2f}", signal_deltas["ma_medium"])
-    sig_r2[3].metric(ma_long_label, f"{signal.ma_long:,.2f}", signal_deltas["ma_long"])
-    if settings.get("position", {}).get("trend_quality_ma_cross_slow_decline_enabled", False) and signal.trend_quality_slow_decline:
-        st.warning(
-            tr(
-                language,
-                f"趋势质量警告：120 日均线（{signal.trend_quality_ma_120:,.2f}）低于 200 日均线（{signal.trend_quality_ma_200:,.2f}），系统判定当前处于（阴跌）状态。",
-                f"Trend quality warning: the 120-day MA ({signal.trend_quality_ma_120:,.2f}) is below the 200-day MA ({signal.trend_quality_ma_200:,.2f}), so the system treats the market as being in slow-decline state.",
-            )
-        )
-
-    # Zone C — Execution Allocation (full-width, 4 per row)
-    render_section_head(st, tr(language, "执行仓位", "Execution Allocation"), tone="green")
-    alloc_row = st.columns(4)
-    alloc_row[0].metric(allocation.core_asset, f"{allocation.core_percent:,.2f}%")
-    alloc_row[1].metric(allocation.leveraged_asset or tr(language, "无杠杆", "No leverage"), f"{allocation.leveraged_percent:,.2f}%")
-    alloc_row[2].metric(allocation.defensive_asset, f"{allocation.defensive_percent:,.2f}%")
-    alloc_row[3].metric(tr(language, "等效仓位", "Equivalent exposure"), f"{allocation.equivalent_exposure:,.2f}%")
-    if allocation.notes:
-        st.warning("\n".join(allocation.notes))
-
-    # Zone D — market windows (full-width, unchanged)
-    deps.market_windows(settings, timeline_mode)
-
-    # Zone E — portfolio adjustment (collapsed by default)
+    # Zone F — portfolio adjustment (collapsed by default)
     with st.expander(tr(language, "组合调整", "Portfolio Adjustment"), expanded=False):
         deps.portfolio_adjustment_section(settings, allocation, st.session_state.get(SessionKeys.DAILY_PRICES, {}), signal.date)
 
 
 def _render_control_label(container: Any, label: str) -> None:
     container.markdown(f'<div class="leo-control-label">{label}</div>', unsafe_allow_html=True)
+
+
+def _render_metric_rows(metrics: list[dict[str, Any]], *, per_row: int = 4) -> None:
+    for index in range(0, len(metrics), per_row):
+        row = st.columns(per_row)
+        for col, metric in zip(row, metrics[index:index + per_row]):
+            kwargs = {}
+            if metric.get("delta") is not None:
+                kwargs["delta"] = metric["delta"]
+            if metric.get("delta_color") is not None:
+                kwargs["delta_color"] = metric["delta_color"]
+            col.metric(metric["label"], metric["value"], **kwargs)
+        if index + per_row < len(metrics):
+            st.markdown('<div class="leo-market-state-gap"></div>', unsafe_allow_html=True)
 
 
 def _delta_text(

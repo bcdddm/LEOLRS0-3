@@ -35,6 +35,14 @@
   /* BRG = #004225 = rgb(0,66,37) — deep olive green, zero blue component  */
   --leo-metallic-gold:  rgba(110, 88, 48, 0.62);  /* darker aged gold     */
   --leo-metallic-green: rgba(0, 66, 37, 0.92);    /* true British Racing Green */
+  --leo-border-interactive: var(--leo-palace-red);
+  --leo-border-action:      var(--leo-racing-green);
+  --leo-border-info:        var(--leo-prussian-mineral);
+  --leo-border-neutral:     var(--leo-metallic-gold);
+  --leo-border-interactive-strong: rgba(204, 72, 72, 0.96);
+  --leo-border-action-strong: rgba(0, 104, 58, 0.98);
+  --leo-border-info-strong: rgba(144, 194, 235, 0.96);
+  --leo-border-neutral-strong: rgba(136, 110, 60, 0.82);
 }
 
 [data-theme="light"] {
@@ -56,6 +64,10 @@
   --leo-sw-shadow:    rgba(26, 29, 31, 0.10);
   --leo-sw-text:      rgba(17, 18, 20, 0.72);
   --leo-sw-text-on:   #111214;
+  --leo-border-interactive-strong: rgba(188, 58, 58, 0.92);
+  --leo-border-action-strong: rgba(0, 92, 52, 0.96);
+  --leo-border-info-strong: rgba(18, 57, 91, 0.90);
+  --leo-border-neutral-strong: rgba(118, 96, 54, 0.78);
 }
 
 [data-theme="dark"] {
@@ -82,4 +94,8 @@
   /* dark-mode metallic tokens — slightly lifted luminosity for dark bg contrast */
   --leo-metallic-gold:  rgba(128, 103, 58, 0.74);  /* dark gold, lifted for dark bg */
   --leo-metallic-green: rgba(0, 80, 45, 0.96);     /* BRG family, slightly lifted   */
+  --leo-border-interactive-strong: rgba(255, 96, 96, 0.98);
+  --leo-border-action-strong: rgba(0, 124, 70, 1);
+  --leo-border-info-strong: rgba(204, 230, 252, 0.98);
+  --leo-border-neutral-strong: rgba(156, 127, 72, 0.88);
 }

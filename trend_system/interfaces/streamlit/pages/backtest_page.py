@@ -64,12 +64,12 @@ def render_backtest_page(
     preset = preset_labels[preset_label]
     default_start, default_end = deps.backtest_date_defaults(preset, settings)
 
-    cols = st.columns([1, 1, 1, 1, 1])
-    start = cols[0].date_input(tr(language, "回测起始日期", "Backtest start date"), value=default_start, key=f"backtest_start_{preset}")
-    end = cols[1].date_input(tr(language, "回测结束日期", "Backtest end date"), value=default_end, key=f"backtest_end_{preset}")
-    initial = cols[2].number_input(tr(language, "初始资金", "Initial capital"), 1000.0, 10_000_000.0, float(settings["backtest"]["initial_capital"]), 1000.0)
+    control_row = st.columns(4)
+    start = control_row[0].date_input(tr(language, "回测起始日期", "Backtest start date"), value=default_start, key=f"backtest_start_{preset}")
+    end = control_row[1].date_input(tr(language, "回测结束日期", "Backtest end date"), value=default_end, key=f"backtest_end_{preset}")
+    initial = control_row[2].number_input(tr(language, "初始资金", "Initial capital"), 1000.0, 10_000_000.0, float(settings["backtest"]["initial_capital"]), 1000.0)
     settings["backtest"]["initial_capital"] = initial
-    weekly_contribution = cols[3].number_input(
+    weekly_contribution = control_row[3].number_input(
         tr(language, "每周追加资金", "Weekly contribution"),
         0.0,
         1_000_000.0,
@@ -78,8 +78,7 @@ def render_backtest_page(
         help=tr(language, "每个新交易周开始时追加到策略和所有参考曲线。第一条回测记录只使用初始资金。", "Added to the strategy and all benchmark curves at the start of each new trading week. The first backtest row uses only initial capital."),
     )
     settings["backtest"]["weekly_contribution"] = weekly_contribution
-    run = deps.aligned_button(cols[4], tr(language, "运行回测", "Run backtest"), type="primary", use_container_width=True)
-    chart_settings = st.columns([1, 1, 1, 2])
+    chart_settings = st.columns(4)
     show_leveraged_buy_hold = chart_settings[0].toggle(tr(language, "显示 3 倍买入持有虚线", "Show dashed 3x buy & hold"), value=bool(settings["backtest"].get("show_leveraged_buy_hold", True)))
     show_ma120_timing = chart_settings[1].toggle(tr(language, "显示 120 日择时点线", "Show dotted 120-day timing"), value=bool(settings["backtest"].get("show_ma120_timing", True)))
     show_leveraged_ma120_timing = chart_settings[2].toggle(tr(language, "显示三倍持有：跌破 120 日均线转现金", "Show 3x Hold: Cash Below 120MA"), value=bool(settings["backtest"].get("show_leveraged_ma120_timing", True)))
@@ -92,10 +91,11 @@ def render_backtest_page(
     settings["backtest"]["show_ma120_timing"] = show_ma120_timing
     settings["backtest"]["show_leveraged_ma120_timing"] = show_leveraged_ma120_timing
     settings["backtest"]["use_actual_leveraged_asset_returns"] = use_actual_leveraged_returns
-    chart_settings[3].caption(tr(language, "前三个开关只影响净值图显示；真实杠杆 ETF 收益会改变回测结果。", "The first three toggles only affect the equity chart display; actual leveraged ETF returns change the backtest result."))
+    st.caption(tr(language, "前三个开关只影响净值图显示；真实杠杆 ETF 收益会改变回测结果。", "The first three toggles only affect the equity chart display; actual leveraged ETF returns change the backtest result."))
     execution_timing_labels = deps.execution_timing_labels(language)
     current_execution_timing = settings["backtest"].get("execution_timing", "next_session" if settings["backtest"].get("signal_effective_next_day", True) else "same_close")
-    selected_execution_timing_label = st.selectbox(
+    timing_cols = st.columns([3, 1])
+    selected_execution_timing_label = timing_cols[0].selectbox(
         tr(language, "回测执行时点", "Backtest execution timing"),
         list(execution_timing_labels.keys()),
         index=deps.option_index(
@@ -104,6 +104,7 @@ def render_backtest_page(
         ),
         help=tr(language, "选择信号生成后用哪一个交易时点进入新仓位。", "Choose when a new position starts after a signal is generated."),
     )
+    run = deps.aligned_button(timing_cols[1], tr(language, "运行回测", "Run backtest"), type="primary", use_container_width=True)
     execution_timing = execution_timing_labels[selected_execution_timing_label]
     settings["backtest"]["execution_timing"] = execution_timing
     settings["backtest"]["signal_effective_next_day"] = execution_timing != "same_close"
@@ -193,48 +194,61 @@ def render_backtest_page(
     if parameter_report:
         pdf_sections.extend(parameter_report["sections"])
         pdf_charts.extend(parameter_report["charts"])
-    deps.pdf_download_button(
-        language,
-        tr(language, "打印/下载历史回测 PDF", "Print/Download Backtest PDF"),
-        deps.build_pdf_report(
-            tr(language, "历史回测", "Historical Backtest"),
-            settings,
-            language,
-            sections=pdf_sections,
-            charts=pdf_charts,
-        ),
-        deps.pdf_filename("backtest", settings, range_text=f"{start}_to_{end}", cagr=metrics.get("cagr_pct", 0.0)),
-        key="backtest_pdf_download",
-    )
     render_section_head(st, tr(language, "策略表现", "Strategy Performance"), tone="prussian")
     _strat_cagr = metrics.get("cagr_pct", 0)
     _strat_dd   = metrics.get("max_drawdown_pct", 0)
     _strat_calmar = abs(_strat_cagr / _strat_dd) if _strat_dd else 0.0
-    metric_cols = st.columns(6)
-    metric_cols[0].metric(tr(language, "策略总收益", "Strategy total return"), f"{metrics.get('total_return_pct', 0):,.2f}%")
-    metric_cols[1].metric("策略 CAGR", f"{_strat_cagr:,.2f}%")
-    metric_cols[2].metric(tr(language, "策略最大回撤", "Strategy max drawdown"), f"{_strat_dd:,.2f}%")
-    metric_cols[3].metric(tr(language, "策略年化波动", "Strategy annual volatility"), f"{metrics.get('annual_volatility_pct', 0):,.2f}%")
-    metric_cols[4].metric("策略 Sharpe", f"{metrics.get('sharpe_no_rf', 0):.2f}")
-    metric_cols[5].metric(tr(language, "策略 Calmar", "Strategy Calmar"), f"{_strat_calmar:.2f}")
-
+    _strat_sharpe = metrics.get("sharpe_no_rf", 0)
+    _strat_volatility = metrics.get("annual_volatility_pct", 0)
     benchmark_symbol = settings["signals"]["primary"]
-    st.markdown(
-        f'<div class="leo-inline-kicker leo-inline-kicker--green">'
-        f'{tr(language, "买入并持有基准", "Buy-and-hold benchmark")}: {benchmark_symbol}'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
     _bh_cagr = metrics.get("buy_hold_cagr_pct", 0)
     _bh_dd   = metrics.get("buy_hold_max_drawdown_pct", 0)
+    _bh_sharpe = metrics.get("buy_hold_sharpe_no_rf", 0)
     _bh_calmar = abs(_bh_cagr / _bh_dd) if _bh_dd else 0.0
-    benchmark_cols = st.columns(6)
-    benchmark_cols[0].metric(tr(language, "基准总收益", "Benchmark total return"), f"{metrics.get('buy_hold_total_return_pct', 0):,.2f}%")
-    benchmark_cols[1].metric("基准 CAGR", f"{_bh_cagr:,.2f}%")
-    benchmark_cols[2].metric(tr(language, "基准最大回撤", "Benchmark max drawdown"), f"{_bh_dd:,.2f}%")
-    benchmark_cols[3].metric(tr(language, "基准年化波动", "Benchmark annual volatility"), f"{metrics.get('buy_hold_annual_volatility_pct', 0):,.2f}%")
-    benchmark_cols[4].metric("基准 Sharpe", f"{metrics.get('buy_hold_sharpe_no_rf', 0):.2f}")
-    benchmark_cols[5].metric(tr(language, "基准 Calmar", "Benchmark Calmar"), f"{_bh_calmar:.2f}")
+    _bh_volatility = metrics.get("buy_hold_annual_volatility_pct", 0)
+    comparison_cards = [
+        {
+            "label": tr(language, "总收益对照", "Return comparison"),
+            "strategy_label": tr(language, "策略", "Strategy"),
+            "strategy_value": f'{metrics.get("total_return_pct", 0):,.2f}%',
+            "benchmark_label": benchmark_symbol,
+            "benchmark_value": f'{metrics.get("buy_hold_total_return_pct", 0):,.2f}%',
+            "tone": _comparison_tone(metrics.get("total_return_pct", 0), metrics.get("buy_hold_total_return_pct", 0), higher_is_better=True),
+        },
+        {
+            "label": tr(language, "CAGR 对照", "CAGR comparison"),
+            "strategy_label": tr(language, "策略", "Strategy"),
+            "strategy_value": f"{_strat_cagr:,.2f}%",
+            "benchmark_label": benchmark_symbol,
+            "benchmark_value": f"{_bh_cagr:,.2f}%",
+            "tone": _comparison_tone(_strat_cagr, _bh_cagr, higher_is_better=True),
+        },
+        {
+            "label": tr(language, "最大回撤对照", "Drawdown comparison"),
+            "strategy_label": tr(language, "策略", "Strategy"),
+            "strategy_value": f"{_strat_dd:,.2f}%",
+            "benchmark_label": benchmark_symbol,
+            "benchmark_value": f"{_bh_dd:,.2f}%",
+            "tone": _comparison_tone(_strat_dd, _bh_dd, higher_is_better=True),
+        },
+        {
+            "label": tr(language, "年化波动对照", "Annual volatility comparison"),
+            "strategy_label": tr(language, "策略", "Strategy"),
+            "strategy_value": f"{_strat_volatility:,.2f}%",
+            "benchmark_label": benchmark_symbol,
+            "benchmark_value": f"{_bh_volatility:,.2f}%",
+            "tone": _comparison_tone(_strat_volatility, _bh_volatility, higher_is_better=False),
+        },
+    ]
+    comparison_markup = "".join(
+        [
+            f'<span class="strategy-console-chip"><strong>{tr(language, "基准产品", "Benchmark")}</strong>: {benchmark_symbol}</span>',
+            f'<span class="strategy-console-chip"><strong>{tr(language, "Sharpe 对照", "Sharpe comparison")}</strong>: {_strat_sharpe:.2f} / {_bh_sharpe:.2f}</span>',
+            f'<span class="strategy-console-chip"><strong>{tr(language, "Calmar 对照", "Calmar comparison")}</strong>: {_strat_calmar:.2f} / {_bh_calmar:.2f}</span>',
+        ]
+    )
+    st.markdown(f'<div class="strategy-console-grid">{comparison_markup}</div>', unsafe_allow_html=True)
+    _render_comparison_rows(comparison_cards, per_row=4)
     st.caption(tr(language, "CAGR = 年化复合增长率，表示资金按复利计算后平均每年增长多少；它不是简单平均年收益。", "CAGR is compound annual growth rate. It is not a simple average annual return."))
 
     if st.button(tr(language, "回正净值图", "Reset equity chart")):
@@ -254,6 +268,19 @@ def render_backtest_page(
     if st.button(tr(language, "回正仓位图", "Reset exposure chart")):
         st.session_state[SessionKeys.EXPOSURE_CHART_RESET] = st.session_state.get(SessionKeys.EXPOSURE_CHART_RESET, 0) + 1
     deps.zoomable_line_chart(result.equity_curve, deps.exposure_columns_for_timing(execution_timing), tr(language, "仓位曲线", "Exposure curve"), key=f"exposure_chart_{st.session_state.get(SessionKeys.EXPOSURE_CHART_RESET, 0)}", language=language)
+    deps.pdf_download_button(
+        language,
+        tr(language, "打印/下载历史回测 PDF", "Print/Download Backtest PDF"),
+        deps.build_pdf_report(
+            tr(language, "历史回测", "Historical Backtest"),
+            settings,
+            language,
+            sections=pdf_sections,
+            charts=pdf_charts,
+        ),
+        deps.pdf_filename("backtest", settings, range_text=f"{start}_to_{end}", cagr=metrics.get("cagr_pct", 0.0)),
+        key="backtest_pdf_download",
+    )
 
     with st.expander(tr(language, "调仓记录", "Rebalance Log")):
         trade_view = st.radio(tr(language, "显示范围", "Rows"), [tr(language, "最近 50 笔", "Latest 50"), tr(language, "全部", "All")], horizontal=True)
@@ -280,7 +307,7 @@ def _render_parameter_debug_section(
                 "Within the current backtest range, test core model parameters at 50%, 75%, 100%, 125%, and 150% of their current values, then run an additional target-date window optimization. Results compare against both the current configuration baseline and the default configuration baseline.",
             )
         )
-        controls = st.columns([1, 1, 1, 1])
+        controls = st.columns(4)
         target_date = controls[0].date_input(
             tr(language, "目标日期", "Target date"),
             value=end,
@@ -754,6 +781,43 @@ def _sweep_metric_line_chart(
         .interactive()
     )
     st.altair_chart(chart, use_container_width=True, key=key)
+
+
+def _render_metric_rows(metrics: list[dict[str, str]], *, per_row: int = 4) -> None:
+    for index in range(0, len(metrics), per_row):
+        row = st.columns(per_row)
+        for col, metric in zip(row, metrics[index:index + per_row]):
+            col.metric(metric["label"], metric["value"])
+
+
+def _render_comparison_rows(comparisons: list[dict[str, str]], *, per_row: int = 4) -> None:
+    for index in range(0, len(comparisons), per_row):
+        row = st.columns(per_row)
+        for col, comparison in zip(row, comparisons[index:index + per_row]):
+            col.markdown(
+                f"""
+<div class="leo-comparison-card leo-comparison-card--{comparison.get("tone", "neutral")}">
+  <div class="leo-comparison-card__label">{comparison["label"]}</div>
+  <div class="leo-comparison-card__strategy">
+    <div class="leo-comparison-card__meta">{comparison["strategy_label"]}</div>
+    <div class="leo-comparison-card__value">{comparison["strategy_value"]}</div>
+  </div>
+  <div class="leo-comparison-card__benchmark">
+    <div class="leo-comparison-card__meta leo-comparison-card__meta--benchmark">{comparison["benchmark_label"]}</div>
+    <div class="leo-comparison-card__value leo-comparison-card__value--benchmark">{comparison["benchmark_value"]}</div>
+  </div>
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+
+
+def _comparison_tone(strategy_value: float, benchmark_value: float, *, higher_is_better: bool) -> str:
+    if abs(strategy_value - benchmark_value) < 1e-9:
+        return "neutral"
+    if higher_is_better:
+        return "better" if strategy_value > benchmark_value else "worse"
+    return "better" if strategy_value < benchmark_value else "worse"
 
 
 def _parameter_pdf_sections(

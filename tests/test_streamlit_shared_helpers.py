@@ -78,8 +78,6 @@ def test_session_keys_match_historical_streamlit_state_names():
     assert SessionKeys.UI_THEME == "ui_theme"
     assert SessionKeys.HOME_TIMEZONE == "home_timezone"
     assert SessionKeys.BASE_CURRENCY == "base_currency"
-    assert SessionKeys.HEADER_UI_LANGUAGE == "header_ui_language"
-    assert SessionKeys.HEADER_UI_THEME == "header_ui_theme"
     assert SessionKeys.MOBILE_UI_LANGUAGE == "app_shell_mobile_language"
     assert SessionKeys.MOBILE_UI_THEME == "app_shell_mobile_theme"
     assert SessionKeys.SETTINGS_UI_LANGUAGE == "settings_ui_language"

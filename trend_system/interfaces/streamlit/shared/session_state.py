@@ -11,10 +11,9 @@ class SessionKeys:
     HOME_TIMEZONE = "home_timezone"
     BASE_CURRENCY = "base_currency"
 
-    HEADER_UI_LANGUAGE = "header_ui_language"
-    HEADER_UI_THEME = "header_ui_theme"
     MOBILE_UI_LANGUAGE = "app_shell_mobile_language"
     MOBILE_UI_THEME = "app_shell_mobile_theme"
+    SHELL_UI_LANGUAGE = "shell_ui_language"
     SETTINGS_UI_LANGUAGE = "settings_ui_language"
     SETTINGS_UI_THEME = "settings_ui_theme"
     SETTINGS_HOME_TIMEZONE = "settings_home_timezone"
@@ -24,6 +23,7 @@ class SessionKeys:
     SETTINGS_PENDING_DELETE = "settings_pending_delete"
 
     DAILY_TIMELINE_MODE = "daily_timeline_mode"
+    DAILY_START_ANCHOR = "daily_start_anchor"
     DAILY_RESULT = "daily_result"
     DAILY_PRICES = "daily_prices"
     DAILY_FINGERPRINT = "daily_fingerprint"

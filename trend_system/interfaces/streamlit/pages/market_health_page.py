@@ -45,18 +45,13 @@ def render_market_health_page(
         ),
         title=tr(language, "市场健康度说明", "Market Health Note"),
     )
-    cols = st.columns([1, 1, 1])
-    start = cols[0].date_input(
+    ctrl_cols = st.columns(4, vertical_alignment="bottom")
+    start = ctrl_cols[0].date_input(
         tr(language, "健康度数据起始日期", "Health data start date"),
         value=date.today() - timedelta(days=420),
         key="market_health_start",
     )
-    run = deps.aligned_button(
-        cols[1],
-        tr(language, "更新市场健康度", "Update market health"),
-        type="primary",
-        use_container_width=True,
-    )
+    run = deps.aligned_button(ctrl_cols[1], tr(language, "更新市场健康度", "Update market health"), type="primary", use_container_width=True)
     primary = settings["signals"]["primary"]
     should_prepare = run or SessionKeys.MARKET_HEALTH_PRICE not in st.session_state
     if should_prepare:
@@ -108,27 +103,14 @@ def render_market_health_page(
         (tr(language, "健康阶段", "Health stage"), stage),
         (tr(language, "是否阴跌", "Slow decline"), tr(language, "是", "Yes") if slow_decline else tr(language, "否", "No")),
     ]
-    deps.pdf_download_button(
-        language,
-        tr(language, "打印/下载市场健康度 PDF", "Print/Download Market Health PDF"),
-        deps.build_pdf_report(
-            tr(language, "市场健康度", "Market Health"),
-            settings,
-            language,
-            sections=[
-                (tr(language, "健康度摘要", "Health Summary"), health_rows),
-                (tr(language, "策略信息", "Strategy Information"), deps.strategy_summary_rows(settings, language)),
-            ],
-            notes=_market_health_note_lines(language),
-        ),
-        deps.pdf_filename("market-health", settings),
-        key="market_health_pdf_download",
+    _render_metric_rows(
+        [
+            {"label": primary, "value": f"{latest_price:,.2f}"},
+            {"label": "MA120", "value": f"{latest_ma120:,.2f}"},
+            {"label": "MA200", "value": f"{latest_ma200:,.2f}"},
+            {"label": tr(language, "健康阶段", "Health stage"), "value": stage},
+        ]
     )
-    metric_cols = st.columns(4)
-    metric_cols[0].metric(primary, f"{latest_price:,.2f}")
-    metric_cols[1].metric("MA120", f"{latest_ma120:,.2f}")
-    metric_cols[2].metric("MA200", f"{latest_ma200:,.2f}")
-    metric_cols[3].metric(tr(language, "健康阶段", "Health stage"), stage)
     if slow_decline:
         st.warning(
             tr(
@@ -165,7 +147,30 @@ def render_market_health_page(
         key="market_health_chart",
         language=language,
     )
+    deps.pdf_download_button(
+        language,
+        tr(language, "打印/下载市场健康度 PDF", "Print/Download Market Health PDF"),
+        deps.build_pdf_report(
+            tr(language, "市场健康度", "Market Health"),
+            settings,
+            language,
+            sections=[
+                (tr(language, "健康度摘要", "Health Summary"), health_rows),
+                (tr(language, "策略信息", "Strategy Information"), deps.strategy_summary_rows(settings, language)),
+            ],
+            notes=_market_health_note_lines(language),
+        ),
+        deps.pdf_filename("market-health", settings),
+        key="market_health_pdf_download",
+    )
     _market_health_strategy_notes(language, tr)
+
+
+def _render_metric_rows(metrics: list[dict[str, str]], *, per_row: int = 4) -> None:
+    for index in range(0, len(metrics), per_row):
+        row = st.columns(per_row)
+        for col, metric in zip(row, metrics[index:index + per_row]):
+            col.metric(metric["label"], metric["value"])
 
 
 def _market_health_strategy_notes(language: str, tr: Callable[[str, str, str], str]) -> None:
