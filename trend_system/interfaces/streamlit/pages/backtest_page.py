@@ -270,10 +270,9 @@ def render_backtest_page(
         _render_backtest_metric_card(col, label, value, state=state)
 
     st.markdown(
-        f'<div class="leo-section-head leo-section-head--green leo-section-head--backtest">'
-        f'<span class="leo-section-dot"></span>'
-        f'<span class="leo-section-overline">{tr(language, "买入并持有基准", "Buy-and-hold benchmark")}: {benchmark_symbol}</span>'
-        f'<span class="leo-section-rule"></span></div>',
+        f'<div class="leo-inline-kicker leo-inline-kicker--green">'
+        f'{tr(language, "买入并持有基准", "Buy-and-hold benchmark")}: {benchmark_symbol}'
+        f'</div>',
         unsafe_allow_html=True,
     )
     benchmark_cols = st.columns(6)

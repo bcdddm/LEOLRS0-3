@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 import altair as alt
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import toml
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -69,6 +70,7 @@ from trend_system.interfaces.streamlit.shared import (
     tr as shared_tr,
     ui_language as shared_ui_language,
 )
+from trend_system.interfaces.streamlit.shared.cobe_globe import build_cobe_globe_html
 from trend_system.interfaces.streamlit.shared.world_map import build_world_map_markup, build_world_map_text
 from trend_system.portfolio import build_allocation
 from trend_system.services.backtest_service import run_backtest_use_case
@@ -122,14 +124,29 @@ def _as_settings(settings: dict[str, Any]) -> Settings:
 def _apply_session_preferences(settings: dict[str, Any]) -> None:
     ui = settings.setdefault("ui", {})
     profile = settings.setdefault("profile", {})
+    def _theme_value(value: Any) -> str:
+        text = str(value).lower()
+        return text if text in {"dark", "light"} else "dark"
+
+    def _language_value(value: Any) -> str:
+        if value == "EN":
+            return "en"
+        if value == "中文":
+            return "zh"
+        return str(value) if str(value) in {"en", "zh"} else "zh"
+
     if "settings_ui_language" in st.session_state:
         st.session_state["ui_language"] = st.session_state["settings_ui_language"]
     if "header_ui_language" in st.session_state:
-        st.session_state["ui_language"] = "en" if st.session_state["header_ui_language"] == "EN" else "zh"
+        st.session_state["ui_language"] = _language_value(st.session_state["header_ui_language"])
+    if "app_shell_mobile_language" in st.session_state:
+        st.session_state["ui_language"] = _language_value(st.session_state["app_shell_mobile_language"])
     if "settings_ui_theme" in st.session_state:
-        st.session_state["ui_theme"] = st.session_state["settings_ui_theme"]
+        st.session_state["ui_theme"] = _theme_value(st.session_state["settings_ui_theme"])
     if "header_ui_theme" in st.session_state:
-        st.session_state["ui_theme"] = st.session_state["header_ui_theme"]
+        st.session_state["ui_theme"] = _theme_value(st.session_state["header_ui_theme"])
+    if "app_shell_mobile_theme" in st.session_state:
+        st.session_state["ui_theme"] = _theme_value(st.session_state["app_shell_mobile_theme"])
     if "settings_home_timezone" in st.session_state:
         st.session_state["home_timezone"] = st.session_state["settings_home_timezone"]
     if "settings_base_currency" in st.session_state:
@@ -301,11 +318,35 @@ body,
 [data-testid="stHorizontalBlock"]:has(.shell-title-band) [data-testid="stSegmentedControl"] {
   margin: 0 !important;
 }
+.leo-inline-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  margin: 0 0 0.55rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.leo-inline-kicker::before {
+  content: "";
+  width: 0.38rem;
+  height: 0.38rem;
+  background: rgba(18, 57, 91, 0.82);
+  display: inline-block;
+}
+.leo-inline-kicker--green {
+  color: rgba(22, 74, 60, 0.84);
+}
+.leo-inline-kicker--green::before {
+  background: rgba(22, 74, 60, 0.88);
+}
 /* ── Pearl language switch ─────────────────────────────── */
 div[data-testid="stSegmentedControl"] > div {
   background:      var(--leo-sw-bg)    !important;
   border:          1px solid var(--leo-sw-rim) !important;
-  border-radius:   999px               !important;
+  border-radius:   0                   !important;
   padding:         3px                 !important;
   box-shadow:
     inset 0 1px 0 var(--leo-sw-inner),
@@ -314,7 +355,7 @@ div[data-testid="stSegmentedControl"] > div {
   gap:             2px                 !important;
 }
 div[data-testid="stSegmentedControl"] button {
-  border-radius:   999px       !important;
+  border-radius:   0           !important;
   border:          none        !important;
   background:      transparent !important;
   color:           var(--leo-sw-text) !important;
@@ -525,7 +566,7 @@ div[data-testid="stSegmentedControl"] button,
   align-items: center;
   min-height: 1.45rem;
   padding: 0.18rem 0.5rem;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1px solid rgba(174, 143, 84, 0.16);
   background: rgba(255,255,255,0.07);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
@@ -582,7 +623,7 @@ div[data-testid="stSegmentedControl"] button,
   min-height: 2rem !important;
   padding: 0.18rem 0.32rem !important;
   border: 1px solid transparent !important;
-  border-radius: 999px !important;
+  border-radius: 0 !important;
   background: linear-gradient(145deg, rgba(255,255,255,0.10), rgba(31,106,83,0.05)) !important;
 }
 [data-testid="stSidebar"] [data-baseweb="radio"] input:checked + div,
@@ -597,7 +638,7 @@ div[data-testid="stSegmentedControl"] button,
 [data-testid="stSidebar"] [role="switch"] {
   background: linear-gradient(90deg, rgba(31,106,83,0.16), rgba(31,106,83,0.08)) !important;
   border: 1px solid var(--leo-surface-rim) !important;
-  border-radius: 999px !important;
+  border-radius: 0 !important;
   box-shadow: inset 0 1px 0 var(--leo-surface-top) !important;
 }
 [data-testid="stSidebar"] [role="switch"][aria-checked="true"] {
@@ -739,6 +780,43 @@ div[data-testid="stSegmentedControl"] button,
 [data-testid="stMain"] .leo-backtest-status-card__detail {
   color: var(--text-muted) !important;
 }
+@media (max-width: 640px) {
+  [data-testid="stHorizontalBlock"]:has(.shell-title-band) {
+    display: block !important;
+  }
+  [data-testid="stHorizontalBlock"]:has(.shell-title-band) [data-testid="stColumn"]:first-child {
+    min-width: 100% !important;
+    flex: 1 1 100% !important;
+  }
+  [class*="st-key-header_theme_control"],
+  [class*="st-key-header_language_control"] {
+    display: none !important;
+  }
+  [data-testid="stSidebar"] {
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;
+    width: min(82vw, 360px) !important;
+    max-width: min(82vw, 360px) !important;
+    height: 100vh !important;
+    z-index: 1001 !important;
+    box-shadow: 0 0 0 9999px rgba(10, 12, 13, 0.22);
+    transition: transform 180ms ease !important;
+  }
+  [data-testid="stSidebar"][aria-expanded="false"] {
+    transform: translateX(-100%) !important;
+    box-shadow: none !important;
+  }
+  [data-testid="stSidebar"][aria-expanded="true"] {
+    transform: translateX(0) !important;
+  }
+  [data-testid="stMain"],
+  [data-testid="stAppViewContainer"],
+  [data-testid="stMainBlockContainer"] {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
 [data-testid="stMain"] [data-baseweb="input"],
 [data-testid="stMain"] [data-baseweb="base-input"],
 [data-testid="stMain"] [data-baseweb="select"] > div,
@@ -780,7 +858,7 @@ div[data-testid="stSegmentedControl"] button,
 [data-testid="stMain"] [role="switch"] {
   background: linear-gradient(90deg, rgba(23,87,68,0.22), rgba(63,138,112,0.14)) !important;
   border: 1px solid rgba(31,106,83,0.34) !important;
-  border-radius: 999px !important;
+  border-radius: 0 !important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.08),
     0 0 0 1px rgba(174,143,84,0.10),
@@ -910,7 +988,7 @@ div[data-testid="stSegmentedControl"] button,
 }
 /* ── Metric card — pearl plate ─────────────────────────── */
 [data-testid="stMetric"] {
-  min-height: 8.4rem;
+  min-height: 6.4rem;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -925,7 +1003,7 @@ div[data-testid="stSegmentedControl"] button,
   clip-path:   polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
                100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
                0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
-  padding:     0.7rem 0.85rem 0.65rem;
+  padding:     0.5rem 0.7rem 0.48rem;
   box-shadow:  inset 0 1px 0 var(--leo-surface-top),
                inset 1px 0 0 rgba(255,255,255,0.09),
                inset 0 -1px 0 var(--leo-surface-bot),
@@ -935,8 +1013,8 @@ div[data-testid="stSegmentedControl"] button,
 }
 /* ── Metric text — light mode (default) ────────────────── */
 [data-testid="stMetricLabel"] > div {
-  font-size:      0.64rem !important;
-  letter-spacing: 0.10em !important;
+  font-size:      0.58rem !important;
+  letter-spacing: 0.08em !important;
   text-transform: uppercase !important;
   color:          var(--text-muted) !important;
 }
@@ -951,11 +1029,11 @@ div[data-testid="stSegmentedControl"] button,
   vertical-align: middle;
 }
 [data-testid="stMetricValue"] > div {
-  font-size:            1.45rem !important;
+  font-size:            1.18rem !important;
   font-weight:          700 !important;
   color:                var(--text-color) !important;
   font-variant-numeric: tabular-nums;
-  min-height:           2.3rem !important;
+  min-height:           1.6rem !important;
 }
 [data-testid="stMetricValue"] *,
 [data-testid="stMetricDelta"] *,
@@ -980,6 +1058,7 @@ div[data-testid="stSegmentedControl"] button,
 [data-testid="stMetricDelta"],
 [data-testid="stMetricDelta"] * {
   color: var(--text-muted) !important;
+  font-size: 0.72rem !important;
 }
 /* ── Daily state metric with right badge ───────────────── */
 .leo-sidebadge-metric {
@@ -1117,19 +1196,19 @@ div[data-testid="stSegmentedControl"] button,
   height: 6px !important;
   background: linear-gradient(90deg, rgba(31,106,83,0.14), rgba(31,106,83,0.06)) !important;
   border: 1px solid rgba(174, 143, 84, 0.14) !important;
-  border-radius: 999px !important;
+  border-radius: 0 !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.10) !important;
 }
 [data-testid="stSidebar"] [data-baseweb="slider"] > div:first-child > div > div {
   background: linear-gradient(90deg, rgba(31,106,83,0.76), var(--leo-racing-green)) !important;
-  border-radius: 999px !important;
+  border-radius: 0 !important;
   box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 1px 4px rgba(31,106,83,0.18) !important;
 }
 [data-baseweb="slider"] [data-testid="stThumbValue"] {
   font-size:   0.64rem !important;
   font-weight: 700 !important;
   letter-spacing: 0.06em !important;
-  color:       var(--leo-racing-green) !important;
+  color:       rgba(214, 198, 164, 0.95) !important;
   text-transform: uppercase !important;
 }
 [data-testid="stSidebar"] [role="slider"] {
@@ -1231,6 +1310,7 @@ div[data-testid="stSegmentedControl"] button,
     except Exception:
         pass
     language = _render_shell_header(working_settings, language)
+    _render_global_cobe_globe_background(working_settings)
     # _inject_world_map_bg(working_settings)  # disabled: background world map turned off
 
     render_app_shell(
@@ -1245,6 +1325,8 @@ div[data-testid="stSegmentedControl"] button,
 
 
 def _render_theme_override(theme: str) -> None:
+    page_bg = "#1A1D1F"
+    sidebar_bg = "#1A1D1F"
     if theme == "dark":
         text_color = "rgba(244, 240, 232, 0.92)"
         text_muted = "rgba(244, 240, 232, 0.60)"
@@ -1264,15 +1346,17 @@ def _render_theme_override(theme: str) -> None:
         text_muted = "rgba(10, 12, 13, 0.82)"
         kicker = "rgb(18, 57, 91)"
         panel_warm = "rgba(174, 143, 84, 0.25)"
-        panel_fill_a = "rgba(244, 240, 232, 0.25)"
-        panel_fill_b = "rgba(255, 255, 255, 0.10)"
-        surface_a = "rgba(244, 240, 232, 0.25)"
-        surface_b = "rgba(255, 255, 255, 0.10)"
+        panel_fill_a = "rgba(230, 238, 246, 0.72)"
+        panel_fill_b = "rgba(255, 255, 255, 0.32)"
+        surface_a = "rgba(230, 238, 246, 0.68)"
+        surface_b = "rgba(255, 255, 255, 0.26)"
         surface_chip = "rgba(255, 255, 255, 0.14)"
         surface_rim = "rgba(174, 143, 84, 0.22)"
         surface_top = "rgba(255, 255, 255, 0.17)"
         surface_bot = "rgba(174, 143, 84, 0.06)"
         metal_glow = "rgba(174, 143, 84, 0.12)"
+        page_bg = "#E6EEF6"
+        sidebar_bg = "#DCE7F1"
 
     st.markdown(
         f"""
@@ -1300,8 +1384,11 @@ body,
 }}
 body,
 [data-testid="stSidebar"] {{
-  background-color: {"#1A1D1F" if theme == "dark" else "#F5F1EB"} !important;
+  background-color: {"#1A1D1F" if theme == "dark" else sidebar_bg} !important;
   color: {text_color} !important;
+}}
+.stApp {{
+  background-color: {"#1A1D1F" if theme == "dark" else page_bg} !important;
 }}
 .stApp,
 [data-testid="stAppViewContainer"],
@@ -1320,7 +1407,7 @@ body,
 [data-testid="stSidebar"] [data-baseweb="radio"] label p,
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
 [data-testid="stSidebar"] [data-baseweb="slider"] [data-testid="stThumbValue"] {{
-  color: {"rgba(244, 240, 232, 0.92)" if theme == "dark" else "var(--leo-racing-green)"} !important;
+  color: {"rgba(214, 198, 164, 0.95)" if theme == "dark" else "rgba(174, 143, 84, 0.90)"} !important;
 }}
 [data-testid="stHeading"] h3 {{
   color: var(--leo-kicker) !important;
@@ -1344,6 +1431,11 @@ body,
 [data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stButton"] > button[kind="primary"] {{
   background: {"linear-gradient(135deg, rgba(18, 57, 91, 0.28), rgba(18, 57, 91, 0.44))" if theme == "dark" else "linear-gradient(135deg, rgba(18, 57, 91, 0.14), rgba(18, 57, 91, 0.26))"} !important;
   color: var(--text-color) !important;
+}}
+[data-testid="stSidebar"] [role="listbox"] {{
+  max-height: min(18rem, 48vh) !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
 }}
 </style>
 """,
@@ -1459,6 +1551,88 @@ body {{
     )
 
 
+def _active_background_markets(settings: dict[str, Any]) -> set[str]:
+    now = pd.Timestamp.now(tz=settings["profile"]["home_timezone"]).to_pydatetime()
+    us_open, us_close = _relevant_local_window(settings, "us", now)
+    asx_open, asx_close = _relevant_local_window(settings, "asx", now)
+    nzx_open, nzx_close = _relevant_local_window(settings, "nzx", now)
+    return _active_world_market_regions(
+        [
+            {"key": "nzx", "label": "NZ", "open": nzx_open, "close": nzx_close, "color": "#9e2f2f"},
+            {"key": "asx", "label": "AU", "open": asx_open, "close": asx_close, "color": "#1f6a53"},
+            {"key": "us", "label": "US", "open": us_open, "close": us_close, "color": "#12395b"},
+        ],
+        now,
+    )
+
+
+def _render_global_cobe_globe_background(settings: dict[str, Any]) -> None:
+    theme = _ui_theme(settings)
+    active_markets = _active_background_markets(settings)
+    globe_size = 980
+    iframe_height = globe_size
+    top = "52%" if theme == "dark" else "54%"
+    right = "clamp(-360px, -11vw, -140px)" if theme == "dark" else "clamp(-340px, -10vw, -120px)"
+    opacity = "0.58" if theme == "dark" else "0.42"
+
+    st.markdown(
+        f"""
+<style>
+.stApp {{
+  isolation: isolate;
+}}
+[data-testid="stSidebar"] > div:first-child {{
+  height: 100vh !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}}
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"],
+.main .block-container,
+[data-testid="stSidebar"] {{
+  position: relative;
+  z-index: 2;
+}}
+[class*="st-key-global_cobe_globe_bg"] {{
+  position: fixed;
+  top: {top};
+  right: {right};
+  transform: translateY(-50%);
+  width: {globe_size}px;
+  height: {globe_size}px;
+  z-index: 0;
+  opacity: {opacity};
+  pointer-events: none;
+  overflow: visible;
+}}
+[class*="st-key-global_cobe_globe_bg"] iframe {{
+  background: transparent !important;
+  border: 0 !important;
+  pointer-events: none;
+  width: {globe_size}px !important;
+  height: {globe_size}px !important;
+}}
+@media (max-width: 900px) {{
+  [class*="st-key-global_cobe_globe_bg"] {{
+    top: 60%;
+    right: -440px;
+    width: {globe_size}px;
+    height: {globe_size}px;
+    opacity: { "0.42" if theme == "dark" else "0.28" };
+  }}
+}}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+    try:
+        globe_html = build_cobe_globe_html(active_markets, theme=theme, size=globe_size)
+        with st.container(key="global_cobe_globe_bg"):
+            components.html(globe_html, height=iframe_height, scrolling=False)
+    except Exception:
+        pass
+
+
 def _render_shell_header(settings: dict[str, Any], language: str) -> str:
     theme = _ui_theme(settings)
     title_cols = st.columns([5, 1.0, 1.15])
@@ -1472,33 +1646,33 @@ def _render_shell_header(settings: dict[str, Any], language: str) -> str:
 """,
         unsafe_allow_html=True,
     )
-    selected_theme_label = title_cols[1].segmented_control(
-        _tr(language, "界面主题", "Interface theme"),
-        ["Dark", "Light"],
-        default="Dark" if theme == "dark" else "Light",
-        key="header_ui_theme",
-        label_visibility="collapsed",
-        width="content",
-    )
+    with title_cols[1].container(key="header_theme_control"):
+        selected_theme_label = st.segmented_control(
+            _tr(language, "界面主题", "Interface theme"),
+            ["Dark", "Light"],
+            default="Dark" if theme == "dark" else "Light",
+            key="header_ui_theme",
+            label_visibility="collapsed",
+            width="content",
+        )
     selected_theme = "dark" if selected_theme_label == "Dark" else "light"
     current = "EN" if language == "en" else "中文"
-    selected = title_cols[2].segmented_control(
-        _tr(language, "界面语言", "Interface language"),
-        ["EN", "中文"],
-        default=current,
-        key="header_ui_language",
-        label_visibility="collapsed",
-        width="content",
-    )
+    with title_cols[2].container(key="header_language_control"):
+        selected = st.segmented_control(
+            _tr(language, "界面语言", "Interface language"),
+            ["EN", "中文"],
+            default=current,
+            key="header_ui_language",
+            label_visibility="collapsed",
+            width="content",
+        )
     resolved = "en" if selected == "EN" else "zh"
     if resolved != language:
         st.session_state["ui_language"] = resolved
         settings.setdefault("ui", {})["language"] = resolved
-        st.rerun()
     if selected_theme != theme:
         st.session_state["ui_theme"] = selected_theme
         settings.setdefault("ui", {})["theme"] = selected_theme
-        st.rerun()
     return resolved
 
 
@@ -1568,6 +1742,11 @@ def _sidebar_control_cluster(
 """,
         unsafe_allow_html=True,
     )
+
+
+def _normalize_trend_windows(short: int, medium: int, long: int) -> tuple[int, int, int]:
+    ordered = sorted((int(short), int(medium), int(long)))
+    return ordered[0], ordered[1], ordered[2]
 
 
 def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, Any]:
@@ -1666,12 +1845,41 @@ def _settings_sidebar(settings: dict[str, Any], config_path: str) -> dict[str, A
             _tr(language, "先定义趋势感应器与简单门控，再决定后面的主仓位引擎如何解释它们。", "Define the trend sensors and simple gate first, then let the main position engine interpret them."),
         )
         st.subheader(_tr(language, "趋势信号", "Trend Signal"))
-        trend["short_window"] = st.number_input(_tr(language, "短期均线", "Short moving average"), 5, 100, int(trend["short_window"]))
-        st.caption(_tr(language, "反映短期动能。数值越小越敏感，越容易提前加仓或减仓。", "Tracks short-term momentum. Smaller values react faster."))
-        trend["medium_window"] = st.number_input(_tr(language, "中期均线", "Medium moving average"), 10, 150, int(trend["medium_window"]))
-        st.caption(_tr(language, "反映中期趋势。数值越大越稳，但信号会更慢。", "Tracks medium-term trend. Larger values are steadier but slower."))
-        trend["long_window"] = st.number_input(_tr(language, "长期均线", "Long moving average"), 50, 300, int(trend["long_window"]))
-        st.caption(_tr(language, "判断牛熊环境的主过滤器。越长越保守，越短越容易频繁切换。", "Main bull/bear environment filter. Longer is more conservative."))
+        st.caption(_tr(language, "均线窗口合并到同一组滑杆控件里：短、中、长三个窗口一起调，系统会自动保持从小到大排序。", "The moving-average windows are grouped into one slider cluster. Short, medium, and long stay sorted from low to high automatically."))
+        ma_cols = st.columns(3)
+        short_window = ma_cols[0].slider(
+            _tr(language, "短期移动均线", "Short moving average"),
+            5,
+            100,
+            int(trend["short_window"]),
+            key=f"{key_prefix}_trend_short_window",
+        )
+        medium_window = ma_cols[1].slider(
+            _tr(language, "中期移动均线", "Medium moving average"),
+            10,
+            150,
+            int(trend["medium_window"]),
+            key=f"{key_prefix}_trend_medium_window",
+        )
+        long_window = ma_cols[2].slider(
+            _tr(language, "长期移动均线", "Long moving average"),
+            50,
+            300,
+            int(trend["long_window"]),
+            key=f"{key_prefix}_trend_long_window",
+        )
+        trend["short_window"], trend["medium_window"], trend["long_window"] = _normalize_trend_windows(
+            short_window,
+            medium_window,
+            long_window,
+        )
+        st.caption(
+            _tr(
+                language,
+                f"当前组合：MA{trend['short_window']} / MA{trend['medium_window']} / MA{trend['long_window']}。短期越小越敏感，长期越大越保守。",
+                f"Current stack: MA{trend['short_window']} / MA{trend['medium_window']} / MA{trend['long_window']}. Smaller short windows react faster; larger long windows are more conservative.",
+            )
+        )
         trend["confirmation_days"] = st.number_input(_tr(language, "连续确认天数", "Confirmation days"), 1, 10, int(trend["confirmation_days"]))
         st.caption(_tr(language, "要求信号连续成立多少天才确认。调高可减少假突破，但会牺牲反应速度。", "Requires a signal to hold for this many days. Higher values reduce false breaks but react slower."))
 
@@ -3229,9 +3437,7 @@ def _parallel_market_trade_timeline(
         for window in market_windows
     )
     active_markets = _active_world_market_regions(market_windows, now)
-    world_map_html = build_world_map_markup(active_markets, repeats=1)
     market_status_html = _timeline_market_status_html(active_markets, language)
-    market_label_html = _timeline_market_label_html(active_markets)
     st.markdown(
         f"""
 <style>
@@ -3239,67 +3445,12 @@ def _parallel_market_trade_timeline(
   position: relative;
   border: 2px solid var(--leo-surface-rim);
   border-top: 3px solid rgba(174, 143, 84, 0.24);
-  border-radius: 0;
-  padding: 14px 14px 32px;
+  padding: 14px 14px 18px;
   margin: 10px 0 12px;
   background: linear-gradient(145deg, var(--panel-fill-a), var(--panel-fill-b));
   box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 14px var(--leo-metal-glow);
   backdrop-filter: blur(8px);
   overflow: hidden;
-}}
-.trade-timeline-map {{
-  display: none !important;
-}}
-.trade-timeline-map::after {{
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, transparent 0%, rgba(244, 240, 232, 0.03) 100%);
-  z-index: 1;
-  pointer-events: none;
-}}
-[data-theme="dark"] .trade-timeline-map::after {{
-  background:
-    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.06) 100%);
-}}
-.trade-timeline-map-track {{
-  position: relative;
-  width: max-content;
-  margin-left: auto;
-  padding: 8px 0 0;
-  animation: none;
-}}
-.trade-timeline-map-pre {{
-  margin: 0;
-  font-family: "Courier New", Courier, monospace;
-  font-size: 5.5px;
-  line-height: 0.62;
-  white-space: pre;
-  color: rgba(17, 18, 20, 0.10);
-}}
-[data-theme="dark"] .trade-timeline-map-pre {{
-  color: rgba(244, 240, 232, 0.11);
-}}
-.trade-timeline-map-pre .wm-us.active,
-.trade-timeline-map-pre .wm-eu.active,
-.trade-timeline-map-pre .wm-asia.active,
-.trade-timeline-map-pre .wm-middle_east.active,
-.trade-timeline-map-pre .wm-south_america.active,
-.trade-timeline-map-pre .wm-asx.active,
-.trade-timeline-map-pre .wm-nzx.active {{
-  color: rgba(18, 57, 91, 0.78);
-  font-weight: 700;
-}}
-[data-theme="dark"] .trade-timeline-map-pre .wm-us.active,
-[data-theme="dark"] .trade-timeline-map-pre .wm-eu.active,
-[data-theme="dark"] .trade-timeline-map-pre .wm-asia.active,
-[data-theme="dark"] .trade-timeline-map-pre .wm-middle_east.active,
-[data-theme="dark"] .trade-timeline-map-pre .wm-south_america.active,
-[data-theme="dark"] .trade-timeline-map-pre .wm-asx.active,
-[data-theme="dark"] .trade-timeline-map-pre .wm-nzx.active {{
-  color: rgba(126, 173, 221, 0.92);
-  font-weight: 700;
 }}
 .trade-map-status {{
   display: flex;
@@ -3312,30 +3463,6 @@ def _parallel_market_trade_timeline(
   text-transform: uppercase;
   color: rgba(244, 240, 232, 0.62) !important;
 }}
-.trade-map-label {{
-  position: absolute;
-  z-index: 3;
-  transform: translate(-50%, -50%);
-  font-family: "Courier New", Courier, monospace;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: rgba(244, 240, 232, 0.42) !important;
-  text-shadow: 0 0 8px rgba(0, 0, 0, 0.34);
-  white-space: nowrap;
-}}
-.trade-map-label.active {{
-  color: rgba(126, 173, 221, 0.98) !important;
-  text-shadow: 0 0 10px rgba(126, 173, 221, 0.58), 0 0 18px rgba(18, 57, 91, 0.42);
-  animation: timeline-market-pulse 4s ease-in-out infinite;
-}}
-.trade-map-label-us {{ left: 19%; top: 25%; }}
-.trade-map-label-south_america {{ left: 31%; top: 63%; }}
-.trade-map-label-eu {{ left: 48%; top: 22%; }}
-.trade-map-label-middle_east {{ left: 58%; top: 38%; }}
-.trade-map-label-asia {{ left: 73%; top: 30%; }}
-.trade-map-label-asx {{ left: 83%; top: 75%; }}
-.trade-map-label-nzx {{ left: 92%; top: 83%; }}
 .trade-map-status span {{
   border: 1px solid rgba(174, 143, 84, 0.18);
   padding: 2px 5px;
@@ -3365,37 +3492,34 @@ def _parallel_market_trade_timeline(
   gap: 12px;
   color: inherit;
   font-size: 13px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }}
 .trade-timeline-row {{
-  margin: 14px 0 16px;
+  margin: 0 0 16px;
 }}
 .trade-timeline-row.mode-row {{
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }}
 .trade-timeline-label {{
   color: inherit;
   font-size: 13px;
   font-weight: 700;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }}
 .trade-timeline-track {{
   position: relative;
-  height: 34px;
-  border-radius: 0;
-  clip-path: polygon(0.35rem 0, calc(100% - 0.35rem) 0, 100% 0.35rem, 100% calc(100% - 0.35rem), calc(100% - 0.35rem) 100%, 0.35rem 100%, 0 calc(100% - 0.35rem), 0 0.35rem);
+  min-height: 42px;
   background: linear-gradient(145deg, var(--panel-fill-a), var(--panel-warm));
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 0 rgba(174,143,84,0.05);
   overflow: visible;
+  border: 1px solid rgba(174,143,84,0.18);
 }}
 .trade-timeline-segment {{
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 4px;
+  bottom: 4px;
   box-sizing: border-box;
   border: 1px solid rgba(174,143,84,0.24);
-  border-radius: 0;
-  clip-path: polygon(0.3rem 0, calc(100% - 0.3rem) 0, 100% 0.3rem, 100% calc(100% - 0.3rem), calc(100% - 0.3rem) 100%, 0.3rem 100%, 0 calc(100% - 0.3rem), 0 0.3rem);
   box-shadow:
     inset 0 0 0 1px rgba(255,255,255,.20),
     inset 0 1px 0 rgba(255,255,255,0.14),
@@ -3443,20 +3567,17 @@ def _parallel_market_trade_timeline(
 }}
 .trade-deadline-warning {{
   position: absolute;
-  top: 0;
-  bottom: 0;
-  border-radius: 0;
-  clip-path: polygon(0.3rem 0, calc(100% - 0.3rem) 0, 100% 0.3rem, 100% calc(100% - 0.3rem), calc(100% - 0.3rem) 100%, 0.3rem 100%, 0 calc(100% - 0.3rem), 0 0.3rem);
+  top: 4px;
+  bottom: 4px;
   opacity: .16;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
 }}
 .trade-deadline-marker {{
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 4px;
+  bottom: 4px;
   width: 4px;
   box-shadow: 0 0 10px currentColor;
-  border-radius: 0;
   z-index: 6;
 }}
 .trade-deadline-marker span {{
@@ -3486,16 +3607,14 @@ def _parallel_market_trade_timeline(
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 6px;
 }}
 .trade-action-item {{
   position: relative;
   overflow: hidden;
-  padding: 5px 8px 5px 18px;
+  padding: 9px 10px 9px 18px;
   background: linear-gradient(145deg, var(--panel-fill-a), var(--panel-fill-b));
   border: 1px solid var(--leo-surface-rim);
-  border-radius: 0;
-  clip-path: polygon(0.35rem 0, calc(100% - 0.35rem) 0, 100% 0.35rem, 100% calc(100% - 0.35rem), calc(100% - 0.35rem) 100%, 0.35rem 100%, 0 calc(100% - 0.35rem), 0 0.35rem);
   box-shadow: inset 0 1px 0 var(--leo-surface-top);
   color: inherit;
   font-size: 12px;
@@ -3603,17 +3722,7 @@ def _parallel_market_trade_timeline(
 }}
 @media (max-width: 640px) {{
   .trade-timeline-wrap {{
-    padding: 12px 10px 34px;
-  }}
-  .trade-timeline-map {{
-    width: 100%;
-  }}
-  .trade-timeline-map-track {{
-    animation: timeline-map-drift 72s linear infinite;
-  }}
-  .trade-timeline-map-pre {{
-    font-size: 4.2px;
-    line-height: 0.62;
+    padding: 12px 10px 18px;
   }}
   .trade-timeline-head {{
     display: grid;
@@ -3633,7 +3742,7 @@ def _parallel_market_trade_timeline(
     margin-bottom: 22px;
   }}
   .trade-timeline-track {{
-    height: 38px;
+    min-height: 44px;
   }}
   .trade-timeline-segment span {{
     left: 6px;
@@ -3674,24 +3783,13 @@ def _parallel_market_trade_timeline(
     grid-template-columns: 1fr;
   }}
 }}
-@keyframes timeline-map-drift {{
-  from {{ transform: translateX(0); }}
-  to {{ transform: translateX(-50%); }}
-}}
 @media (prefers-reduced-motion: reduce) {{
-  .trade-timeline-map-track,
   .trade-map-label.active {{
     animation: none !important;
   }}
 }}
 </style>
 <div class="trade-timeline-wrap">
-  <div class="trade-timeline-map" aria-hidden="true">
-    <div class="trade-timeline-map-track">
-      <div class="trade-timeline-map-pre">{world_map_html}</div>
-      {market_label_html}
-    </div>
-  </div>
   <div class="trade-timeline-content">
     <div class="trade-timeline-head">
       <span>{html.escape(start.strftime("%Y-%m-%d %H:%M"))}</span>

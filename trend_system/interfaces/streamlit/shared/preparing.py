@@ -59,7 +59,7 @@ def preparing_markup(language: str, title: str | None = None, detail: str | None
   .leolrs-dot {{
     width: 0.72rem;
     height: 0.72rem;
-    border-radius: 999px;
+    border-radius: 0;
     position: relative;
     animation: leolrs-dot-drift 1.35s ease-in-out infinite;
     box-shadow:
@@ -70,7 +70,7 @@ def preparing_markup(language: str, title: str | None = None, detail: str | None
     content: "";
     position: absolute;
     inset: -22%;
-    border-radius: 999px;
+    border-radius: 0;
     background: radial-gradient(circle, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.01) 70%, transparent 100%);
     opacity: 0.42;
   }}

@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+import re
 
 from trend_system.interfaces.streamlit.shared.release_notes import (
     release_notes_path,
     release_notes_text,
+)
+from trend_system.interfaces.streamlit.shared.cobe_globe import (
+    MARKET_REGION_SAMPLES,
+    build_cobe_globe_html,
 )
 from trend_system.interfaces.streamlit.shared.preparing import preparing_markup
 from trend_system.interfaces.streamlit.shared.state import fingerprint
@@ -67,3 +73,20 @@ def test_fingerprint_ignores_chart_only_backtest_toggles():
     }
 
     assert fingerprint(base, {"start": "2026-01-01"}) == fingerprint(changed, {"start": "2026-01-01"})
+
+
+def test_cobe_globe_uses_low_contrast_region_blocks():
+    markup = build_cobe_globe_html({"us", "asia"}, theme="dark", size=720)
+    config_match = re.search(r"const config = (\{.*?\});", markup, re.S)
+
+    assert config_match
+    config = json.loads(config_match.group(1))
+    assert config["width"] == 1440
+    assert config["height"] == 1440
+    assert config["dark"] == 1
+    assert config["mapBrightness"] >= 1.0
+    assert config["diffuse"] >= 0.75
+    assert config["baseColor"][0] > 0.9
+    assert config["glowColor"][2] > 0.1
+    assert len(config["markers"]) == len(MARKET_REGION_SAMPLES["us"]) + len(MARKET_REGION_SAMPLES["asia"])
+    assert {marker["size"] for marker in config["markers"]} == {0.11}
