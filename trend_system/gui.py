@@ -8,6 +8,7 @@ import html
 from pathlib import Path
 import re
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import altair as alt
 import pandas as pd
@@ -68,6 +69,7 @@ from trend_system.interfaces.streamlit.shared import (
     tr as shared_tr,
     ui_language as shared_ui_language,
 )
+from trend_system.interfaces.streamlit.shared.world_map import build_world_map_markup, build_world_map_text
 from trend_system.portfolio import build_allocation
 from trend_system.services.backtest_service import run_backtest_use_case
 from trend_system.services.daily_signal_service import run_daily_signal
@@ -104,6 +106,11 @@ def _ui_language(settings: dict[str, Any]) -> str:
     return shared_ui_language(settings)
 
 
+def _ui_theme(settings: dict[str, Any]) -> str:
+    selected = st.session_state.get("ui_theme") or settings.get("ui", {}).get("theme", "dark")
+    return selected if selected in {"dark", "light"} else "dark"
+
+
 def _tr(language: str, zh: str, en: str) -> str:
     return shared_tr(language, zh, en)
 
@@ -119,12 +126,18 @@ def _apply_session_preferences(settings: dict[str, Any]) -> None:
         st.session_state["ui_language"] = st.session_state["settings_ui_language"]
     if "header_ui_language" in st.session_state:
         st.session_state["ui_language"] = "en" if st.session_state["header_ui_language"] == "EN" else "zh"
+    if "settings_ui_theme" in st.session_state:
+        st.session_state["ui_theme"] = st.session_state["settings_ui_theme"]
+    if "header_ui_theme" in st.session_state:
+        st.session_state["ui_theme"] = st.session_state["header_ui_theme"]
     if "settings_home_timezone" in st.session_state:
         st.session_state["home_timezone"] = st.session_state["settings_home_timezone"]
     if "settings_base_currency" in st.session_state:
         st.session_state["base_currency"] = st.session_state["settings_base_currency"]
     if "ui_language" in st.session_state:
         ui["language"] = st.session_state["ui_language"]
+    if "ui_theme" in st.session_state:
+        ui["theme"] = st.session_state["ui_theme"]
     if "home_timezone" in st.session_state:
         profile["home_timezone"] = st.session_state["home_timezone"]
     if "base_currency" in st.session_state:
@@ -145,6 +158,11 @@ def main() -> None:
   --leo-ink:          #111214;
   --leo-ink-sub:      rgba(17, 18, 20, 0.78);
   --leo-kicker:       rgba(18, 57, 91, 0.85);
+  --text-color:       #111214;
+  --text-muted:       rgba(17, 18, 20, 0.78);
+  --panel-warm:       rgba(174, 143, 84, 0.25);
+  --panel-fill-a:     rgba(244, 240, 232, 0.25);
+  --panel-fill-b:     rgba(255, 255, 255, 0.10);
   --leo-surface-a:    rgba(244, 240, 232, 0.25);
   --leo-surface-b:    rgba(255, 255, 255, 0.10);
   --leo-surface-chip: rgba(255, 255, 255, 0.14);
@@ -170,41 +188,44 @@ def main() -> None:
   --leo-sw-text:      rgba(17, 18, 20, 0.72);
   --leo-sw-text-on:   #111214;
   /* Active beads */
-  --leo-bead-en:      rgba(18, 57, 91, 0.92);
+  --leo-bead-en:      rgba(31, 106, 83, 0.92);
   --leo-bead-en-txt:  #F4F0E8;
-  --leo-bead-zh:      rgba(158, 47, 47, 0.92);
+  --leo-bead-zh:      rgba(31, 106, 83, 0.92);
   --leo-bead-zh-txt:  #F4F0E8;
 }
 /* ── Light mode — explicit black text ──────────────────── */
+html[data-theme="light"],
+body[data-theme="light"],
 [data-theme="light"] {
   --leo-ink:      #0A0C0D;
   --leo-ink-sub:  rgba(10, 12, 13, 0.82);
   --leo-kicker:   rgb(18, 57, 91);
+  --text-color:   #0A0C0D;
+  --text-muted:   rgba(10, 12, 13, 0.82);
+  --panel-warm:   rgba(174, 143, 84, 0.25);
+  --panel-fill-a: rgba(244, 240, 232, 0.25);
+  --panel-fill-b: rgba(255, 255, 255, 0.10);
+  --leo-surface-a:    rgba(244, 240, 232, 0.25);
+  --leo-surface-b:    rgba(255, 255, 255, 0.10);
+  --leo-surface-chip: rgba(255, 255, 255, 0.14);
+  --leo-surface-rim:  rgba(174, 143, 84, 0.22);
+  --leo-surface-top:  rgba(255, 255, 255, 0.17);
+  --leo-surface-bot:  rgba(174, 143, 84, 0.06);
+  --leo-metal-glow:   rgba(174, 143, 84, 0.12);
+  --leo-sw-text:      rgba(17, 18, 20, 0.72);
+  --leo-sw-text-on:   #111214;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --leo-ink:        rgba(244, 240, 232, 0.92);
-    --leo-ink-sub:    rgba(244, 240, 232, 0.60);
-    --leo-kicker:     rgba(244, 240, 232, 0.86);
-    --leo-surface-a:  rgba(26, 29, 31, 0.25);
-    --leo-surface-b:  rgba(244, 240, 232, 0.06);
-    --leo-surface-chip: rgba(244, 240, 232, 0.08);
-    --leo-surface-rim: rgba(174, 143, 84, 0.18);
-    --leo-surface-top: rgba(255, 255, 255, 0.05);
-    --leo-surface-bot: rgba(174, 143, 84, 0.05);
-    --leo-metal-glow: rgba(174, 143, 84, 0.10);
-    --leo-sw-bg:      rgba(26, 29, 31, 0.25);
-    --leo-sw-rim:     rgba(174, 143, 84, 0.22);
-    --leo-sw-inner:   rgba(255, 255, 255, 0.06);
-    --leo-sw-shadow:  rgba(0, 0, 0, 0.40);
-    --leo-sw-text:    rgba(244, 240, 232, 0.65);
-    --leo-sw-text-on: rgba(244, 240, 232, 0.95);
-  }
-}
+html[data-theme="dark"],
+body[data-theme="dark"],
 [data-theme="dark"] {
   --leo-ink:        rgba(244, 240, 232, 0.92);
   --leo-ink-sub:    rgba(244, 240, 232, 0.60);
   --leo-kicker:     rgba(244, 240, 232, 0.86);
+  --text-color:     rgba(244, 240, 232, 0.92);
+  --text-muted:     rgba(244, 240, 232, 0.60);
+  --panel-warm:     rgba(174, 143, 84, 0.10);
+  --panel-fill-a:   rgba(26, 29, 31, 0.74);
+  --panel-fill-b:   rgba(0, 0, 0, 0.22);
   --leo-surface-a:  rgba(26, 29, 31, 0.25);
   --leo-surface-b:  rgba(244, 240, 232, 0.06);
   --leo-surface-chip: rgba(244, 240, 232, 0.08);
@@ -232,15 +253,18 @@ body,
 #root,
 .stApp {
   overflow: visible !important;
+  color: var(--text-color) !important;
 }
 [data-testid="stAppViewContainer"] {
   position: relative !important;
   inset: auto !important;
   overflow: visible !important;
+  color: var(--text-color) !important;
 }
 [data-testid="stMain"],
 [data-testid="stMainBlockContainer"] {
   min-height: 100vh !important;
+  color: var(--text-color) !important;
 }
 .block-container {
   overflow-x: hidden !important;
@@ -251,24 +275,31 @@ body,
 .shell-title-band {
   display: flex;
   flex-direction: column;
-  gap: 0.32rem;
-  margin-bottom: 0.5rem;
+  gap: 0.15rem;
+  margin-bottom: 0.2rem;
 }
 .shell-kicker {
-  font-size: 0.72rem;
+  font-size: 0.62rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--leo-kicker);
 }
 .shell-title {
-  font-size: clamp(2rem, 4vw, 2.8rem);
+  font-size: clamp(1.3rem, 2.6vw, 1.8rem);
   line-height: 1;
   font-weight: 700;
-  color: var(--leo-ink);
+  color: var(--text-color);
 }
 .shell-subtitle {
-  font-size: 0.92rem;
-  color: var(--leo-ink-sub);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+/* Align segmented controls with title band vertically */
+[data-testid="stHorizontalBlock"]:has(.shell-title-band) {
+  align-items: center !important;
+}
+[data-testid="stHorizontalBlock"]:has(.shell-title-band) [data-testid="stSegmentedControl"] {
+  margin: 0 !important;
 }
 /* ── Pearl language switch ─────────────────────────────── */
 div[data-testid="stSegmentedControl"] > div {
@@ -302,7 +333,7 @@ div[data-testid="stSegmentedControl"] button:nth-child(1)[aria-selected="true"] 
   color:      var(--leo-bead-en-txt) !important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.10),
-    0 1px 3px rgba(18,57,91,0.22)    !important;
+    0 1px 3px rgba(31,106,83,0.24)   !important;
 }
 div[data-testid="stSegmentedControl"] button:nth-child(2)[aria-pressed="true"],
 div[data-testid="stSegmentedControl"] button:nth-child(2)[aria-selected="true"] {
@@ -310,7 +341,7 @@ div[data-testid="stSegmentedControl"] button:nth-child(2)[aria-selected="true"] 
   color:      var(--leo-bead-zh-txt) !important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.08),
-    0 1px 3px rgba(158,47,47,0.22)   !important;
+    0 1px 3px rgba(31,106,83,0.24)   !important;
 }
 div[data-testid="stSegmentedControl"] button:not([aria-pressed="true"]):not([aria-selected="true"]):hover {
   color:      var(--leo-sw-text-on)  !important;
@@ -323,7 +354,7 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
 .strategy-console-intro {
   margin: 0.35rem 0 0.85rem;
   padding: 0.8rem 0.85rem 0.75rem;
-  background: linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+  background: linear-gradient(145deg, var(--panel-fill-a), var(--panel-fill-b));
   border: 2px solid var(--leo-surface-rim);
   clip-path: polygon(0.75rem 0, calc(100% - 0.75rem) 0, 100% 0.75rem, 100% calc(100% - 0.75rem), calc(100% - 0.75rem) 100%, 0.75rem 100%, 0 calc(100% - 0.75rem), 0 0.75rem);
   box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 14px var(--leo-metal-glow);
@@ -333,11 +364,11 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
   font-size: 0.84rem;
   font-weight: 700;
   margin-bottom: 0.3rem;
-  color: var(--leo-ink);
+  color: var(--text-color);
 }
 .strategy-console-note {
   font-size: 0.73rem;
-  color: var(--leo-ink-sub);
+  color: var(--text-muted);
   margin-bottom: 0.5rem;
 }
 .strategy-console-grid {
@@ -355,7 +386,7 @@ div[data-testid="stSegmentedControl"] button:focus-visible {
   background: var(--leo-surface-chip);
   box-shadow: inset 0 1px 0 var(--leo-surface-top);
   font-size: 0.72rem;
-  color: var(--leo-ink);
+  color: var(--text-color);
   backdrop-filter: blur(6px);
 }
 /* ── Hard edge reset: all rectangular, no rounded / chamfered corners ── */
@@ -390,7 +421,7 @@ div[data-testid="stSegmentedControl"] button,
 .sidebar-section-plate {
   margin: 0.55rem 0 0.5rem;
   padding: 0.55rem 0.7rem 0.5rem;
-  background: linear-gradient(145deg, rgba(18,57,91,0.14), var(--leo-surface-b));
+  background: linear-gradient(145deg, rgba(18,57,91,0.10), var(--panel-fill-b));
   border: 2px solid var(--leo-surface-rim);
   clip-path: polygon(0.6rem 0, calc(100% - 0.6rem) 0, 100% 0.6rem, 100% calc(100% - 0.6rem), calc(100% - 0.6rem) 100%, 0.6rem 100%, 0 calc(100% - 0.6rem), 0 0.6rem);
   box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 12px var(--leo-metal-glow);
@@ -406,11 +437,11 @@ div[data-testid="stSegmentedControl"] button,
 .sidebar-section-title {
   font-size: 0.86rem;
   font-weight: 700;
-  color: var(--leo-ink);
+  color: var(--text-color);
 }
 .sidebar-section-summary {
   font-size: 0.72rem;
-  color: var(--leo-ink-sub);
+  color: var(--text-muted);
   margin-top: 0.18rem;
 }
 .sidebar-control-cluster {
@@ -418,7 +449,7 @@ div[data-testid="stSegmentedControl"] button,
   padding: 0.68rem 0.72rem 0.6rem;
   background:
     radial-gradient(circle at top right, var(--leo-prussian-haze), transparent 42%),
-    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+    linear-gradient(145deg, var(--panel-fill-a), var(--panel-fill-b));
   border: 2px solid var(--leo-surface-rim);
   clip-path: polygon(0.72rem 0, calc(100% - 0.72rem) 0, 100% 0.72rem, 100% calc(100% - 0.72rem), calc(100% - 0.72rem) 100%, 0.72rem 100%, 0 calc(100% - 0.72rem), 0 0.72rem);
   box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 14px var(--leo-metal-glow);
@@ -457,12 +488,12 @@ div[data-testid="stSegmentedControl"] button,
 .sidebar-control-cluster.cluster-green {
   background:
     radial-gradient(circle at top right, var(--leo-racing-green-haze), transparent 42%),
-    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+    linear-gradient(145deg, var(--panel-fill-a), var(--panel-fill-b));
 }
 .sidebar-control-cluster.cluster-red {
   background:
     radial-gradient(circle at top right, var(--leo-palace-red-haze), transparent 42%),
-    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+    linear-gradient(145deg, var(--panel-fill-a), var(--panel-fill-b));
 }
 .sidebar-control-cluster .cluster-overline {
   font-size: 0.65rem;
@@ -475,13 +506,13 @@ div[data-testid="stSegmentedControl"] button,
   margin-top: 0.16rem;
   font-size: 0.94rem;
   font-weight: 700;
-  color: var(--leo-ink);
+  color: var(--text-color);
 }
 .sidebar-control-cluster .cluster-summary {
   margin-top: 0.16rem;
   font-size: 0.72rem;
   line-height: 1.45;
-  color: var(--leo-ink-sub);
+  color: var(--text-muted);
 }
 .sidebar-control-cluster .cluster-chip-row {
   display: flex;
@@ -500,7 +531,7 @@ div[data-testid="stSegmentedControl"] button,
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
   font-size: 0.68rem;
   letter-spacing: 0.06em;
-  color: var(--leo-ink-sub);
+  color: var(--text-muted);
 }
 /* ── Sidebar control language — Jack R inspired ───────── */
 [data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
@@ -515,7 +546,7 @@ div[data-testid="stSegmentedControl"] button,
 }
 [data-testid="stSidebar"] [data-baseweb="input"],
 [data-testid="stSidebar"] [data-baseweb="base-input"] {
-  background: linear-gradient(145deg, var(--leo-surface-a), rgba(255,255,255,0.06)) !important;
+  background: linear-gradient(145deg, var(--panel-fill-a), var(--panel-fill-b)) !important;
   border: 1px solid var(--leo-surface-rim) !important;
   border-radius: 0 !important;
   box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot) !important;
@@ -523,14 +554,14 @@ div[data-testid="stSegmentedControl"] button,
 }
 [data-testid="stSidebar"] [data-baseweb="input"] input,
 [data-testid="stSidebar"] [data-baseweb="base-input"] input {
-  color: var(--leo-ink) !important;
+  color: var(--text-color) !important;
   font-size: 0.92rem !important;
   font-weight: 600 !important;
   letter-spacing: 0.01em !important;
 }
 [data-testid="stSidebar"] [data-baseweb="input"] input::placeholder,
 [data-testid="stSidebar"] [data-baseweb="base-input"] input::placeholder {
-  color: var(--leo-ink-sub) !important;
+  color: var(--text-muted) !important;
 }
 [data-testid="stSidebar"] [data-baseweb="input"]:focus-within,
 [data-testid="stSidebar"] [data-baseweb="base-input"]:focus-within {
@@ -542,7 +573,7 @@ div[data-testid="stSegmentedControl"] button,
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {
   font-size: 0.70rem !important;
   line-height: 1.45 !important;
-  color: var(--leo-ink-sub) !important;
+  color: var(--text-muted) !important;
 }
 [data-testid="stSidebar"] [data-baseweb="radio"] {
   gap: 0.45rem !important;
@@ -618,14 +649,6 @@ div[data-testid="stSegmentedControl"] button,
 [data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="slider"] [data-testid="stThumbValue"] {
   color: rgba(244, 240, 232, 0.92) !important;
 }
-@media (prefers-color-scheme: dark) {
-  [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
-  [data-testid="stSidebar"] [data-baseweb="radio"] label p,
-  [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
-  [data-testid="stSidebar"] [data-baseweb="slider"] [data-testid="stThumbValue"] {
-    color: rgba(244, 240, 232, 0.92) !important;
-  }
-}
 /* ── Section header ────────────────────────────────────── */
 .leo-section-head {
   display: flex;
@@ -633,7 +656,7 @@ div[data-testid="stSegmentedControl"] button,
   gap: 0.65rem;
   margin: 1.1rem 0 0.65rem;
   padding-bottom: 0.35rem;
-  border-bottom: 1px solid rgba(174, 143, 84, 0.22);
+  border-bottom: 1px solid rgba(174, 143, 84, 0.40);
 }
 .leo-section-overline {
   font-size: 0.66rem;
@@ -646,7 +669,11 @@ div[data-testid="stSegmentedControl"] button,
 .leo-section-rule {
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, rgba(174,143,84,0.20) 0%, transparent 100%);
+  background: linear-gradient(90deg, rgba(174,143,84,0.38) 0%, transparent 100%);
+}
+.leo-section-head--backtest .leo-section-overline {
+  font-size: 0.84rem;
+  letter-spacing: 0.14em;
 }
 /* ── Section dot markers ───────────────────────────────── */
 .leo-section-dot {
@@ -658,7 +685,7 @@ div[data-testid="stSegmentedControl"] button,
 }
 .leo-section-head--prussian .leo-section-dot      { background:   rgba(18, 57, 91, 0.85); }
 .leo-section-head--prussian .leo-section-overline { color:        rgba(18, 57, 91, 0.80); }
-.leo-section-head--prussian                       { border-bottom-color: rgba(18, 57, 91, 0.18); }
+.leo-section-head--prussian                       { border-bottom-color: rgba(18, 57, 91, 0.38); }
 .leo-section-head--green .leo-section-dot         { background:   rgba(22, 74, 60, 0.85); }
 .leo-section-head--green .leo-section-overline    { color:        rgba(22, 74, 60, 0.80); }
 .leo-section-head--green                          { border-bottom-color: rgba(22, 74, 60, 0.18); }
@@ -679,15 +706,219 @@ div[data-testid="stSegmentedControl"] button,
 [data-theme="dark"] [data-testid="stHeading"] h3 {
   color: rgba(244, 240, 232, 0.94) !important;
 }
-@media (prefers-color-scheme: dark) {
-  [data-testid="stHeading"] h3 { color: rgba(244, 240, 232, 0.94) !important; }
+/* ── Main interaction surfaces — user-driven inputs ───── */
+[data-testid="stMain"] [data-testid="stWidgetLabel"] p,
+[data-testid="stMain"] [data-testid="stWidgetLabel"] span {
+  color: rgba(74, 190, 138, 0.95) !important;
+  letter-spacing: 0.08em !important;
+  white-space: nowrap !important;
+  font-size: 0.76rem !important;
+}
+[data-testid="stMain"] p,
+[data-testid="stMain"] label,
+[data-testid="stMain"] span,
+[data-testid="stMain"] div,
+[data-testid="stMain"] li {
+  color: inherit;
+}
+[data-testid="stMain"] [data-testid="stMarkdownContainer"],
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] *,
+[data-testid="stMain"] [data-testid="stText"],
+[data-testid="stMain"] [data-testid="stText"] *,
+[data-testid="stMain"] [data-testid="stCaptionContainer"],
+[data-testid="stMain"] [data-testid="stCaptionContainer"] * {
+  color: var(--text-color) !important;
+}
+[data-testid="stMain"] [data-testid="stCaptionContainer"] p,
+[data-testid="stMain"] [data-testid="stCaptionContainer"] span,
+[data-testid="stMain"] .shell-subtitle,
+[data-testid="stMain"] .strategy-console-note,
+[data-testid="stMain"] .sidebar-section-summary,
+[data-testid="stMain"] .cluster-summary,
+[data-testid="stMain"] .timeline-countdown-meta,
+[data-testid="stMain"] .leo-backtest-status-card__detail {
+  color: var(--text-muted) !important;
+}
+[data-testid="stMain"] [data-baseweb="input"],
+[data-testid="stMain"] [data-baseweb="base-input"],
+[data-testid="stMain"] [data-baseweb="select"] > div,
+[data-testid="stMain"] [data-testid="stDateInputField"],
+[data-testid="stMain"] .stDateInput > div > div,
+[data-testid="stMain"] .stNumberInput > div > div {
+  background:
+    radial-gradient(circle at top right, rgba(31,106,83,0.10), transparent 42%),
+    linear-gradient(145deg, var(--panel-fill-a), var(--panel-warm)) !important;
+  border: 1px solid rgba(31,106,83,0.26) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 0 0 1px rgba(174,143,84,0.12),
+    0 0 12px rgba(31,106,83,0.08) !important;
+  border-radius: 0 !important;
+}
+[data-testid="stMain"] [data-baseweb="input"] input,
+[data-testid="stMain"] [data-baseweb="base-input"] input,
+[data-testid="stMain"] [data-testid="stDateInputField"] input,
+[data-testid="stMain"] .stDateInput input,
+[data-testid="stMain"] .stNumberInput input,
+[data-testid="stMain"] [data-baseweb="select"] input,
+[data-testid="stMain"] [data-baseweb="select"] span {
+  color: var(--text-color) !important;
+  background: transparent !important;
+}
+[data-testid="stMain"] [data-baseweb="input"]:focus-within,
+[data-testid="stMain"] [data-baseweb="base-input"]:focus-within,
+[data-testid="stMain"] [data-baseweb="select"] > div:focus-within,
+[data-testid="stMain"] [data-testid="stDateInputField"]:focus-within,
+[data-testid="stMain"] .stDateInput > div > div:focus-within,
+[data-testid="stMain"] .stNumberInput > div > div:focus-within {
+  border-color: rgba(63, 138, 112, 0.50) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 0 0 1px rgba(174,143,84,0.18),
+    0 0 16px rgba(31,106,83,0.12) !important;
+}
+[data-testid="stMain"] [role="switch"] {
+  background: linear-gradient(90deg, rgba(23,87,68,0.22), rgba(63,138,112,0.14)) !important;
+  border: 1px solid rgba(31,106,83,0.34) !important;
+  border-radius: 999px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 0 0 1px rgba(174,143,84,0.10),
+    0 0 12px rgba(31,106,83,0.10) !important;
+}
+[data-testid="stMain"] [role="switch"][aria-checked="true"] {
+  background: linear-gradient(90deg, rgba(23,87,68,0.34), rgba(63,138,112,0.28)) !important;
+  border-color: rgba(31,106,83,0.44) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 0 0 1px rgba(174,143,84,0.12),
+    0 0 18px rgba(31,106,83,0.18) !important;
+}
+[data-testid="stMain"] [role="switch"] > div {
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255,255,255,0.22) 0, rgba(255,255,255,0.10) 24%, transparent 46%),
+    linear-gradient(145deg, rgba(31,106,83,0.92), rgba(63,138,112,0.90) 70%, rgba(174,143,84,0.34) 100%) !important;
+  border: 1px solid rgba(174,143,84,0.26) !important;
+  box-shadow:
+    0 1px 3px rgba(17,18,20,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.20) !important;
+}
+[data-testid="stMain"] button[kind="primary"],
+[data-testid="stMain"] [data-testid="baseButton-primary"] {
+  background:
+    radial-gradient(circle at 24% 28%, rgba(255,255,255,0.10) 0, transparent 28%),
+    linear-gradient(145deg, rgba(122,31,28,0.98), rgba(92,22,21,0.99)) !important;
+  border: 1px solid rgba(174,143,84,0.24) !important;
+  color: rgba(244,240,232,0.96) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 0 0 1px rgba(174,143,84,0.10),
+    0 0 16px rgba(122,31,28,0.16) !important;
+}
+[data-testid="stMain"] [data-testid="stDownloadButton"] button {
+  background:
+    radial-gradient(circle at top right, rgba(74,110,150,0.10), transparent 40%),
+    linear-gradient(145deg, rgba(18,57,91,0.94), rgba(28,67,102,0.96)) !important;
+  border: 1px solid rgba(74,110,150,0.30) !important;
+  color: rgba(244,240,232,0.96) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 0 0 1px rgba(174,143,84,0.10),
+    0 0 16px rgba(18,57,91,0.16) !important;
+  min-height: 3rem !important;
+}
+[data-testid="stMain"] .stButton > button:not([kind="primary"]) {
+  background:
+    radial-gradient(circle at top right, rgba(31,106,83,0.16), transparent 40%),
+    linear-gradient(145deg, rgba(31,106,83,0.22), rgba(31,106,83,0.10)) !important;
+  border: 1px solid rgba(31,106,83,0.30) !important;
+  color: rgba(244,240,232,0.96) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 16px rgba(31,106,83,0.12) !important;
+}
+/* ── Backtest status + comparison cards ────────────────── */
+.leo-backtest-status-card {
+  min-height: 6.1rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.8rem 0.85rem;
+  border: 2px solid rgba(74,110,150,0.28);
+  background:
+    radial-gradient(circle at top right, rgba(74,110,150,0.10), transparent 42%),
+    linear-gradient(145deg, rgba(18,57,91,0.25), var(--panel-warm));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 16px rgba(18,57,91,0.12);
+}
+.leo-backtest-status-card__title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: rgba(156,200,255,0.96);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.leo-backtest-status-card__detail {
+  margin-top: 0.28rem;
+  font-size: 0.73rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.leo-backtest-metric {
+  min-height: 8.95rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.8rem 0.85rem;
+  border: 2px solid var(--leo-surface-rim);
+  background: linear-gradient(145deg, var(--panel-fill-a), var(--panel-warm));
+  box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 12px var(--leo-metal-glow);
+}
+.leo-backtest-metric--positive {
+  border-color: rgba(31,106,83,0.36);
+  background:
+    radial-gradient(circle at top right, rgba(31,106,83,0.10), transparent 44%),
+    linear-gradient(145deg, var(--panel-fill-a), var(--panel-warm));
+  box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 18px rgba(31,106,83,0.18);
+}
+.leo-backtest-metric--negative {
+  border-color: rgba(158,47,47,0.34);
+  background:
+    radial-gradient(circle at top right, rgba(158,47,47,0.10), transparent 44%),
+    linear-gradient(145deg, var(--panel-fill-a), var(--panel-warm));
+  box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 18px rgba(158,47,47,0.14);
+}
+.leo-backtest-metric__label {
+  min-height: 3.2rem;
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.leo-backtest-metric__label::before {
+  content: '▪';
+  font-size: 0.52rem;
+  color: rgba(174,143,84,0.80);
+  margin-right: 0.28rem;
+  vertical-align: middle;
+}
+.leo-backtest-metric__value {
+  margin-top: auto;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-color);
 }
 /* ── Metric card — pearl plate ─────────────────────────── */
 [data-testid="stMetric"] {
+  min-height: 8.4rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   background:  linear-gradient(
                  145deg,
-                 var(--leo-surface-a) 0%,
-                 var(--leo-surface-b) 55%,
+                 var(--panel-fill-a) 0%,
+                 var(--panel-fill-b) 55%,
                  rgba(174, 143, 84,  0.025) 100%
                );
   border:      2px solid var(--leo-surface-rim);
@@ -707,7 +938,7 @@ div[data-testid="stSegmentedControl"] button,
   font-size:      0.64rem !important;
   letter-spacing: 0.10em !important;
   text-transform: uppercase !important;
-  color:          var(--leo-ink-sub) !important;
+  color:          var(--text-muted) !important;
 }
 [data-testid="stMetricLabel"] * {
   color: inherit !important;
@@ -722,8 +953,9 @@ div[data-testid="stSegmentedControl"] button,
 [data-testid="stMetricValue"] > div {
   font-size:            1.45rem !important;
   font-weight:          700 !important;
-  color:                var(--leo-ink) !important;
+  color:                var(--text-color) !important;
   font-variant-numeric: tabular-nums;
+  min-height:           2.3rem !important;
 }
 [data-testid="stMetricValue"] *,
 [data-testid="stMetricDelta"] *,
@@ -734,60 +966,33 @@ div[data-testid="stSegmentedControl"] button,
   color: inherit !important;
 }
 /* ── Metric card + text — dark mode ────────────────────── */
-@media (prefers-color-scheme: dark) {
-  [data-testid="stMetric"] {
-    background:  linear-gradient(
-                   145deg,
-                   var(--leo-surface-a) 0%,
-                   var(--leo-surface-b) 100%
-                 );
-    border-color: var(--leo-surface-rim);
-    box-shadow:  inset 0 1px 0 var(--leo-surface-top),
-                 inset 0 -1px 0 var(--leo-surface-bot),
-                 0 1px 3px rgba(0,0,0,0.28);
-  }
-  [data-testid="stMetricValue"],
-  [data-testid="stMetricValue"] > div,
-  [data-testid="stMetricValue"] * { color: rgba(244, 240, 232, 0.95) !important; }
-  [data-testid="stMetricLabel"],
-  [data-testid="stMetricLabel"] > div,
-  [data-testid="stMetricLabel"] * { color: rgba(244, 240, 232, 0.62) !important; }
-  [data-testid="stMetricDelta"],
-  [data-testid="stMetricDelta"] * { color: rgba(244, 240, 232, 0.86) !important; }
-}
 [data-theme="dark"] [data-testid="stMetric"] {
   background:  linear-gradient(
                  145deg,
-                 var(--leo-surface-a) 0%,
-                 var(--leo-surface-b) 100%
+                 var(--panel-fill-a) 0%,
+                 var(--panel-fill-b) 100%
                );
   border-color: var(--leo-surface-rim);
   box-shadow:  inset 0 1px 0 var(--leo-surface-top),
                inset 0 -1px 0 var(--leo-surface-bot),
                0 1px 3px rgba(0,0,0,0.28);
 }
-[data-theme="dark"] [data-testid="stMetricValue"],
-[data-theme="dark"] [data-testid="stMetricValue"] > div,
-[data-theme="dark"] [data-testid="stMetricValue"] * {
-  color: rgba(244, 240, 232, 0.95) !important;
-}
-[data-theme="dark"] [data-testid="stMetricLabel"],
-[data-theme="dark"] [data-testid="stMetricLabel"] > div,
-[data-theme="dark"] [data-testid="stMetricLabel"] * {
-  color: rgba(244, 240, 232, 0.62) !important;
-}
-[data-theme="dark"] [data-testid="stMetricDelta"],
-[data-theme="dark"] [data-testid="stMetricDelta"] * {
-  color: rgba(244, 240, 232, 0.86) !important;
+[data-testid="stMetricDelta"],
+[data-testid="stMetricDelta"] * {
+  color: var(--text-muted) !important;
 }
 /* ── Daily state metric with right badge ───────────────── */
 .leo-sidebadge-metric {
-  min-height: 100%;
+  min-height: 8.4rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   padding: 0.7rem 0.85rem 0.65rem;
   background: linear-gradient(
     145deg,
-    var(--leo-surface-a) 0%,
-    var(--leo-surface-b) 55%,
+    var(--panel-fill-a) 0%,
+    var(--panel-fill-b) 55%,
     rgba(174, 143, 84, 0.025) 100%
   );
   border: 2px solid var(--leo-surface-rim);
@@ -803,7 +1008,7 @@ div[data-testid="stSegmentedControl"] button,
   font-size: 0.64rem;
   letter-spacing: 0.10em;
   text-transform: uppercase;
-  color: var(--leo-ink-sub);
+  color: var(--text-muted);
 }
 .leo-sidebadge-metric__label::before {
   content: '▪';
@@ -814,19 +1019,19 @@ div[data-testid="stSegmentedControl"] button,
 }
 .leo-sidebadge-metric__row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.8rem;
   margin-top: 0.55rem;
-  min-height: 2.2rem;
+  min-height: 3.15rem;
 }
 .leo-sidebadge-metric__value {
   flex: 1;
   min-width: 0;
-  font-size: 1.45rem;
+  font-size: 1.28rem;
   font-weight: 700;
-  color: var(--leo-ink);
-  line-height: 1.1;
+  color: var(--text-color);
+  line-height: 1.05;
 }
 .leo-sidebadge-metric__badge {
   flex-shrink: 0;
@@ -844,12 +1049,6 @@ div[data-testid="stSegmentedControl"] button,
   background: rgba(158, 47, 47, 0.18);
   color: rgba(255, 215, 215, 0.96);
 }
-@media (prefers-color-scheme: dark) {
-  .leo-sidebadge-metric__label { color: rgba(244, 240, 232, 0.62); }
-  .leo-sidebadge-metric__value { color: rgba(244, 240, 232, 0.95); }
-}
-[data-theme="dark"] .leo-sidebadge-metric__label { color: rgba(244, 240, 232, 0.62); }
-[data-theme="dark"] .leo-sidebadge-metric__value { color: rgba(244, 240, 232, 0.95); }
 /* ── Expander ──────────────────────────────────────────── */
 [data-testid="stExpander"] {
   border:        2px solid var(--leo-surface-rim) !important;
@@ -857,7 +1056,7 @@ div[data-testid="stSegmentedControl"] button,
   clip-path:     polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
                  100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
                  0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
-  background:    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+  background:    linear-gradient(145deg, var(--panel-fill-a), var(--panel-fill-b));
   box-shadow:    inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 12px var(--leo-metal-glow);
   backdrop-filter: blur(8px);
 }
@@ -865,7 +1064,7 @@ div[data-testid="stSegmentedControl"] button,
   font-size:      0.72rem !important;
   font-weight:    600 !important;
   letter-spacing: 0.08em !important;
-  color:          var(--leo-ink-sub) !important;
+  color:          var(--text-muted) !important;
 }
 /* ── Chart container ───────────────────────────────────── */
 [data-testid="stVegaLiteChart"],
@@ -875,7 +1074,7 @@ div[data-testid="stSegmentedControl"] button,
   clip-path:     polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
                  100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
                  0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
-  background:    linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+  background:    linear-gradient(145deg, var(--panel-fill-a), var(--panel-fill-b));
   box-shadow:    inset 0 1px 0 var(--leo-surface-top), 0 0 12px var(--leo-metal-glow);
   backdrop-filter: blur(8px);
 }
@@ -889,16 +1088,25 @@ div[data-testid="stSegmentedControl"] button,
   }
 }
 /* Mobile (≤ 480px): 2 per row, full-bleed padding */
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
     min-width: 48% !important;
     flex: 1 1 48% !important;
   }
   [data-testid="stMetric"] {
-    padding: 0.55rem 0.6rem 0.5rem;
+    padding: 0.45rem 0.5rem 0.4rem;
+  }
+  [data-testid="stMetricLabel"] > div {
+    font-size: 0.65rem !important;
   }
   [data-testid="stMetricValue"] > div {
-    font-size: 1.15rem !important;
+    font-size: 1.05rem !important;
+  }
+}
+@media (max-width: 360px) {
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    min-width: 100% !important;
+    flex: 1 1 100% !important;
   }
 }
 /* ── Premium slider ────────────────────────────────────── */
@@ -958,15 +1166,6 @@ div[data-testid="stSegmentedControl"] button,
     0 0 28px rgba(255,255,255,0.06),
     inset 0 1px 0 rgba(255,255,255,0.18) !important;
 }
-@media (prefers-color-scheme: dark) {
-  [data-testid="stSidebar"] [role="slider"] {
-    background: linear-gradient(145deg, rgba(244,240,232,0.18) 0%, rgba(26,29,31,0.55) 100%) !important;
-    border-color: rgba(174, 143, 84, 0.40) !important;
-    box-shadow:
-      0 1px 3px rgba(0,0,0,0.50),
-      inset 0 1px 0 rgba(255,255,255,0.06) !important;
-  }
-}
 [data-theme="dark"] [data-testid="stSidebar"] [role="slider"] {
   background: linear-gradient(145deg, rgba(244,240,232,0.18) 0%, rgba(26,29,31,0.55) 100%) !important;
   border-color: rgba(174, 143, 84, 0.40) !important;
@@ -1025,7 +1224,14 @@ div[data-testid="stSegmentedControl"] button,
     _apply_session_preferences(working_settings)
     working_settings = _settings_sidebar(working_settings, config_path)
     language = _ui_language(working_settings)
+    resolved_theme = _ui_theme(working_settings)
+    _render_theme_override(resolved_theme)
+    try:
+        alt.themes.enable("dark" if resolved_theme == "dark" else "default")
+    except Exception:
+        pass
     language = _render_shell_header(working_settings, language)
+    # _inject_world_map_bg(working_settings)  # disabled: background world map turned off
 
     render_app_shell(
         settings=working_settings,
@@ -1038,8 +1244,224 @@ div[data-testid="stSegmentedControl"] button,
     )
 
 
+def _render_theme_override(theme: str) -> None:
+    if theme == "dark":
+        text_color = "rgba(244, 240, 232, 0.92)"
+        text_muted = "rgba(244, 240, 232, 0.60)"
+        kicker = "rgba(244, 240, 232, 0.86)"
+        panel_warm = "rgba(174, 143, 84, 0.10)"
+        panel_fill_a = "rgba(26, 29, 31, 0.74)"
+        panel_fill_b = "rgba(0, 0, 0, 0.22)"
+        surface_a = "rgba(26, 29, 31, 0.25)"
+        surface_b = "rgba(244, 240, 232, 0.06)"
+        surface_chip = "rgba(244, 240, 232, 0.08)"
+        surface_rim = "rgba(174, 143, 84, 0.18)"
+        surface_top = "rgba(255, 255, 255, 0.05)"
+        surface_bot = "rgba(174, 143, 84, 0.05)"
+        metal_glow = "rgba(174, 143, 84, 0.10)"
+    else:
+        text_color = "#0A0C0D"
+        text_muted = "rgba(10, 12, 13, 0.82)"
+        kicker = "rgb(18, 57, 91)"
+        panel_warm = "rgba(174, 143, 84, 0.25)"
+        panel_fill_a = "rgba(244, 240, 232, 0.25)"
+        panel_fill_b = "rgba(255, 255, 255, 0.10)"
+        surface_a = "rgba(244, 240, 232, 0.25)"
+        surface_b = "rgba(255, 255, 255, 0.10)"
+        surface_chip = "rgba(255, 255, 255, 0.14)"
+        surface_rim = "rgba(174, 143, 84, 0.22)"
+        surface_top = "rgba(255, 255, 255, 0.17)"
+        surface_bot = "rgba(174, 143, 84, 0.06)"
+        metal_glow = "rgba(174, 143, 84, 0.12)"
+
+    st.markdown(
+        f"""
+<style>
+:root,
+html,
+body,
+.stApp,
+[data-testid="stAppViewContainer"] {{
+  --leo-ink: {text_color};
+  --leo-ink-sub: {text_muted};
+  --leo-kicker: {kicker};
+  --text-color: {text_color};
+  --text-muted: {text_muted};
+  --panel-warm: {panel_warm};
+  --panel-fill-a: {panel_fill_a};
+  --panel-fill-b: {panel_fill_b};
+  --leo-surface-a: {surface_a};
+  --leo-surface-b: {surface_b};
+  --leo-surface-chip: {surface_chip};
+  --leo-surface-rim: {surface_rim};
+  --leo-surface-top: {surface_top};
+  --leo-surface-bot: {surface_bot};
+  --leo-metal-glow: {metal_glow};
+}}
+body,
+[data-testid="stSidebar"] {{
+  background-color: {"#1A1D1F" if theme == "dark" else "#F5F1EB"} !important;
+  color: {text_color} !important;
+}}
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"] {{
+  background-color: transparent !important;
+  color: {text_color} !important;
+}}
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"] {{
+  position: relative !important;
+  z-index: 1 !important;
+}}
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
+[data-testid="stSidebar"] [data-baseweb="radio"] label p,
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
+[data-testid="stSidebar"] [data-baseweb="slider"] [data-testid="stThumbValue"] {{
+  color: {"rgba(244, 240, 232, 0.92)" if theme == "dark" else "var(--leo-racing-green)"} !important;
+}}
+[data-testid="stHeading"] h3 {{
+  color: var(--leo-kicker) !important;
+}}
+[data-testid="stMetric"] {{
+  background: linear-gradient(145deg, var(--panel-fill-a) 0%, var(--panel-fill-b) 55%, rgba(174, 143, 84, 0.025) 100%) !important;
+}}
+[data-testid="stSidebar"] [role="slider"] {{
+  background: {"linear-gradient(145deg, rgba(244,240,232,0.18) 0%, rgba(26,29,31,0.55) 100%)" if theme == "dark" else "linear-gradient(145deg, rgba(244,240,232,0.86), rgba(217,208,188,0.74))"} !important;
+  border-color: {"rgba(174, 143, 84, 0.40)" if theme == "dark" else "rgba(174, 143, 84, 0.24)"} !important;
+}}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stButton"] > button {{
+  background: {"rgba(255, 255, 255, 0.05)" if theme == "dark" else "rgba(244, 240, 232, 0.10)"} !important;
+  color: var(--text-color) !important;
+  border-color: {"rgba(174, 143, 84, 0.22)" if theme == "dark" else "rgba(174, 143, 84, 0.30)"} !important;
+}}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stButton"] > button:hover {{
+  background: {"rgba(18, 57, 91, 0.18)" if theme == "dark" else "rgba(18, 57, 91, 0.07)"} !important;
+  color: var(--text-color) !important;
+}}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stButton"] > button[kind="primary"] {{
+  background: {"linear-gradient(135deg, rgba(18, 57, 91, 0.28), rgba(18, 57, 91, 0.44))" if theme == "dark" else "linear-gradient(135deg, rgba(18, 57, 91, 0.14), rgba(18, 57, 91, 0.26))"} !important;
+  color: var(--text-color) !important;
+}}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+    _inject_theme_attribute(theme)
+
+
+def _inject_theme_attribute(theme: str) -> None:
+    """Set data-theme on <html> and <body> so [data-theme="dark"] CSS selectors match.
+
+    Without this, the hundreds of [data-theme="dark"] rules in the stylesheet
+    never activate, and chart/metric text falls back to Streamlit defaults
+    (often black, invisible in dark mode).
+    """
+    safe_theme = "dark" if theme == "dark" else "light"
+    text_color = "rgba(244, 240, 232, 0.92)" if safe_theme == "dark" else "#111214"
+    st.markdown(
+        f"""
+<script>
+(function() {{
+  const theme = "{safe_theme}";
+  try {{
+    document.documentElement.setAttribute("data-theme", theme);
+    document.body.setAttribute("data-theme", theme);
+    const root = window.parent && window.parent.document;
+    if (root) {{
+      root.documentElement.setAttribute("data-theme", theme);
+      if (root.body) root.body.setAttribute("data-theme", theme);
+    }}
+  }} catch (e) {{}}
+}})();
+</script>
+<style>
+[data-theme="dark"] [data-testid="stVegaLiteChart"] text,
+[data-theme="dark"] [data-testid="stVegaLiteChart"] tspan,
+[data-theme="dark"] [data-testid="stPlotlyChart"] text,
+[data-theme="dark"] [data-testid="stPlotlyChart"] tspan,
+[data-theme="dark"] [data-testid="stDataFrame"] *,
+[data-theme="dark"] [data-testid="stTable"] *,
+[data-theme="dark"] svg text,
+[data-theme="dark"] svg tspan,
+[data-theme="dark"] .recharts-text,
+[data-theme="dark"] .vega-tooltip {{
+  fill: {text_color} !important;
+  color: {text_color} !important;
+}}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def _inject_world_map_bg(settings: dict[str, Any]) -> None:
+    theme = _ui_theme(settings)
+    if theme == "dark":
+        page_bg = "#1A1D1F"
+        map_color = "rgba(244, 240, 232, 0.0425)"
+    else:
+        page_bg = "#F5F1EB"
+        map_color = "rgba(17, 18, 20, 0.0275)"
+
+    world_map_html = build_world_map_text(repeats=2)
+    st.markdown(
+        f"""
+<style>
+html,
+body {{
+  background: var(--leo-page-bg, {page_bg}) !important;
+}}
+.leo-world-map-bg {{
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+}}
+.leo-world-map-pre {{
+  margin: 0;
+  padding: 72px 0 0;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 6.5px;
+  line-height: 0.45;
+  white-space: pre;
+  color: {map_color} !important;
+  width: 100%;
+}}
+[data-testid="stMarkdownContainer"] .leo-world-map-pre {{
+  color: {map_color} !important;
+}}
+@media (max-width: 640px) {{
+  .leo-world-map-pre {{
+    width: max-content;
+    animation: leo-map-scroll 80s linear infinite;
+  }}
+}}
+@keyframes leo-map-scroll {{
+  from {{ transform: translateX(0); }}
+  to {{ transform: translateX(-50%); }}
+}}
+@media (prefers-reduced-motion: reduce) {{
+  .leo-world-map-pre {{
+    animation: none !important;
+  }}
+}}
+</style>
+<div class="leo-world-map-bg" aria-hidden="true">
+  <div class="leo-world-map-pre">{html.escape(world_map_html)}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
 def _render_shell_header(settings: dict[str, Any], language: str) -> str:
-    title_cols = st.columns([5, 1.15])
+    theme = _ui_theme(settings)
+    title_cols = st.columns([5, 1.0, 1.15])
     title_cols[0].markdown(
         f"""
 <div class="shell-title-band">
@@ -1050,8 +1472,17 @@ def _render_shell_header(settings: dict[str, Any], language: str) -> str:
 """,
         unsafe_allow_html=True,
     )
+    selected_theme_label = title_cols[1].segmented_control(
+        _tr(language, "界面主题", "Interface theme"),
+        ["Dark", "Light"],
+        default="Dark" if theme == "dark" else "Light",
+        key="header_ui_theme",
+        label_visibility="collapsed",
+        width="content",
+    )
+    selected_theme = "dark" if selected_theme_label == "Dark" else "light"
     current = "EN" if language == "en" else "中文"
-    selected = title_cols[1].segmented_control(
+    selected = title_cols[2].segmented_control(
         _tr(language, "界面语言", "Interface language"),
         ["EN", "中文"],
         default=current,
@@ -1063,6 +1494,10 @@ def _render_shell_header(settings: dict[str, Any], language: str) -> str:
     if resolved != language:
         st.session_state["ui_language"] = resolved
         settings.setdefault("ui", {})["language"] = resolved
+        st.rerun()
+    if selected_theme != theme:
+        st.session_state["ui_theme"] = selected_theme
+        settings.setdefault("ui", {})["theme"] = selected_theme
         st.rerun()
     return resolved
 
@@ -2793,19 +3228,134 @@ def _parallel_market_trade_timeline(
         f'<span class="timeline-legend-item"><span style="background:{window["color"]}"></span>{html.escape(window["label"])}</span>'
         for window in market_windows
     )
+    active_markets = _active_world_market_regions(market_windows, now)
+    world_map_html = build_world_map_markup(active_markets, repeats=1)
+    market_status_html = _timeline_market_status_html(active_markets, language)
+    market_label_html = _timeline_market_label_html(active_markets)
     st.markdown(
         f"""
 <style>
 .trade-timeline-wrap {{
+  position: relative;
   border: 2px solid var(--leo-surface-rim);
   border-top: 3px solid rgba(174, 143, 84, 0.24);
   border-radius: 0;
   padding: 14px 14px 32px;
   margin: 10px 0 12px;
-  background: linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+  background: linear-gradient(145deg, var(--panel-fill-a), var(--panel-fill-b));
   box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 14px var(--leo-metal-glow);
   backdrop-filter: blur(8px);
-  overflow: visible;
+  overflow: hidden;
+}}
+.trade-timeline-map {{
+  display: none !important;
+}}
+.trade-timeline-map::after {{
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(244, 240, 232, 0.03) 100%);
+  z-index: 1;
+  pointer-events: none;
+}}
+[data-theme="dark"] .trade-timeline-map::after {{
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.06) 100%);
+}}
+.trade-timeline-map-track {{
+  position: relative;
+  width: max-content;
+  margin-left: auto;
+  padding: 8px 0 0;
+  animation: none;
+}}
+.trade-timeline-map-pre {{
+  margin: 0;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 5.5px;
+  line-height: 0.62;
+  white-space: pre;
+  color: rgba(17, 18, 20, 0.10);
+}}
+[data-theme="dark"] .trade-timeline-map-pre {{
+  color: rgba(244, 240, 232, 0.11);
+}}
+.trade-timeline-map-pre .wm-us.active,
+.trade-timeline-map-pre .wm-eu.active,
+.trade-timeline-map-pre .wm-asia.active,
+.trade-timeline-map-pre .wm-middle_east.active,
+.trade-timeline-map-pre .wm-south_america.active,
+.trade-timeline-map-pre .wm-asx.active,
+.trade-timeline-map-pre .wm-nzx.active {{
+  color: rgba(18, 57, 91, 0.78);
+  font-weight: 700;
+}}
+[data-theme="dark"] .trade-timeline-map-pre .wm-us.active,
+[data-theme="dark"] .trade-timeline-map-pre .wm-eu.active,
+[data-theme="dark"] .trade-timeline-map-pre .wm-asia.active,
+[data-theme="dark"] .trade-timeline-map-pre .wm-middle_east.active,
+[data-theme="dark"] .trade-timeline-map-pre .wm-south_america.active,
+[data-theme="dark"] .trade-timeline-map-pre .wm-asx.active,
+[data-theme="dark"] .trade-timeline-map-pre .wm-nzx.active {{
+  color: rgba(126, 173, 221, 0.92);
+  font-weight: 700;
+}}
+.trade-map-status {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(244, 240, 232, 0.62) !important;
+}}
+.trade-map-label {{
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: rgba(244, 240, 232, 0.42) !important;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.34);
+  white-space: nowrap;
+}}
+.trade-map-label.active {{
+  color: rgba(126, 173, 221, 0.98) !important;
+  text-shadow: 0 0 10px rgba(126, 173, 221, 0.58), 0 0 18px rgba(18, 57, 91, 0.42);
+  animation: timeline-market-pulse 4s ease-in-out infinite;
+}}
+.trade-map-label-us {{ left: 19%; top: 25%; }}
+.trade-map-label-south_america {{ left: 31%; top: 63%; }}
+.trade-map-label-eu {{ left: 48%; top: 22%; }}
+.trade-map-label-middle_east {{ left: 58%; top: 38%; }}
+.trade-map-label-asia {{ left: 73%; top: 30%; }}
+.trade-map-label-asx {{ left: 83%; top: 75%; }}
+.trade-map-label-nzx {{ left: 92%; top: 83%; }}
+.trade-map-status span {{
+  border: 1px solid rgba(174, 143, 84, 0.18);
+  padding: 2px 5px;
+  color: rgba(244, 240, 232, 0.62) !important;
+  background: rgba(0, 0, 0, 0.16);
+}}
+[data-testid="stMarkdownContainer"] .trade-map-status span {{
+  color: rgba(244, 240, 232, 0.62) !important;
+}}
+.trade-map-status span.active {{
+  color: rgba(126, 173, 221, 0.95) !important;
+  border-color: rgba(126, 173, 221, 0.48);
+  background: rgba(18, 57, 91, 0.30);
+}}
+[data-testid="stMarkdownContainer"] .trade-map-status span.active {{
+  color: rgba(126, 173, 221, 0.95) !important;
+}}
+.trade-timeline-content {{
+  position: relative;
+  z-index: 1;
 }}
 .trade-timeline-head {{
   display: flex;
@@ -2834,7 +3384,7 @@ def _parallel_market_trade_timeline(
   height: 34px;
   border-radius: 0;
   clip-path: polygon(0.35rem 0, calc(100% - 0.35rem) 0, 100% 0.35rem, 100% calc(100% - 0.35rem), calc(100% - 0.35rem) 100%, 0.35rem 100%, 0 calc(100% - 0.35rem), 0 0.35rem);
-  background: linear-gradient(145deg, rgba(244,240,232,0.12), rgba(26,29,31,0.10));
+  background: linear-gradient(145deg, var(--panel-fill-a), var(--panel-warm));
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 0 rgba(174,143,84,0.05);
   overflow: visible;
 }}
@@ -2842,9 +3392,24 @@ def _parallel_market_trade_timeline(
   position: absolute;
   top: 0;
   bottom: 0;
+  box-sizing: border-box;
+  border: 1px solid rgba(174,143,84,0.24);
   border-radius: 0;
   clip-path: polygon(0.3rem 0, calc(100% - 0.3rem) 0, 100% 0.3rem, 100% calc(100% - 0.3rem), calc(100% - 0.3rem) 100%, 0.3rem 100%, 0 calc(100% - 0.3rem), 0 0.3rem);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.20);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.20),
+    inset 0 1px 0 rgba(255,255,255,0.14),
+    0 0 10px rgba(174,143,84,0.08);
+}}
+.trade-timeline-segment::after {{
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 44%, transparent 82%),
+    radial-gradient(circle at 18% 24%, rgba(255,255,255,0.10) 0%, transparent 34%);
+  opacity: 0.34;
+  pointer-events: none;
 }}
 .trade-timeline-segment span {{
   position: absolute;
@@ -2863,7 +3428,8 @@ def _parallel_market_trade_timeline(
   bottom: -6px;
   width: 2px;
   background: currentColor;
-  z-index: 4;
+  box-shadow: 0 0 8px rgba(255,255,255,0.10);
+  z-index: 5;
 }}
 .trade-timeline-marker span {{
   position: absolute;
@@ -2881,15 +3447,17 @@ def _parallel_market_trade_timeline(
   bottom: 0;
   border-radius: 0;
   clip-path: polygon(0.3rem 0, calc(100% - 0.3rem) 0, 100% 0.3rem, 100% calc(100% - 0.3rem), calc(100% - 0.3rem) 100%, 0.3rem 100%, 0 calc(100% - 0.3rem), 0 0.3rem);
-  opacity: .14;
+  opacity: .16;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
 }}
 .trade-deadline-marker {{
   position: absolute;
   top: 0;
   bottom: 0;
   width: 4px;
+  box-shadow: 0 0 10px currentColor;
   border-radius: 0;
-  z-index: 3;
+  z-index: 6;
 }}
 .trade-deadline-marker span {{
   position: absolute;
@@ -2897,13 +3465,15 @@ def _parallel_market_trade_timeline(
   top: auto;
   bottom: -20px;
   transform: translateX(-50%);
-  max-width: 72px;
+  max-width: none;
+  padding: 1px 4px;
+  background: linear-gradient(145deg, var(--panel-fill-a), var(--panel-fill-b));
+  border: 1px solid rgba(174,143,84,0.20);
+  box-shadow: 0 0 6px rgba(174,143,84,0.08);
   font-size: 11px;
   font-weight: 700;
   line-height: 1.2;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }}
 .trade-mode-label-below {{
   color: inherit;
@@ -2915,14 +3485,14 @@ def _parallel_market_trade_timeline(
 .trade-action-list {{
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 6px;
+  gap: 12px;
   margin-top: 8px;
 }}
 .trade-action-item {{
   position: relative;
   overflow: hidden;
   padding: 5px 8px 5px 18px;
-  background: linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+  background: linear-gradient(145deg, var(--panel-fill-a), var(--panel-fill-b));
   border: 1px solid var(--leo-surface-rim);
   border-radius: 0;
   clip-path: polygon(0.35rem 0, calc(100% - 0.35rem) 0, 100% 0.35rem, 100% calc(100% - 0.35rem), calc(100% - 0.35rem) 100%, 0.35rem 100%, 0 calc(100% - 0.35rem), 0 0.35rem);
@@ -2961,17 +3531,21 @@ def _parallel_market_trade_timeline(
 .timeline-legend-item span {{
   width: 18px;
   height: 8px;
-  border-radius: 999px;
+  border: 1px solid rgba(174,143,84,0.20);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 0 6px rgba(174,143,84,0.08);
   display: inline-block;
 }}
 .timeline-countdown-grid {{
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
-  margin: 10px 0 2px;
+  gap: 14px;
+  margin: 14px 0 6px;
 }}
 .timeline-countdown-section {{
-  margin: 10px 0 2px;
+  margin: 16px 0 10px;
+}}
+.timeline-countdown-section + .timeline-countdown-section {{
+  margin-top: 22px;
 }}
 .timeline-countdown-section-title {{
   font-size: 11px;
@@ -2982,15 +3556,19 @@ def _parallel_market_trade_timeline(
   margin: 0 0 6px;
 }}
 .timeline-countdown-card {{
+  min-height: 7rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   border: 2px solid var(--leo-surface-rim);
   border-radius: 0;
   clip-path: polygon(0.45rem 0, calc(100% - 0.45rem) 0, 100% 0.45rem,
              100% calc(100% - 0.45rem), calc(100% - 0.45rem) 100%,
              0.45rem 100%, 0 calc(100% - 0.45rem), 0 0.45rem);
   padding: 10px 12px;
-  background: linear-gradient(145deg, var(--leo-surface-a), var(--leo-surface-b));
+  background: linear-gradient(145deg, var(--panel-fill-a), var(--panel-fill-b));
   box-shadow: inset 0 1px 0 var(--leo-surface-top), inset 0 -1px 0 var(--leo-surface-bot), 0 0 10px var(--leo-metal-glow);
-  color: var(--leo-ink);
+  color: var(--text-color);
   backdrop-filter: blur(8px);
 }}
 .timeline-countdown-card.market-card {{
@@ -3002,7 +3580,7 @@ def _parallel_market_trade_timeline(
 .timeline-countdown-card.urgent {{
   border-color: rgba(158, 47, 47, 0.70);
   background: linear-gradient(145deg, rgba(158, 47, 47, 0.16), rgba(244, 240, 232, 0.06));
-  color: var(--leo-ink);
+  color: var(--text-color);
 }}
 .timeline-countdown-title {{
   font-size: 12px;
@@ -3019,9 +3597,23 @@ def _parallel_market_trade_timeline(
   opacity: .82;
   margin-top: 2px;
 }}
+@keyframes timeline-market-pulse {{
+  0%, 100% {{ opacity: 0.52; }}
+  50% {{ opacity: 1; }}
+}}
 @media (max-width: 640px) {{
   .trade-timeline-wrap {{
     padding: 12px 10px 34px;
+  }}
+  .trade-timeline-map {{
+    width: 100%;
+  }}
+  .trade-timeline-map-track {{
+    animation: timeline-map-drift 72s linear infinite;
+  }}
+  .trade-timeline-map-pre {{
+    font-size: 4.2px;
+    line-height: 0.62;
   }}
   .trade-timeline-head {{
     display: grid;
@@ -3061,31 +3653,130 @@ def _parallel_market_trade_timeline(
   }}
   .trade-action-list,
   .timeline-countdown-grid {{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }}
+  .timeline-countdown-card {{
+    min-height: 5.35rem;
+    padding: 0.5rem 0.55rem;
+  }}
+  .timeline-countdown-title,
+  .timeline-countdown-meta {{
+    font-size: 0.68rem;
+  }}
+  .timeline-countdown-time {{
+    font-size: 1.05rem;
+  }}
+}}
+@media (max-width: 360px) {{
+  .trade-action-list,
+  .timeline-countdown-grid {{
     grid-template-columns: 1fr;
+  }}
+}}
+@keyframes timeline-map-drift {{
+  from {{ transform: translateX(0); }}
+  to {{ transform: translateX(-50%); }}
+}}
+@media (prefers-reduced-motion: reduce) {{
+  .trade-timeline-map-track,
+  .trade-map-label.active {{
+    animation: none !important;
   }}
 }}
 </style>
 <div class="trade-timeline-wrap">
-  <div class="trade-timeline-head">
-    <span>{html.escape(start.strftime("%Y-%m-%d %H:%M"))}</span>
-    <span>{html.escape(_tr(language, "合并市场与当前交易模式", "Merged markets and selected mode"))}</span>
-    <span>{html.escape(end.strftime("%Y-%m-%d %H:%M"))}</span>
-  </div>
-  <div class="trade-timeline-row">
-    <div class="trade-timeline-label">{html.escape(_tr(language, "市场时间轴", "Market timeline"))}</div>
-    <div class="trade-timeline-track">{market_html}</div>
-  </div>
-  <div class="trade-timeline-row mode-row">
-    <div>
-      <div class="trade-timeline-track">{warning_html}{deadline_html}{now_marker_html}</div>
-      <div class="trade-mode-label-below">{html.escape(_tr(language, "交易模式时间轴", "Mode timeline"))}</div>
-      <div class="trade-action-list">{action_list_html}</div>
+  <div class="trade-timeline-map" aria-hidden="true">
+    <div class="trade-timeline-map-track">
+      <div class="trade-timeline-map-pre">{world_map_html}</div>
+      {market_label_html}
     </div>
   </div>
-  <div class="timeline-legend">{legend_html}</div>
+  <div class="trade-timeline-content">
+    <div class="trade-timeline-head">
+      <span>{html.escape(start.strftime("%Y-%m-%d %H:%M"))}</span>
+      <span>{html.escape(_tr(language, "合并市场与当前交易模式", "Merged markets and selected mode"))}</span>
+      <span>{html.escape(end.strftime("%Y-%m-%d %H:%M"))}</span>
+    </div>
+    <div class="trade-timeline-row">
+      <div class="trade-timeline-label">{html.escape(_tr(language, "市场时间轴", "Market timeline"))}</div>
+      <div class="trade-timeline-track">{market_html}</div>
+    </div>
+    <div class="trade-timeline-row mode-row">
+      <div>
+        <div class="trade-timeline-track">{warning_html}{deadline_html}{now_marker_html}</div>
+        <div class="trade-mode-label-below">{html.escape(_tr(language, "交易模式时间轴", "Mode timeline"))}</div>
+        <div class="trade-action-list">{action_list_html}</div>
+      </div>
+    </div>
+    <div class="timeline-legend">{legend_html}</div>
+    {market_status_html}
+  </div>
 </div>
 """,
         unsafe_allow_html=True,
+    )
+
+
+def _active_world_market_regions(market_windows: list[dict[str, Any]], now: datetime) -> set[str]:
+    active = {
+        window["key"]
+        for window in market_windows
+        if window["open"] <= now <= window["close"]
+    }
+    regional_sessions = {
+        "asia": ("Asia/Tokyo", "09:00", "16:00"),
+        "middle_east": ("Asia/Dubai", "10:00", "15:00"),
+        "eu": ("Europe/London", "08:00", "16:30"),
+        "south_america": ("America/Sao_Paulo", "10:00", "17:00"),
+    }
+    for region, (tz_name, open_time, close_time) in regional_sessions.items():
+        if _is_local_market_session_open(now, tz_name, open_time, close_time):
+            active.add(region)
+    return active
+
+
+def _is_local_market_session_open(now: datetime, tz_name: str, open_time: str, close_time: str) -> bool:
+    local_now = now.astimezone(ZoneInfo(tz_name))
+    if local_now.weekday() >= 5:
+        return False
+    open_hour, open_minute = map(int, open_time.split(":"))
+    close_hour, close_minute = map(int, close_time.split(":"))
+    local_open = local_now.replace(hour=open_hour, minute=open_minute, second=0, microsecond=0)
+    local_close = local_now.replace(hour=close_hour, minute=close_minute, second=0, microsecond=0)
+    return local_open <= local_now <= local_close
+
+
+def _timeline_market_status_html(active_markets: set[str], language: str) -> str:
+    labels = (
+        ("us", _tr(language, "美国", "US")),
+        ("south_america", _tr(language, "南美", "South America")),
+        ("eu", _tr(language, "欧洲", "Europe")),
+        ("middle_east", _tr(language, "中东", "Middle East")),
+        ("asia", _tr(language, "亚洲", "Asia")),
+        ("asx", _tr(language, "澳洲", "Australia")),
+        ("nzx", _tr(language, "新西兰", "New Zealand")),
+    )
+    status = "".join(
+        f'<span class="{"active" if key in active_markets else ""}">{html.escape(label)}</span>'
+        for key, label in labels
+    )
+    return f'<div class="trade-map-status">{status}</div>'
+
+
+def _timeline_market_label_html(active_markets: set[str]) -> str:
+    labels = (
+        ("us", "US"),
+        ("south_america", "SA"),
+        ("eu", "EU"),
+        ("middle_east", "ME"),
+        ("asia", "ASIA"),
+        ("asx", "AU"),
+        ("nzx", "NZ"),
+    )
+    return "".join(
+        f'<span class="trade-map-label trade-map-label-{key}{" active" if key in active_markets else ""}">++ {html.escape(label)}</span>'
+        for key, label in labels
     )
 
 
@@ -3665,23 +4356,26 @@ def _zoomable_line_chart(
     key: str,
     language: str,
     line_styles: dict[str, str] | None = None,
+    benchmark_symbol: str | None = None,
 ) -> None:
     shared_render_lightweight_chart(
         frame,
         columns,
         title,
         key=key,
-        label_resolver=lambda series: _series_label(series, language),
+        label_resolver=lambda series: _series_label(series, language, benchmark_symbol=benchmark_symbol),
         line_styles=line_styles,
+        color_overrides=_chart_color_overrides(columns),
     )
 
 
-def _series_label(series: str, language: str) -> str:
+def _series_label(series: str, language: str, *, benchmark_symbol: str | None = None) -> str:
+    benchmark = benchmark_symbol or "SPY"
     labels = {
         "equity": ("策略净值", "Strategy equity"),
-        "buy_hold_equity": ("S&P 500 持有", "S&P 500 buy & hold"),
-        "leveraged_buy_hold_equity": ("3 倍 S&P 500 买入持有", "3x S&P 500 buy & hold"),
-        "ma120_timing_equity": ("S&P 500 120 日择时", "S&P 500 120-day timing"),
+        "buy_hold_equity": (f"{benchmark} 持有", f"{benchmark} buy & hold"),
+        "leveraged_buy_hold_equity": (f"3 倍 {benchmark} 买入持有", f"3x {benchmark} buy & hold"),
+        "ma120_timing_equity": (f"{benchmark} 120 日择时", f"{benchmark} 120-day timing"),
         "leveraged_ma120_timing_equity": ("三倍持有：跌破 120 日均线转现金", "3x Hold: Cash Below 120MA"),
         "target_exposure": ("目标等效仓位", "Target equivalent exposure"),
         "actual_equivalent_exposure": ("实际等效仓位", "Actual equivalent exposure"),
@@ -3699,6 +4393,23 @@ def _series_label(series: str, language: str) -> str:
     }
     zh, en = labels.get(series, (series, series))
     return _tr(language, zh, en)
+
+
+def _chart_color_overrides(columns: list[str]) -> dict[str, str]:
+    palette = {
+        "equity": "#12395b",
+        "buy_hold_equity": "#9e2f2f",
+        "leveraged_buy_hold_equity": "#3f8a70",
+        "ma120_timing_equity": "#6f43c0",
+        "leveraged_ma120_timing_equity": "#c96b2c",
+        "target_exposure": "#2f7c63",
+        "actual_equivalent_exposure": "#4aa37f",
+        "overnight_equivalent_exposure": "#76b89f",
+        "intraday_equivalent_exposure": "#2b8d6e",
+        "post_close_equivalent_exposure": "#1f6a53",
+        "pending_next_open_equivalent_exposure": "#9fd0b3",
+    }
+    return {column: palette[column] for column in columns if column in palette}
 
 
 def _latest_price(asset: str, prices: dict[str, pd.DataFrame]) -> float | None:

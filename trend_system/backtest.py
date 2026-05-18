@@ -46,17 +46,21 @@ def run_backtest(
     vix: pd.Series,
     settings_raw: dict,
     *,
+    benchmark_price: pd.Series | None = None,
     open_price: pd.Series | None = None,
     leveraged_price: pd.Series | None = None,
     leveraged_open_price: pd.Series | None = None,
     result_start: str | pd.Timestamp | None = None,
 ) -> BacktestResult:
     signals = signal_frame(price, vix, settings_raw)
+    benchmark_series = benchmark_price.dropna() if benchmark_price is not None else price.dropna()
     result_start_ts = pd.Timestamp(result_start) if result_start is not None else None
     daily_returns = signals["price"].pct_change().fillna(0.0)
+    benchmark_returns = benchmark_series.pct_change().fillna(0.0).reindex(signals.index).fillna(0.0)
     cash_daily = float(settings_raw["backtest"]["annual_cash_return"]) / 252.0
-    ma120_timing_targets = _ma120_timing_targets(signals["price"])
-    leveraged_ma120_timing_targets = _price_above_ma120_targets(signals["price"])
+    benchmark_aligned = benchmark_series.reindex(signals.index).ffill().bfill()
+    ma120_timing_targets = _ma120_timing_targets(benchmark_aligned)
+    leveraged_ma120_timing_targets = _price_above_ma120_targets(benchmark_aligned)
     initial_capital = float(settings_raw["backtest"]["initial_capital"])
     leveraged_fee_daily = float(settings_raw["backtest"]["annual_leveraged_fee"]) / 252.0
     leveraged_daily_returns = _leveraged_returns(
@@ -65,6 +69,16 @@ def run_backtest(
         settings_raw,
         leveraged_fee_daily,
         leveraged_price,
+    )
+    use_actual_benchmark_leverage = leveraged_price is not None and (
+        benchmark_price is None or benchmark_price.equals(price)
+    )
+    benchmark_leveraged_daily_returns = _leveraged_returns(
+        signals.index,
+        benchmark_returns,
+        settings_raw,
+        leveraged_fee_daily,
+        leveraged_price if use_actual_benchmark_leverage else None,
     )
     threshold = float(settings_raw["position"]["rebalance_threshold"])
     execution_timing = _execution_timing(settings_raw)
@@ -127,8 +141,10 @@ def run_backtest(
         )
         local_defensive_for_return = current_local
         r = float(daily_returns.loc[dt])
+        benchmark_return = float(benchmark_returns.loc[dt])
         leveraged_return = float(leveraged_daily_returns.loc[dt])
-        leveraged_buy_hold_return = leveraged_return
+        benchmark_leveraged_return = float(benchmark_leveraged_daily_returns.loc[dt])
+        leveraged_buy_hold_return = benchmark_leveraged_return
         ma120_timing_target = bool(ma120_timing_targets.loc[dt])
         leveraged_ma120_timing_target = bool(leveraged_ma120_timing_targets.loc[dt])
         if execution_timing == "same_close":
@@ -145,11 +161,11 @@ def run_backtest(
             settings_raw,
             leveraged_return_is_actual=leveraged_price is not None,
         )
-        ma120_timing_return = _ma120_timing_return(ma120_timing_invested, r, cash_daily)
-        leveraged_ma120_timing_return = _timing_return(leveraged_ma120_timing_invested, leveraged_return, cash_daily)
+        ma120_timing_return = _ma120_timing_return(ma120_timing_invested, benchmark_return, cash_daily)
+        leveraged_ma120_timing_return = _timing_return(leveraged_ma120_timing_invested, benchmark_leveraged_return, cash_daily)
         if include_result and not first_result_row:
             capital *= 1.0 + portfolio_return
-            benchmark_capital *= 1.0 + r
+            benchmark_capital *= 1.0 + benchmark_return
             leveraged_buy_hold_capital *= 1.0 + leveraged_buy_hold_return
             ma120_timing_capital *= 1.0 + ma120_timing_return
             leveraged_ma120_timing_capital *= 1.0 + leveraged_ma120_timing_return
@@ -175,7 +191,7 @@ def run_backtest(
 
         if include_result:
             row_portfolio_return = 0.0 if first_result_row else portfolio_return
-            row_market_return = 0.0 if first_result_row else r
+            row_market_return = 0.0 if first_result_row else benchmark_return
             row_leveraged_buy_hold_return = 0.0 if first_result_row else leveraged_buy_hold_return
             row_ma120_timing_return = 0.0 if first_result_row else ma120_timing_return
             row_leveraged_ma120_timing_return = 0.0 if first_result_row else leveraged_ma120_timing_return

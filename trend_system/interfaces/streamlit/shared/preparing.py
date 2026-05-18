@@ -6,12 +6,14 @@ import streamlit as st
 
 
 def preparing_markup(language: str, title: str | None = None, detail: str | None = None) -> str:
+    theme = st.session_state.get("ui_theme", "dark")
     resolved_title = title or ("Preparing" if language == "en" else "准备中")
     resolved_detail = detail or (
         "Collecting the next view of the system."
         if language == "en"
         else "正在为你整理下一层系统视图。"
     )
+    is_dark = theme == "dark"
     return f"""
 <div class="leolrs-preparing-card" aria-live="polite">
   <div class="leolrs-preparing-dots" aria-hidden="true">
@@ -26,30 +28,12 @@ def preparing_markup(language: str, title: str | None = None, detail: str | None
 </div>
 <style>
   .leolrs-preparing-card {{
-    --leo-prep-surface-a: rgba(244, 240, 232, 0.25);
-    --leo-prep-surface-b: rgba(255, 255, 255, 0.10);
-    --leo-prep-rim: rgba(174, 143, 84, 0.20);
-    --leo-prep-inner: rgba(255, 255, 255, 0.14);
-    --leo-prep-text: #1a1d1f;
-    --leo-prep-subtext: rgba(26, 29, 31, 0.72);
-  }}
-  @media (prefers-color-scheme: dark) {{
-    .leolrs-preparing-card {{
-      --leo-prep-surface-a: rgba(26, 29, 31, 0.25);
-      --leo-prep-surface-b: rgba(244, 240, 232, 0.06);
-      --leo-prep-rim: rgba(174, 143, 84, 0.18);
-      --leo-prep-inner: rgba(255, 255, 255, 0.05);
-      --leo-prep-text: rgba(244, 240, 232, 0.92);
-      --leo-prep-subtext: rgba(244, 240, 232, 0.64);
-    }}
-  }}
-  [data-theme="dark"] .leolrs-preparing-card {{
-    --leo-prep-surface-a: rgba(26, 29, 31, 0.25);
-    --leo-prep-surface-b: rgba(244, 240, 232, 0.06);
-    --leo-prep-rim: rgba(174, 143, 84, 0.18);
-    --leo-prep-inner: rgba(255, 255, 255, 0.05);
-    --leo-prep-text: rgba(244, 240, 232, 0.92);
-    --leo-prep-subtext: rgba(244, 240, 232, 0.64);
+    --leo-prep-surface-a: {"rgba(26, 29, 31, 0.25)" if is_dark else "rgba(244, 240, 232, 0.25)"};
+    --leo-prep-surface-b: {"rgba(244, 240, 232, 0.06)" if is_dark else "rgba(255, 255, 255, 0.10)"};
+    --leo-prep-rim: {"rgba(174, 143, 84, 0.18)" if is_dark else "rgba(174, 143, 84, 0.20)"};
+    --leo-prep-inner: {"rgba(255, 255, 255, 0.05)" if is_dark else "rgba(255, 255, 255, 0.14)"};
+    --leo-prep-text: {"rgba(244, 240, 232, 0.92)" if is_dark else "#1a1d1f"};
+    --leo-prep-subtext: {"rgba(244, 240, 232, 0.64)" if is_dark else "rgba(26, 29, 31, 0.72)"};
   }}
   .leolrs-preparing-card {{
     display: flex;

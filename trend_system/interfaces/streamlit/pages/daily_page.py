@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
 from html import escape
 from typing import Any, Callable
 
@@ -9,6 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from trend_system.interfaces.streamlit.shared.preparing import render_preparing
+from trend_system.interfaces.streamlit.shared.state import sync_date_input_default
 from trend_system.models import DailySignalRequest
 from trend_system.services.daily_signal_service import run_daily_signal
 
@@ -63,11 +63,17 @@ def render_daily_page(
     deps: DailyPageDeps,
 ) -> None:
     tr = deps.tr
+    home_tz = settings.get("profile", {}).get("home_timezone", "Pacific/Auckland")
+    default_start = sync_date_input_default(
+        "daily_start",
+        "daily_date_anchor",
+        tz_name=home_tz,
+    )
     # Zone A — command bar
-    ctrl_cols = st.columns([2, 1.2, 2, 0.8])
+    ctrl_cols = st.columns([1.25, 1.05, 1.25, 0.72])
     start = ctrl_cols[0].date_input(
         tr(language, "数据起始日期", "Data start date"),
-        value=date.today() - timedelta(days=420),
+        value=default_start,
         key="daily_start",
     )
     run = deps.aligned_button(ctrl_cols[1], tr(language, "更新今日信号", "Update daily signal"), type="primary", use_container_width=True)
@@ -139,6 +145,7 @@ def render_daily_page(
     ]
     # Zone A — PDF button (right slot of command bar)
     with ctrl_cols[3]:
+        st.markdown('<div style="height: 1.75rem;"></div>', unsafe_allow_html=True)
         deps.pdf_download_button(
             language,
             "PDF",

@@ -9,6 +9,10 @@ from trend_system.interfaces.streamlit.page_registry import (
 )
 
 
+def _set_active_page(nav_state_key: str, label: str) -> None:
+    st.session_state[nav_state_key] = label
+
+
 def render_app_shell(
     *,
     settings: dict,
@@ -40,69 +44,109 @@ def render_app_shell(
     st.markdown(
         """
 <style>
-.app-shell-nav {
+[class*="st-key-app_shell_burger_row"] {
+  display: none;
+}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   margin: 0.25rem 0 1rem;
 }
-.app-shell-nav .stButton {
+[data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stColumn"] {
   flex: 1 1 10rem;
 }
-.app-shell-nav .stButton > button {
+[data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stButton"] > button {
   width: 100%;
   border-radius: 999px;
   border: 1px solid rgba(174, 143, 84, 0.30);
   background: rgba(244, 240, 232, 0.10);
-  color: rgba(26, 29, 31, 0.70);
+  color: var(--text-color, rgba(26, 29, 31, 0.70));
   font-weight: 600;
   font-size: 0.80rem;
   letter-spacing: 0.04em;
   padding: 0.55rem 0.9rem;
   transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
-.app-shell-nav .stButton > button:hover {
+[data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stButton"] > button:hover {
   border-color: rgba(18, 57, 91, 0.55);
   background: rgba(18, 57, 91, 0.07);
-  color: rgb(18, 57, 91);
+  color: var(--leo-kicker, rgb(18, 57, 91));
 }
-.app-shell-nav .stButton > button[kind="primary"] {
+[data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stButton"] > button[kind="primary"] {
   background: linear-gradient(135deg, rgba(18, 57, 91, 0.14), rgba(18, 57, 91, 0.26));
   border-color: rgba(18, 57, 91, 0.55);
-  color: rgb(18, 57, 91);
+  color: var(--text-color, rgb(18, 57, 91));
   font-weight: 700;
 }
-@media (prefers-color-scheme: dark) {
-  .app-shell-nav .stButton > button {
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(244, 240, 232, 0.65);
-    border-color: rgba(174, 143, 84, 0.22);
+[data-theme="dark"] [data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stButton"] > button {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(244, 240, 232, 0.65);
+  border-color: rgba(174, 143, 84, 0.22);
+}
+[data-theme="dark"] [data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stButton"] > button:hover {
+  background: rgba(18, 57, 91, 0.18);
+  border-color: rgba(18, 57, 91, 0.55);
+  color: rgba(244, 240, 232, 0.92);
+}
+[data-theme="dark"] [data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) [data-testid="stButton"] > button[kind="primary"] {
+  background: linear-gradient(135deg, rgba(18, 57, 91, 0.28), rgba(18, 57, 91, 0.44));
+  color: rgba(244, 240, 232, 0.92);
+  border-color: rgba(18, 57, 91, 0.65);
+}
+[class*="st-key-app_shell_burger_row"] [data-testid="stPopover"] > button,
+[class*="st-key-app_shell_burger_row"] [data-testid="baseButton-secondary"] {
+  border-radius: 999px;
+  border: 1px solid rgba(174, 143, 84, 0.30);
+  background: rgba(244, 240, 232, 0.10);
+  color: var(--text-color, rgba(26, 29, 31, 0.82));
+  font-weight: 700;
+  min-width: 2.9rem;
+  height: 2.55rem;
+}
+[data-theme="dark"] [class*="st-key-app_shell_burger_row"] [data-testid="stPopover"] > button,
+[data-theme="dark"] [class*="st-key-app_shell_burger_row"] [data-testid="baseButton-secondary"] {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(244, 240, 232, 0.92);
+  border-color: rgba(174, 143, 84, 0.22);
+}
+@media (max-width: 640px) {
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-app_shell_nav"]) {
+    display: none !important;
   }
-  .app-shell-nav .stButton > button:hover {
-    background: rgba(18, 57, 91, 0.18);
-    border-color: rgba(18, 57, 91, 0.55);
-    color: rgba(244, 240, 232, 0.92);
-  }
-  .app-shell-nav .stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, rgba(18, 57, 91, 0.28), rgba(18, 57, 91, 0.44));
-    color: rgba(244, 240, 232, 0.92);
-    border-color: rgba(18, 57, 91, 0.65);
+  [class*="st-key-app_shell_burger_row"] {
+    display: block !important;
+    margin: 0.25rem 0 1rem;
   }
 }
 </style>
 """,
         unsafe_allow_html=True,
     )
+    with st.container(key="app_shell_burger_row"):
+        with st.popover("☰"):
+            for index, label in enumerate(page_labels):
+                active = st.session_state[nav_state_key] == label
+                if st.button(
+                    label,
+                    key=f"app_shell_burger_{index}",
+                    use_container_width=True,
+                    type="primary" if active else "secondary",
+                ):
+                    st.session_state[nav_state_key] = label
+                    st.rerun()
+
     nav_cols = st.columns(len(page_labels))
     for index, label in enumerate(page_labels):
         active = st.session_state[nav_state_key] == label
-        if nav_cols[index].button(
+        nav_cols[index].button(
             label,
             key=f"app_shell_nav_{index}",
             use_container_width=True,
             type="primary" if active else "secondary",
-        ):
-            st.session_state[nav_state_key] = label
+            on_click=_set_active_page,
+            args=(nav_state_key, label),
+        )
 
     page = st.session_state[nav_state_key]
     context = build_page_context(settings, language, config_path)

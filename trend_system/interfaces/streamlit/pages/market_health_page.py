@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
 from typing import Any, Callable
 
 import pandas as pd
 import streamlit as st
 
 from trend_system.interfaces.streamlit.shared.preparing import render_preparing
+from trend_system.interfaces.streamlit.shared.state import sync_date_input_default
 from trend_system.models import HealthcheckRequest
 from trend_system.services.healthcheck_service import run_healthcheck
 
@@ -33,6 +33,12 @@ def render_market_health_page(
     deps: MarketHealthPageDeps,
 ) -> None:
     tr = deps.tr
+    home_tz = settings.get("profile", {}).get("home_timezone", "Pacific/Auckland")
+    default_start = sync_date_input_default(
+        "market_health_start",
+        "market_health_date_anchor",
+        tz_name=home_tz,
+    )
     st.subheader(tr(language, "市场健康度", "Market Health"))
     st.caption(
         tr(
@@ -44,7 +50,7 @@ def render_market_health_page(
     cols = st.columns([1, 1, 1])
     start = cols[0].date_input(
         tr(language, "健康度数据起始日期", "Health data start date"),
-        value=date.today() - timedelta(days=420),
+        value=default_start,
         key="market_health_start",
     )
     run = deps.aligned_button(

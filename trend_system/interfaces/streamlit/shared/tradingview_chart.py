@@ -16,9 +16,11 @@ def build_lightweight_chart_payload(
     *,
     label_resolver: Callable[[str], str],
     line_styles: dict[str, str] | None = None,
+    color_overrides: dict[str, str] | None = None,
 ) -> list[dict[str, object]]:
     payload: list[dict[str, object]] = []
     styles = line_styles or {}
+    colors = color_overrides or {}
     for column in columns:
         if column not in frame.columns:
             continue
@@ -34,6 +36,7 @@ def build_lightweight_chart_payload(
                 "key": column,
                 "label": label_resolver(column),
                 "style": styles.get(column, "solid"),
+                "color": colors.get(column),
                 "points": points,
             }
         )
@@ -48,12 +51,15 @@ def render_lightweight_chart(
     key: str,
     label_resolver: Callable[[str], str],
     line_styles: dict[str, str] | None = None,
+    color_overrides: dict[str, str] | None = None,
 ) -> None:
+    forced_theme = st.session_state.get("ui_theme", "dark")
     series_payload = build_lightweight_chart_payload(
         frame,
         columns,
         label_resolver=label_resolver,
         line_styles=line_styles,
+        color_overrides=color_overrides,
     )
     if not series_payload:
         render_preparing(
@@ -81,7 +87,7 @@ def render_lightweight_chart(
 <style>
   .tv-lightweight-chart-card {{
     border: 1px solid rgba(148, 163, 184, 0.25);
-    border-radius: 14px;
+    border-radius: 0;
     padding: 12px 12px 10px;
     background:
       linear-gradient(180deg, rgba(15, 23, 42, 0.02), rgba(15, 23, 42, 0.00)),
@@ -116,7 +122,7 @@ def render_lightweight_chart(
   .tv-lightweight-chart-legend-swatch {{
     width: 14px;
     height: 3px;
-    border-radius: 999px;
+    border-radius: 0;
     display: inline-block;
   }}
   .tv-lightweight-chart-wrap {{
@@ -139,6 +145,7 @@ def render_lightweight_chart(
 <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 <script>
   const seriesPayload = {json.dumps(series_payload)};
+  const forcedTheme = {json.dumps(forced_theme)};
   const chartRoot = document.getElementById("{chart_id}");
   const legendRoot = document.getElementById("{chart_id}-legend");
   const lineStyleMap = {{
@@ -146,7 +153,22 @@ def render_lightweight_chart(
     dashed: "Dashed",
     dotted: "Dotted",
   }};
-  const palette = ["#2563eb", "#dc2626", "#059669", "#a855f7", "#ea580c", "#0891b2", "#9333ea", "#475569"];
+  const palette = ["#1f6a53", "#12395b", "#9e2f2f", "#3f8a70", "#7a3d2f", "#4b6f92", "#8d6b2c", "#6b7280"];
+
+  function getTheme() {{
+    const isDark = forcedTheme === "dark";
+    return {{
+      isDark,
+      textColor: isDark ? "rgba(244, 240, 232, 0.94)" : "#111214",
+      mutedText: isDark ? "rgba(244, 240, 232, 0.74)" : "rgba(17, 18, 20, 0.76)",
+      gridColor: isDark ? "rgba(148, 163, 184, 0.16)" : "rgba(71, 85, 105, 0.16)",
+      borderColor: isDark ? "rgba(148, 163, 184, 0.20)" : "rgba(71, 85, 105, 0.18)",
+      crosshair: isDark ? "rgba(31, 106, 83, 0.34)" : "rgba(31, 106, 83, 0.26)",
+    }};
+  }}
+  const theme = getTheme();
+  chartRoot.style.color = theme.textColor;
+  legendRoot.style.color = theme.mutedText;
 
   function createLegendItem(color, label) {{
     const item = document.createElement("div");
@@ -170,28 +192,28 @@ def render_lightweight_chart(
     autoSize: true,
     layout: {{
       background: {{ color: "transparent" }},
-      textColor: "#64748b",
+      textColor: theme.textColor,
       attributionLogo: true,
     }},
     grid: {{
-      vertLines: {{ color: "rgba(148, 163, 184, 0.16)" }},
-      horzLines: {{ color: "rgba(148, 163, 184, 0.16)" }},
+      vertLines: {{ color: theme.gridColor }},
+      horzLines: {{ color: theme.gridColor }},
     }},
     rightPriceScale: {{
-      borderColor: "rgba(148, 163, 184, 0.20)",
+      borderColor: theme.borderColor,
     }},
     timeScale: {{
-      borderColor: "rgba(148, 163, 184, 0.20)",
+      borderColor: theme.borderColor,
       timeVisible: false,
       secondsVisible: false,
     }},
     crosshair: {{
       vertLine: {{
-        color: "rgba(37, 99, 235, 0.25)",
+        color: theme.crosshair,
         width: 1,
       }},
       horzLine: {{
-        color: "rgba(37, 99, 235, 0.25)",
+        color: theme.crosshair,
         width: 1,
       }},
     }},
@@ -214,7 +236,7 @@ def render_lightweight_chart(
 
   const allSeriesItems = [];
   seriesPayload.forEach((seriesConfig, index) => {{
-    const color = palette[index % palette.length];
+    const color = seriesConfig.color || palette[index % palette.length];
     const lineStyleName = lineStyleMap[seriesConfig.style] || "Solid";
     const series = addCompatibleLineSeries(chart, {{
       color,

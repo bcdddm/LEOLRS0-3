@@ -45,7 +45,7 @@ def render_settings_page(
         f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{tr(language, "个人偏好", "Preferences")}</span><span class="leo-section-rule"></span></div>',
         unsafe_allow_html=True,
     )
-    pref_cols = st.columns(3)
+    pref_cols = st.columns(4)
     ui = settings.setdefault("ui", {})
     profile = settings.setdefault("profile", {})
     selected_language = pref_cols[0].selectbox(
@@ -69,10 +69,19 @@ def render_settings_page(
         index=deps.option_index(currencies, profile.get("base_currency", "NZD")),
         key="settings_base_currency",
     )
+    selected_theme = pref_cols[3].selectbox(
+        tr(language, "界面主题", "Interface theme"),
+        ["dark", "light"],
+        index=deps.option_index(["dark", "light"], ui.get("theme", "dark")),
+        format_func=lambda value: tr(language, "夜间", "Dark") if value == "dark" else tr(language, "日间", "Light"),
+        key="settings_ui_theme",
+    )
     ui["language"] = selected_language
+    ui["theme"] = selected_theme
     profile["home_timezone"] = selected_timezone
     profile["base_currency"] = selected_currency
     st.session_state["ui_language"] = selected_language
+    st.session_state["ui_theme"] = selected_theme
     st.session_state["home_timezone"] = selected_timezone
     st.session_state["base_currency"] = selected_currency
     st.caption(
@@ -80,6 +89,30 @@ def render_settings_page(
             language,
             "这些偏好会立即影响当前会话；点击保存当前设置后会写入配置文件。",
             "These preferences affect the current session immediately; save current settings to write them to the config file.",
+        )
+    )
+
+    st.markdown(
+        f'<div class="leo-section-head leo-section-head--green"><span class="leo-section-dot"></span><span class="leo-section-overline">{tr(language, "回测默认基准", "Backtest Benchmark")}</span><span class="leo-section-rule"></span></div>',
+        unsafe_allow_html=True,
+    )
+    benchmark_cols = st.columns([0.8, 1.4, 0.8])
+    backtest = settings.setdefault("backtest", {})
+    backtest["benchmark_symbol"] = benchmark_cols[1].text_input(
+        tr(language, "买入并持有基准代码", "Buy-and-hold benchmark symbol"),
+        value=str(backtest.get("benchmark_symbol", settings.get("signals", {}).get("primary", "SPY"))).upper(),
+        key="settings_backtest_benchmark_symbol",
+        help=tr(
+            language,
+            "这个基准不仅用于回测对比，也用于 120 日均线择时基准曲线的计算。修改后请重新运行回测。",
+            "This benchmark is used not only for comparison, but also for the 120-day timing benchmark calculations. Rerun the backtest after changing it.",
+        ),
+    ).strip().upper()
+    benchmark_cols[1].caption(
+        tr(
+            language,
+            "建议输入可下载日线数据的代码，例如 SPY、QQQ、VOO 或 IVV。",
+            "Use a symbol with downloadable daily history, such as SPY, QQQ, VOO, or IVV.",
         )
     )
 
@@ -210,7 +243,7 @@ def render_settings_page(
         else:
             st.error(f"{tr(language, '恢复失败', 'Restore failed')}: {msg}")
     st.markdown(
-        f'<div class="leo-section-head leo-section-head--green"><span class="leo-section-dot"></span><span class="leo-section-overline">{tr(language, "系统版本", "System Version")}</span><span class="leo-section-rule"></span></div>',
+        f'<div class="leo-section-head leo-section-head--prussian"><span class="leo-section-dot"></span><span class="leo-section-overline">{tr(language, "系统版本", "System Version")}</span><span class="leo-section-rule"></span></div>',
         unsafe_allow_html=True,
     )
     st.metric(tr(language, "当前版本", "Current version"), f"v{deps.version}")
