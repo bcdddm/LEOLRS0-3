@@ -10,6 +10,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from trend_system.interfaces.streamlit.shared.preparing import render_preparing
+from trend_system.interfaces.streamlit.shared.session_state import SessionKeys
 
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
@@ -59,6 +60,9 @@ def render_lightweight_chart(
     label_resolver: Callable[[str], str],
     line_styles: dict[str, str] | None = None,
 ) -> None:
+    resolved_theme = str(st.session_state.get(SessionKeys.UI_THEME, "light")).strip().lower()
+    if resolved_theme not in {"light", "dark"}:
+        resolved_theme = "light"
     series_payload = build_lightweight_chart_payload(
         frame,
         columns,
@@ -74,7 +78,7 @@ def render_lightweight_chart(
         )
         return
 
-    chart_id = f"tv-chart-{key}"
+    chart_id = f"tv-chart-{key}-{resolved_theme}"
     html = f"""
 <div class="tv-lightweight-chart-card">
   <div class="tv-lightweight-chart-head">
@@ -97,7 +101,9 @@ def render_lightweight_chart(
     (() => {{
       try {{
         const parentDoc = window.parent?.document;
-        const explicitTheme = parentDoc?.documentElement?.getAttribute("data-theme");
+        const explicitTheme =
+          parentDoc?.querySelector(".stApp")?.getAttribute("data-theme")
+          || parentDoc?.documentElement?.getAttribute("data-theme");
         if (explicitTheme === "dark" || explicitTheme === "light") return explicitTheme;
         const parentInk = parentDoc ? getComputedStyle(parentDoc.documentElement).getPropertyValue("--leo-ink").trim() : "";
         return parentInk.startsWith("rgba(244") ? "dark" : "light";
@@ -105,7 +111,10 @@ def render_lightweight_chart(
         return "light";
       }}
     }})();
+  document.documentElement.setAttribute("data-theme", parentTheme);
   document.body.setAttribute("data-theme", parentTheme);
+  document.documentElement.style.colorScheme = parentTheme;
+  document.body.style.colorScheme = parentTheme;
   const seriesPayload = {json.dumps(series_payload)};
   const chartRoot = document.getElementById("{chart_id}");
   const legendRoot = document.getElementById("{chart_id}-legend");
@@ -134,9 +143,10 @@ def render_lightweight_chart(
     return price.toLocaleString("en-US", {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }});
   }}
 
-  const chartTextColor = parentTheme === "dark" ? "rgba(244, 240, 232, 0.72)" : "#64748b";
-  const chartGridColor = parentTheme === "dark" ? "rgba(174, 143, 84, 0.12)" : "rgba(148, 163, 184, 0.16)";
-  const chartBorderColor = parentTheme === "dark" ? "rgba(174, 143, 84, 0.18)" : "rgba(148, 163, 184, 0.20)";
+  const chartTextColor = parentTheme === "dark" ? "rgba(244, 240, 232, 0.72)" : "rgba(18, 57, 91, 0.78)";
+  const chartGridColor = parentTheme === "dark" ? "rgba(174, 143, 84, 0.12)" : "rgba(74, 110, 150, 0.14)";
+  const chartBorderColor = parentTheme === "dark" ? "rgba(174, 143, 84, 0.18)" : "rgba(174, 143, 84, 0.22)";
+  const chartCrosshairColor = parentTheme === "dark" ? "rgba(174, 143, 84, 0.28)" : "rgba(18, 57, 91, 0.22)";
 
   const chart = LightweightCharts.createChart(chartRoot, {{
     autoSize: true,
@@ -159,11 +169,11 @@ def render_lightweight_chart(
     }},
     crosshair: {{
       vertLine: {{
-        color: "rgba(37, 99, 235, 0.25)",
+        color: chartCrosshairColor,
         width: 1,
       }},
       horzLine: {{
-        color: "rgba(37, 99, 235, 0.25)",
+        color: chartCrosshairColor,
         width: 1,
       }},
     }},

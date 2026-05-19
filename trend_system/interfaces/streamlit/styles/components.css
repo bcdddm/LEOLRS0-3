@@ -73,7 +73,7 @@
 }
 
 [data-theme="dark"] [data-testid="stHeading"] h3 {
-  color: rgba(244, 240, 232, 0.94) !important;
+  color: var(--leo-ink) !important;
 }
 
 [data-testid="stMetric"] {
@@ -140,18 +140,18 @@
 [data-theme="dark"] [data-testid="stMetricValue"],
 [data-theme="dark"] [data-testid="stMetricValue"] > div,
 [data-theme="dark"] [data-testid="stMetricValue"] * {
-  color: rgba(244, 240, 232, 0.95) !important;
+  color: var(--leo-ink) !important;
 }
 
 [data-theme="dark"] [data-testid="stMetricLabel"],
 [data-theme="dark"] [data-testid="stMetricLabel"] > div,
 [data-theme="dark"] [data-testid="stMetricLabel"] * {
-  color: rgba(244, 240, 232, 0.62) !important;
+  color: var(--leo-ink-sub) !important;
 }
 
 [data-theme="dark"] [data-testid="stMetricDelta"],
 [data-theme="dark"] [data-testid="stMetricDelta"] * {
-  color: rgba(244, 240, 232, 0.86) !important;
+  color: var(--leo-ink-strong) !important;
 }
 
 .leo-comparison-card {
@@ -225,11 +225,11 @@
   font-weight: 700;
   letter-spacing: 0.10em;
   text-transform: uppercase;
-  color: rgba(244, 240, 232, 0.58);
+  color: var(--leo-ink-soft);
 }
 
 .leo-comparison-card__meta--benchmark {
-  color: rgba(116, 168, 224, 0.82);
+  color: var(--leo-prussian-mineral);
 }
 
 .leo-comparison-card__value {
@@ -237,12 +237,12 @@
   font-size: 1.38rem;
   font-weight: 700;
   line-height: 1.1;
-  color: rgba(244, 240, 232, 0.96);
+  color: var(--leo-ink);
   font-variant-numeric: tabular-nums;
 }
 
 .leo-comparison-card__value--benchmark {
-  color: rgba(136, 184, 238, 0.94);
+  color: var(--leo-prussian-mineral);
 }
 
 [data-theme="dark"] .leo-comparison-card--better {
@@ -255,6 +255,22 @@
   background:
     radial-gradient(circle at 86% 18%, rgba(205, 96, 96, 0.10), transparent 28%),
     linear-gradient(145deg, rgba(62, 22, 22, 0.20), var(--leo-surface-b) 42%, var(--leo-surface-a) 100%);
+}
+
+[data-theme="dark"] .leo-comparison-card__meta {
+  color: var(--leo-ink-sub);
+}
+
+[data-theme="dark"] .leo-comparison-card__meta--benchmark {
+  color: var(--leo-prussian-mineral);
+}
+
+[data-theme="dark"] .leo-comparison-card__value {
+  color: var(--leo-ink);
+}
+
+[data-theme="dark"] .leo-comparison-card__value--benchmark {
+  color: var(--leo-prussian-mineral);
 }
 
 .leo-market-state-gap {
@@ -334,7 +350,7 @@
 }
 
 [data-theme="dark"] .leo-info-panel__line {
-  color: rgba(244, 240, 232, 0.90);
+  color: var(--leo-ink);
 }
 
 @keyframes leo-info-sheen {
@@ -407,8 +423,12 @@
   font-size: 0.64rem !important;
   font-weight: 700 !important;
   letter-spacing: 0.06em !important;
-  color: rgba(214, 198, 164, 0.95) !important;
+  color: var(--leo-prussian-mineral) !important;
   text-transform: uppercase !important;
+}
+
+[data-theme="dark"] [data-baseweb="slider"] [data-testid="stThumbValue"] {
+  color: var(--leo-kicker) !important;
 }
 
 [data-testid="stSidebar"] [role="slider"] {
@@ -469,7 +489,7 @@
 }
 
 [data-theme="dark"] [data-testid="stStatusWidget"] * {
-  color: rgba(244, 240, 232, 0.92) !important;
+  color: var(--leo-ink) !important;
 }
 
 div[data-testid="stSegmentedControl"] > div {

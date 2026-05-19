@@ -46,7 +46,7 @@ from trend_system.interfaces.streamlit.components import (
     render_strategy_console_intro,
 )
 from trend_system.models import BacktestRequest, DailySignalRequest, HealthcheckRequest
-from trend_system.interfaces.streamlit.app_shell import render_app_shell
+from trend_system.interfaces.streamlit.app_shell import render_app_shell, render_sidebar_navigation
 from trend_system.interfaces.streamlit.pages.market_health_page import (
     MarketHealthPageDeps,
     render_market_health_page as render_market_health_page_module,
@@ -70,14 +70,17 @@ from trend_system.interfaces.streamlit.shared import (
     is_stale as shared_is_stale,
     migrate_legacy_keys as shared_migrate_legacy_keys,
     option_index as shared_option_index,
+    render_theme_bridge as shared_render_theme_bridge,
     release_notes_path as shared_release_notes_path,
     release_notes_text as shared_release_notes_text,
     render_lightweight_chart as shared_render_lightweight_chart,
     render_release_notes as shared_render_release_notes,
     resolve_theme as shared_resolve_theme,
+    resolve_theme_mode as shared_resolve_theme_mode,
     tr as shared_tr,
     ui_language as shared_ui_language,
 )
+from trend_system.interfaces.streamlit.shared.theme import _normalize_theme, _normalize_theme_mode
 from trend_system.interfaces.streamlit.shared.cobe_globe import build_cobe_globe_html
 from trend_system.portfolio import build_allocation
 from trend_system.services.backtest_service import run_backtest_use_case
@@ -126,10 +129,6 @@ def _apply_session_preferences(settings: dict[str, Any]) -> None:
     ui = settings.setdefault("ui", {})
     profile = settings.setdefault("profile", {})
 
-    def _theme_value(value: Any) -> str:
-        text = str(value).lower()
-        return text if text in {"dark", "light"} else "dark"
-
     def _language_value(value: Any) -> str:
         if value == "EN":
             return "en"
@@ -144,14 +143,20 @@ def _apply_session_preferences(settings: dict[str, Any]) -> None:
     if SessionKeys.MOBILE_UI_LANGUAGE in st.session_state:
         st.session_state[SessionKeys.UI_LANGUAGE] = _language_value(st.session_state[SessionKeys.MOBILE_UI_LANGUAGE])
     if SessionKeys.SETTINGS_UI_THEME in st.session_state:
-        st.session_state[SessionKeys.UI_THEME] = _theme_value(st.session_state[SessionKeys.SETTINGS_UI_THEME])
+        normalized_mode = _normalize_theme_mode(st.session_state[SessionKeys.SETTINGS_UI_THEME]) or "dark"
+        st.session_state[SessionKeys.UI_THEME_MODE] = normalized_mode
+        manual_theme = _normalize_theme(normalized_mode)
+        if manual_theme is not None:
+            st.session_state[SessionKeys.UI_THEME] = manual_theme
     if SessionKeys.SETTINGS_HOME_TIMEZONE in st.session_state:
         st.session_state[SessionKeys.HOME_TIMEZONE] = st.session_state[SessionKeys.SETTINGS_HOME_TIMEZONE]
     if SessionKeys.SETTINGS_BASE_CURRENCY in st.session_state:
         st.session_state[SessionKeys.BASE_CURRENCY] = st.session_state[SessionKeys.SETTINGS_BASE_CURRENCY]
     if SessionKeys.UI_LANGUAGE in st.session_state:
         ui["language"] = st.session_state[SessionKeys.UI_LANGUAGE]
-    if SessionKeys.UI_THEME in st.session_state:
+    if SessionKeys.UI_THEME_MODE in st.session_state:
+        ui["theme"] = st.session_state[SessionKeys.UI_THEME_MODE]
+    elif SessionKeys.UI_THEME in st.session_state:
         ui["theme"] = st.session_state[SessionKeys.UI_THEME]
     if SessionKeys.HOME_TIMEZONE in st.session_state:
         profile["home_timezone"] = st.session_state[SessionKeys.HOME_TIMEZONE]
@@ -166,6 +171,7 @@ def main() -> None:
         initial_sidebar_state="collapsed",
     )
     shared_migrate_legacy_keys()
+    sidebar_nav_slot = st.sidebar.empty()
     config_options = _config_options()
     selected_config = st.sidebar.selectbox(
         "配置文件包",
@@ -180,11 +186,22 @@ def main() -> None:
     settings = load_settings(config_path)
     working_settings = deepcopy(settings.raw)
     _apply_session_preferences(working_settings)
+    resolved_theme_mode = shared_resolve_theme_mode(working_settings)
     resolved_theme = shared_resolve_theme(working_settings)
+    st.session_state[SessionKeys.UI_THEME_MODE] = resolved_theme_mode
     st.session_state[SessionKeys.UI_THEME] = resolved_theme
+    shared_render_theme_bridge(resolved_theme_mode)
     shared_inject_styles(resolved_theme)
     working_settings = _settings_sidebar(working_settings, config_path)
     language = _ui_language(working_settings)
+    render_sidebar_navigation(
+        sidebar_nav_slot,
+        language=language,
+        daily_renderer=_daily_tab,
+        market_health_renderer=_market_health_tab,
+        backtest_renderer=_backtest_tab,
+        settings_renderer=_settings_tab,
+    )
     _render_shell_header(working_settings, language)
     _render_global_cobe_globe_background(working_settings)
 

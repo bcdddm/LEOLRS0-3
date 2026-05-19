@@ -15,7 +15,12 @@ from trend_system.interfaces.streamlit.shared.session_state import (
     set_value,
 )
 from trend_system.interfaces.streamlit.shared.state import fingerprint, is_stale, model_settings
-from trend_system.interfaces.streamlit.shared.theme import inject_styles, resolve_theme
+from trend_system.interfaces.streamlit.shared.theme import (
+    inject_styles,
+    render_theme_bridge,
+    resolve_theme,
+    resolve_theme_mode,
+)
 from trend_system.interfaces.streamlit.shared.text import option_index, tr, ui_language
 from trend_system.interfaces.streamlit.shared.tradingview_chart import (
     build_lightweight_chart_payload,
@@ -38,9 +43,11 @@ __all__ = [
     "preparing_markup",
     "render_lightweight_chart",
     "render_preparing",
+    "render_theme_bridge",
     "release_notes_path",
     "release_notes_text",
     "resolve_theme",
+    "resolve_theme_mode",
     "render_release_notes",
     "SessionKeys",
     "set_value",
