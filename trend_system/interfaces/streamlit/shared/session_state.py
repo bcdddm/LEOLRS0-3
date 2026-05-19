@@ -8,6 +8,8 @@ class SessionKeys:
 
     UI_LANGUAGE = "ui_language"
     UI_THEME = "ui_theme"
+    UI_THEME_MODE = "ui_theme_mode"
+    BROWSER_THEME = "browser_theme"
     HOME_TIMEZONE = "home_timezone"
     BASE_CURRENCY = "base_currency"
 

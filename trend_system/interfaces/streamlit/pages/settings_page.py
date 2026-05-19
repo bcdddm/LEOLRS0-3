@@ -42,7 +42,7 @@ def render_settings_page(
     language = deps.ui_language(settings)
     tr = deps.tr
     current_session_language = st.session_state.get(SessionKeys.UI_LANGUAGE, settings.get("ui", {}).get("language", "en"))
-    current_session_theme = st.session_state.get(SessionKeys.UI_THEME, settings.get("ui", {}).get("theme", "dark"))
+    current_session_theme_mode = st.session_state.get(SessionKeys.UI_THEME_MODE, settings.get("ui", {}).get("theme", "dark"))
     st.subheader(tr(language, "当前设置", "Current Settings"))
     st.caption(f"{tr(language, '来源', 'Source')}: {Path(config_path).resolve()}")
 
@@ -64,12 +64,16 @@ def render_settings_page(
         index=deps.option_index(timezones, profile.get("home_timezone", "Pacific/Auckland")),
         key=SessionKeys.SETTINGS_HOME_TIMEZONE,
     )
-    theme_options = ["dark", "light"]
-    selected_theme = pref_cols[2].selectbox(
+    theme_options = ["dark", "light", "system"]
+    selected_theme_mode = pref_cols[2].selectbox(
         tr(language, "界面主题", "Interface theme"),
         theme_options,
-        index=deps.option_index(theme_options, current_session_theme),
-        format_func=lambda value: tr(language, "深色" if value == "dark" else "浅色", "Dark" if value == "dark" else "Light"),
+        index=deps.option_index(theme_options, current_session_theme_mode),
+        format_func=lambda value: tr(
+            language,
+            "深色" if value == "dark" else "浅色" if value == "light" else "跟随系统",
+            "Dark" if value == "dark" else "Light" if value == "light" else "Follow system",
+        ),
         key=SessionKeys.SETTINGS_UI_THEME,
     )
     currencies = ["NZD", "AUD", "USD", "CNY"]
@@ -80,16 +84,18 @@ def render_settings_page(
         key=SessionKeys.SETTINGS_BASE_CURRENCY,
     )
     ui["language"] = selected_language
-    ui["theme"] = selected_theme
+    ui["theme"] = selected_theme_mode
     profile["home_timezone"] = selected_timezone
     profile["base_currency"] = selected_currency
     st.session_state[SessionKeys.UI_LANGUAGE] = selected_language
-    st.session_state[SessionKeys.UI_THEME] = selected_theme
+    st.session_state[SessionKeys.UI_THEME_MODE] = selected_theme_mode
+    if selected_theme_mode in {"dark", "light"}:
+        st.session_state[SessionKeys.UI_THEME] = selected_theme_mode
     st.session_state[SessionKeys.HOME_TIMEZONE] = selected_timezone
     st.session_state[SessionKeys.BASE_CURRENCY] = selected_currency
     should_refresh_ui = (
         selected_language != current_session_language
-        or selected_theme != current_session_theme
+        or selected_theme_mode != current_session_theme_mode
     )
     st.caption(
         tr(
@@ -98,6 +104,14 @@ def render_settings_page(
             "These preferences affect the current session immediately; save current settings to write them to the config file.",
         )
     )
+    if selected_theme_mode == "system":
+        st.caption(
+            tr(
+                language,
+                "跟随系统模式下，如果操作系统主题在会话中途切换，页面会刷新一次以应用新的主题。",
+                "In follow-system mode, the page refreshes once if the operating-system theme changes mid-session.",
+            )
+        )
     if should_refresh_ui:
         st.rerun()
 

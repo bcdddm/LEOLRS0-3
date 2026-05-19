@@ -67,19 +67,25 @@ def build_cobe_globe_html(
     active = active_markets or set()
 
     if theme == "dark":
-        base_color = [0.93, 0.95, 0.98]
-        glow_color = [0.04, 0.10, 0.16]
-        marker_color = [0.10, 0.28, 0.44]
+        base_color = [0.58, 0.68, 0.78]
+        glow_color = [0.08, 0.13, 0.20]
+        marker_color = [0.20, 0.38, 0.56]
+        canvas_opacity = 0.62
+        shadow_color = "rgba(12, 28, 46, 0.22)"
+        page_background = "#1A1D1F"
         dark_flag = 1
-        map_brightness = 1.18
-        diffuse = 0.82
+        map_brightness = 1.04
+        diffuse = 0.76
     else:
-        base_color = [0.80, 0.87, 0.94]
-        glow_color = [0.76, 0.84, 0.92]
-        marker_color = [0.09, 0.24, 0.38]
+        base_color = [0.74, 0.82, 0.90]
+        glow_color = [0.83, 0.89, 0.95]
+        marker_color = [0.07, 0.22, 0.36]
+        canvas_opacity = 0.64
+        shadow_color = "rgba(18, 57, 91, 0.14)"
+        page_background = "#E6EEF6"
         dark_flag = 0
-        map_brightness = 0.88
-        diffuse = 0.70
+        map_brightness = 0.92
+        diffuse = 0.74
 
     markers: list[dict] = []
     for market_key, coords in MARKET_REGION_SAMPLES.items():
@@ -113,8 +119,9 @@ def build_cobe_globe_html(
   html, body {{
     margin: 0;
     padding: 0;
-    background: transparent;
+    background: {page_background};
     overflow: hidden;
+    color-scheme: {"dark" if theme == "dark" else "light"};
   }}
   #cobe-wrap {{
     width: {size}px;
@@ -123,17 +130,18 @@ def build_cobe_globe_html(
     display: flex;
     align-items: center;
     justify-content: center;
+    background: {page_background};
   }}
   #cobe-canvas {{
     width: {size}px !important;
     height: {size}px !important;
     display: block;
-    opacity: 0.72;
-    filter: drop-shadow(0 0 18px rgba(18, 57, 91, 0.18));
+    opacity: {canvas_opacity};
+    filter: drop-shadow(0 0 18px {shadow_color});
   }}
   @media (prefers-reduced-motion: reduce) {{
     #cobe-canvas {{
-      opacity: 0.58;
+      opacity: {max(canvas_opacity - 0.12, 0.46)};
     }}
   }}
 </style>

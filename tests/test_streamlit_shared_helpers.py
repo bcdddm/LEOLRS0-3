@@ -11,7 +11,13 @@ from trend_system.interfaces.streamlit.shared.release_notes import (
 from trend_system.interfaces.streamlit.shared.preparing import preparing_markup
 from trend_system.interfaces.streamlit.shared import session_state as session_state_module
 from trend_system.interfaces.streamlit.shared.state import fingerprint
-from trend_system.interfaces.streamlit.shared.theme import theme_override_text
+from trend_system.interfaces.streamlit.shared import theme as theme_module
+from trend_system.interfaces.streamlit.shared.theme import (
+    resolve_browser_theme,
+    resolve_theme,
+    resolve_theme_mode,
+    theme_override_text,
+)
 from trend_system.interfaces.streamlit.shared.text import option_index, tr
 
 
@@ -76,6 +82,8 @@ def test_fingerprint_ignores_chart_only_backtest_toggles():
 def test_session_keys_match_historical_streamlit_state_names():
     assert SessionKeys.UI_LANGUAGE == "ui_language"
     assert SessionKeys.UI_THEME == "ui_theme"
+    assert SessionKeys.UI_THEME_MODE == "ui_theme_mode"
+    assert SessionKeys.BROWSER_THEME == "browser_theme"
     assert SessionKeys.HOME_TIMEZONE == "home_timezone"
     assert SessionKeys.BASE_CURRENCY == "base_currency"
     assert SessionKeys.MOBILE_UI_LANGUAGE == "app_shell_mobile_language"
@@ -135,3 +143,46 @@ def test_theme_override_text_converts_data_theme_rules_to_root_overrides():
     assert "--leo-surface-a:    rgba(230, 238, 246, 0.68);" in light_css
     assert "--leo-page-bg:      #E6EEF6;" in light_css
     assert "--leo-sidebar-bg:   #DCE7F1;" in light_css
+
+
+def test_resolve_theme_mode_prefers_session_mode_and_accepts_system(monkeypatch):
+    fake_state = {
+        SessionKeys.UI_THEME_MODE: "system",
+        SessionKeys.UI_THEME: "light",
+    }
+    fake_st = SimpleNamespace(session_state=fake_state, query_params={})
+    monkeypatch.setattr(theme_module, "st", fake_st)
+
+    assert resolve_theme_mode({"ui": {"theme": "dark"}}) == "system"
+
+
+def test_resolve_browser_theme_reads_query_param(monkeypatch):
+    fake_st = SimpleNamespace(session_state={}, query_params={theme_module.SYSTEM_THEME_QUERY_PARAM: "light"})
+    monkeypatch.setattr(theme_module, "st", fake_st)
+
+    assert resolve_browser_theme() == "light"
+
+
+def test_resolve_theme_uses_system_browser_theme_when_mode_is_system(monkeypatch):
+    fake_state = {
+        SessionKeys.UI_THEME_MODE: "system",
+        SessionKeys.BROWSER_THEME: "dark",
+    }
+    fake_st = SimpleNamespace(
+        session_state=fake_state,
+        query_params={theme_module.SYSTEM_THEME_QUERY_PARAM: "light"},
+    )
+    monkeypatch.setattr(theme_module, "st", fake_st)
+
+    resolved = resolve_theme({"ui": {"theme": "dark"}})
+
+    assert resolved == "light"
+    assert fake_state[SessionKeys.BROWSER_THEME] == "light"
+
+
+def test_resolve_theme_falls_back_to_dark_when_system_theme_is_unavailable(monkeypatch):
+    fake_state = {SessionKeys.UI_THEME_MODE: "system"}
+    fake_st = SimpleNamespace(session_state=fake_state, query_params={})
+    monkeypatch.setattr(theme_module, "st", fake_st)
+
+    assert resolve_theme({"ui": {"theme": "system"}}) == "dark"

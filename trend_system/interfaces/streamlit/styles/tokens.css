@@ -1,8 +1,15 @@
 :root {
+  /* Phase 2-5 still mirror light-mode colors at :root because `inject_styles`
+     first loads the full sheet and then appends the normalized theme block. */
   --leo-page-bg:      #E6EEF6;
   --leo-sidebar-bg:   #DCE7F1;
   --leo-ink:          #111214;
   --leo-ink-sub:      rgba(17, 18, 20, 0.78);
+  --leo-ink-soft:     rgba(18, 57, 91, 0.70);
+  --leo-ink-strong:   rgba(18, 57, 91, 0.86);
+  --leo-ink-on-blue:  rgba(244, 240, 232, 0.96);
+  --leo-ink-on-green: rgba(244, 240, 232, 0.96);
+  --leo-ink-on-danger: rgba(244, 240, 232, 0.96);
   --leo-kicker:       rgba(18, 57, 91, 0.85);
   --leo-surface-a:    rgba(244, 240, 232, 0.25);
   --leo-surface-b:    rgba(255, 255, 255, 0.10);
@@ -21,7 +28,7 @@
   --leo-racing-green-haze: rgba(31, 106, 83, 0.18);
   --leo-palace-red: rgba(158, 47, 47, 0.88);
   --leo-palace-red-haze: rgba(158, 47, 47, 0.16);
-  --leo-sw-bg:        rgba(244, 240, 232, 0.25);
+  --leo-sw-bg:        rgba(220, 231, 241, 0.35);
   --leo-sw-rim:       rgba(174, 143, 84, 0.24);
   --leo-sw-inner:     rgba(255, 255, 255, 0.31);
   --leo-sw-shadow:    rgba(26, 29, 31, 0.10);
@@ -41,7 +48,7 @@
   --leo-border-neutral:     var(--leo-metallic-gold);
   --leo-border-interactive-strong: rgba(204, 72, 72, 0.96);
   --leo-border-action-strong: rgba(0, 104, 58, 0.98);
-  --leo-border-info-strong: rgba(144, 194, 235, 0.96);
+  --leo-border-info-strong: rgba(18, 57, 91, 0.90);
   --leo-border-neutral-strong: rgba(136, 110, 60, 0.82);
 }
 
@@ -50,6 +57,11 @@
   --leo-sidebar-bg:   #DCE7F1;
   --leo-ink:          #0A0C0D;
   --leo-ink-sub:      rgba(10, 12, 13, 0.82);
+  --leo-ink-soft:     rgba(18, 57, 91, 0.70);
+  --leo-ink-strong:   rgba(18, 57, 91, 0.86);
+  --leo-ink-on-blue:  rgba(244, 240, 232, 0.96);
+  --leo-ink-on-green: rgba(244, 240, 232, 0.96);
+  --leo-ink-on-danger: rgba(244, 240, 232, 0.96);
   --leo-kicker:       rgb(18, 57, 91);
   --leo-surface-a:    rgba(230, 238, 246, 0.68);
   --leo-surface-b:    rgba(255, 255, 255, 0.26);
@@ -58,12 +70,28 @@
   --leo-surface-top:  rgba(255, 255, 255, 0.17);
   --leo-surface-bot:  rgba(174, 143, 84, 0.06);
   --leo-metal-glow:   rgba(174, 143, 84, 0.12);
-  --leo-sw-bg:        rgba(244, 240, 232, 0.25);
+  --leo-sw-bg:        rgba(220, 231, 241, 0.35);
   --leo-sw-rim:       rgba(174, 143, 84, 0.24);
   --leo-sw-inner:     rgba(255, 255, 255, 0.31);
   --leo-sw-shadow:    rgba(26, 29, 31, 0.10);
   --leo-sw-text:      rgba(17, 18, 20, 0.72);
   --leo-sw-text-on:   #111214;
+  --leo-prussian-mineral: rgba(18, 57, 91, 0.88);
+  --leo-prussian-haze: rgba(74, 110, 150, 0.18);
+  --leo-racing-green: rgba(31, 106, 83, 0.88);
+  --leo-racing-green-haze: rgba(31, 106, 83, 0.18);
+  --leo-palace-red: rgba(158, 47, 47, 0.88);
+  --leo-palace-red-haze: rgba(158, 47, 47, 0.16);
+  --leo-bead-en:      rgba(31, 106, 83, 0.92);
+  --leo-bead-en-txt:  rgba(244, 240, 232, 0.96);
+  --leo-bead-zh:      rgba(31, 106, 83, 0.92);
+  --leo-bead-zh-txt:  rgba(244, 240, 232, 0.96);
+  --leo-metallic-gold:  rgba(110, 88, 48, 0.62);
+  --leo-metallic-green: rgba(0, 66, 37, 0.92);
+  --leo-border-interactive: var(--leo-palace-red);
+  --leo-border-action:      var(--leo-racing-green);
+  --leo-border-info:        var(--leo-prussian-mineral);
+  --leo-border-neutral:     var(--leo-metallic-gold);
   --leo-border-interactive-strong: rgba(188, 58, 58, 0.92);
   --leo-border-action-strong: rgba(0, 92, 52, 0.96);
   --leo-border-info-strong: rgba(18, 57, 91, 0.90);
@@ -75,6 +103,11 @@
   --leo-sidebar-bg:   rgba(20, 22, 24, 0.80);
   --leo-ink:        rgba(244, 240, 232, 0.92);
   --leo-ink-sub:    rgba(244, 240, 232, 0.60);
+  --leo-ink-soft:   rgba(204, 230, 252, 0.72);
+  --leo-ink-strong: rgba(244, 240, 232, 0.86);
+  --leo-ink-on-blue: rgba(244, 240, 232, 0.96);
+  --leo-ink-on-green: rgba(244, 240, 232, 0.96);
+  --leo-ink-on-danger: rgba(244, 240, 232, 0.96);
   --leo-kicker:     rgba(244, 240, 232, 0.86);
   --leo-surface-a:  rgba(26, 29, 31, 0.25);
   --leo-surface-b:  rgba(244, 240, 232, 0.06);
@@ -83,12 +116,20 @@
   --leo-surface-top: rgba(255, 255, 255, 0.05);
   --leo-surface-bot: rgba(174, 143, 84, 0.05);
   --leo-metal-glow: rgba(174, 143, 84, 0.10);
+  --leo-light-x:    52%;
+  --leo-light-y:    -14%;
+  --leo-light-drift: 8px;
+  --leo-scroll-energy: 0.18;
   --leo-sw-bg:      rgba(26, 29, 31, 0.25);
   --leo-sw-rim:     rgba(174, 143, 84, 0.22);
   --leo-sw-inner:   rgba(255, 255, 255, 0.06);
   --leo-sw-shadow:  rgba(0, 0, 0, 0.40);
   --leo-sw-text:    rgba(244, 240, 232, 0.65);
   --leo-sw-text-on: rgba(244, 240, 232, 0.95);
+  --leo-bead-en:    rgba(18, 57, 91, 0.88);
+  --leo-bead-en-txt: rgba(244, 240, 232, 0.96);
+  --leo-bead-zh:    rgba(26, 29, 31, 0.82);
+  --leo-bead-zh-txt: rgba(244, 240, 232, 0.92);
   --leo-prussian-mineral: rgba(180, 210, 240, 0.92);
   --leo-prussian-haze: rgba(74, 110, 150, 0.22);
   /* dark-mode metallic tokens — slightly lifted luminosity for dark bg contrast */

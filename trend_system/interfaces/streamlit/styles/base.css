@@ -11,6 +11,7 @@ body,
 #root,
 .stApp {
   overflow: visible !important;
+  color: var(--leo-ink) !important;
 }
 
 [data-testid="stAppViewContainer"] {
@@ -39,6 +40,7 @@ body,
 [data-testid="stMain"],
 [data-testid="stMainBlockContainer"] {
   background-color: var(--leo-page-bg) !important;
+  color: var(--leo-ink) !important;
 }
 
 [data-testid="stSidebar"] > div:first-child {
@@ -67,15 +69,16 @@ body,
   top: 2.05rem !important;
   width: 3.1rem !important;
   height: 3.1rem !important;
-  border: 1px solid rgba(0, 124, 70, 0.72) !important;
+  border: 1px solid rgba(74, 110, 150, 0.34) !important;
   border-radius: 0 !important;
   background:
-    radial-gradient(circle at top left, rgba(84, 204, 144, 0.18), transparent 40%),
-    linear-gradient(145deg, rgba(0, 96, 54, 0.84), rgba(0, 52, 29, 0.78)) !important;
+    radial-gradient(circle at top left, rgba(174, 143, 84, 0.12), transparent 42%),
+    radial-gradient(circle at top right, rgba(74, 110, 150, 0.18), transparent 44%),
+    linear-gradient(145deg, rgba(255,255,255,0.92), rgba(220,231,241,0.96)) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.10),
-    0 8px 20px rgba(0, 66, 37, 0.18),
-    0 0 22px rgba(0, 104, 58, 0.12) !important;
+    inset 0 1px 0 rgba(255,255,255,0.42),
+    0 8px 20px rgba(18, 57, 91, 0.10),
+    0 0 22px rgba(18, 57, 91, 0.08) !important;
   backdrop-filter: blur(8px) !important;
   z-index: 1405 !important;
   overflow: visible !important;
@@ -115,20 +118,21 @@ body,
 
 [data-testid="stSidebarCollapseButton"]:hover,
 [data-testid="stSidebarCollapsedControl"]:hover {
-  border-color: rgba(110, 232, 170, 0.82) !important;
+  border-color: rgba(18, 57, 91, 0.42) !important;
   background:
-    radial-gradient(circle at top left, rgba(110, 232, 170, 0.22), transparent 40%),
-    linear-gradient(145deg, rgba(0, 112, 63, 0.90), rgba(0, 64, 36, 0.84)) !important;
+    radial-gradient(circle at top left, rgba(174, 143, 84, 0.16), transparent 40%),
+    radial-gradient(circle at top right, rgba(116, 168, 224, 0.22), transparent 42%),
+    linear-gradient(145deg, rgba(255,255,255,0.96), rgba(230,238,246,0.98)) !important;
   transform: translateY(-2px) scale(1.01) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.14),
-    0 12px 26px rgba(0, 66, 37, 0.22),
-    0 0 28px rgba(0, 124, 70, 0.16) !important;
+    inset 0 1px 0 rgba(255,255,255,0.46),
+    0 12px 26px rgba(18, 57, 91, 0.14),
+    0 0 28px rgba(18, 57, 91, 0.12) !important;
 }
 
 [data-testid="stSidebarCollapseButton"] button:focus-visible,
 [data-testid="stSidebarCollapsedControl"] button:focus-visible {
-  outline: 2px solid rgba(110, 232, 170, 0.84) !important;
+  outline: 2px solid rgba(18, 57, 91, 0.52) !important;
   outline-offset: 2px !important;
 }
 
@@ -145,7 +149,7 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(248, 244, 236, 0.99);
+  color: var(--leo-prussian-mineral);
   font-size: 1.2rem;
   font-weight: 700;
   line-height: 1;
@@ -157,9 +161,48 @@ body,
   content: "";
   position: absolute;
   inset: 0.42rem;
-  border: 1px solid rgba(255,255,255,0.14);
+  border: 1px solid rgba(18, 57, 91, 0.12);
   border-radius: 0;
   pointer-events: none;
+}
+
+[data-theme="dark"] [data-testid="stSidebarCollapseButton"],
+[data-theme="dark"] [data-testid="stSidebarCollapsedControl"] {
+  border-color: rgba(0, 124, 70, 0.72) !important;
+  background:
+    radial-gradient(circle at top left, rgba(84, 204, 144, 0.18), transparent 40%),
+    linear-gradient(145deg, rgba(0, 96, 54, 0.84), rgba(0, 52, 29, 0.78)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 8px 20px rgba(0, 66, 37, 0.18),
+    0 0 22px rgba(0, 104, 58, 0.12) !important;
+}
+
+[data-theme="dark"] [data-testid="stSidebarCollapseButton"]:hover,
+[data-theme="dark"] [data-testid="stSidebarCollapsedControl"]:hover {
+  border-color: rgba(110, 232, 170, 0.82) !important;
+  background:
+    radial-gradient(circle at top left, rgba(110, 232, 170, 0.22), transparent 40%),
+    linear-gradient(145deg, rgba(0, 112, 63, 0.90), rgba(0, 64, 36, 0.84)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.14),
+    0 12px 26px rgba(0, 66, 37, 0.22),
+    0 0 28px rgba(0, 124, 70, 0.16) !important;
+}
+
+[data-theme="dark"] [data-testid="stSidebarCollapseButton"] button:focus-visible,
+[data-theme="dark"] [data-testid="stSidebarCollapsedControl"] button:focus-visible {
+  outline-color: rgba(110, 232, 170, 0.84) !important;
+}
+
+[data-theme="dark"] [data-testid="stSidebarCollapseButton"]::before,
+[data-theme="dark"] [data-testid="stSidebarCollapsedControl"]::before {
+  color: var(--leo-ink-on-green);
+}
+
+[data-theme="dark"] [data-testid="stSidebarCollapseButton"]::after,
+[data-theme="dark"] [data-testid="stSidebarCollapsedControl"]::after {
+  border-color: rgba(255,255,255,0.14);
 }
 
 @media (max-width: 640px) {
@@ -208,7 +251,7 @@ body,
 [data-theme="dark"] [data-testid="stDateInput"] button {
   background: linear-gradient(145deg, rgba(244,240,232,0.06), rgba(0,66,37,0.14)) !important;
   border-color: rgba(0, 96, 48, 0.34) !important;   /* dark BRG lifted for dark bg */
-  color: rgba(244, 240, 232, 0.76) !important;
+  color: var(--leo-ink-sub) !important;
 }
 
 [data-testid="stButton"] > button,
@@ -226,16 +269,16 @@ body,
 
 [data-testid="stDownloadButton"] button {
   background:
-    linear-gradient(115deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 16%, rgba(255,255,255,0) 34%),
-    radial-gradient(circle at 14% 18%, rgba(92, 142, 198, 0.14), transparent 28%),
-    linear-gradient(145deg, rgba(10,34,58,0.72), rgba(18,57,91,0.46) 48%, rgba(8,27,46,0.78)) !important;
-  border-color: rgba(174, 143, 84, 0.42) !important;
-  color: rgba(230, 238, 246, 0.96) !important;
+    linear-gradient(115deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.10) 16%, rgba(255,255,255,0) 34%),
+    radial-gradient(circle at 14% 18%, rgba(92, 142, 198, 0.18), transparent 28%),
+    linear-gradient(145deg, rgba(76,120,169,0.72), rgba(18,57,91,0.62) 48%, rgba(14,41,68,0.80)) !important;
+  border-color: rgba(74, 110, 150, 0.48) !important;
+  color: var(--leo-ink-on-blue) !important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.08),
-    inset 0 -1px 0 rgba(7, 20, 34, 0.28),
-    0 2px 10px rgba(10,34,58,0.12),
-    0 0 16px rgba(18,57,91,0.08) !important;
+    inset 0 -1px 0 rgba(7, 20, 34, 0.22),
+    0 2px 10px rgba(10,34,58,0.10),
+    0 0 16px rgba(18,57,91,0.10) !important;
 }
 
 [data-testid="stButton"] > button[kind="primary"] {
@@ -244,7 +287,7 @@ body,
     radial-gradient(circle at 12% 18%, rgba(92, 210, 150, 0.16), transparent 28%),
     linear-gradient(145deg, rgba(0,58,33,0.96), rgba(0,74,42,0.92) 46%, rgba(0,46,26,0.98)) !important;
   border-color: rgba(0, 102, 54, 0.42) !important;
-  color: rgba(244, 240, 232, 0.96) !important;
+  color: var(--leo-ink-on-green) !important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.08),
     inset 0 -1px 0 rgba(0, 28, 16, 0.32),
@@ -262,11 +305,40 @@ body,
 [data-testid="stDownloadButton"] button:hover,
 [data-testid="stDownloadButton"] button:focus-visible {
   background:
+    linear-gradient(115deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.06) 16%, rgba(255,255,255,0) 34%),
+    radial-gradient(circle at 14% 18%, rgba(118, 168, 224, 0.20), transparent 28%),
+    linear-gradient(145deg, rgba(84,130,182,0.78), rgba(22,67,106,0.64) 48%, rgba(10,34,58,0.86)) !important;
+  border-color: rgba(198, 166, 104, 0.56) !important;
+  color: var(--leo-ink-on-blue) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    inset 0 -1px 0 rgba(7, 20, 34, 0.30),
+    0 0 0 1px rgba(174,143,84,0.16),
+    0 0 18px rgba(18,57,91,0.12) !important;
+}
+
+[data-theme="dark"] [data-testid="stDownloadButton"] button {
+  background:
+    linear-gradient(115deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 16%, rgba(255,255,255,0) 34%),
+    radial-gradient(circle at 14% 18%, rgba(92, 142, 198, 0.14), transparent 28%),
+    linear-gradient(145deg, rgba(10,34,58,0.72), rgba(18,57,91,0.46) 48%, rgba(8,27,46,0.78)) !important;
+  border-color: rgba(174, 143, 84, 0.42) !important;
+  color: var(--leo-ink-on-blue) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 -1px 0 rgba(7, 20, 34, 0.28),
+    0 2px 10px rgba(10,34,58,0.12),
+    0 0 16px rgba(18,57,91,0.08) !important;
+}
+
+[data-theme="dark"] [data-testid="stDownloadButton"] button:hover,
+[data-theme="dark"] [data-testid="stDownloadButton"] button:focus-visible {
+  background:
     linear-gradient(115deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 16%, rgba(255,255,255,0) 34%),
     radial-gradient(circle at 14% 18%, rgba(118, 168, 224, 0.16), transparent 28%),
     linear-gradient(145deg, rgba(12,40,68,0.76), rgba(22,67,106,0.50) 48%, rgba(9,31,52,0.82)) !important;
   border-color: rgba(198, 166, 104, 0.56) !important;
-  color: rgba(236, 242, 248, 0.98) !important;
+  color: var(--leo-ink-on-blue) !important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.10),
     inset 0 -1px 0 rgba(7, 20, 34, 0.30),
@@ -280,13 +352,13 @@ body,
     radial-gradient(circle at 12% 18%, rgba(112, 228, 170, 0.18), transparent 28%),
     linear-gradient(145deg, rgba(0,64,36,0.98), rgba(0,84,48,0.94) 46%, rgba(0,50,28,1)) !important;
   border-color: rgba(0, 118, 63, 0.52) !important;
-  color: rgba(244, 240, 232, 0.98) !important;
+  color: var(--leo-ink-on-green) !important;
 }
 
 [class*="st-key-confirm_delete_yes"] [data-testid="stButton"] > button {
   background: linear-gradient(145deg, rgba(158,47,47,0.92), rgba(128,38,38,0.96)) !important;
   border-color: rgba(158, 47, 47, 0.52) !important;
-  color: rgba(244, 240, 232, 0.96) !important;
+  color: var(--leo-ink-on-danger) !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 10px rgba(158,47,47,0.20) !important;
 }
 
@@ -302,6 +374,8 @@ body,
 [data-baseweb="base-input"],
 [data-baseweb="select"] > div[data-baseweb="control"],
 [data-testid="stTextArea"] textarea {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.72), rgba(230,238,246,0.92)) !important;
   border: 1px solid transparent !important;
   border-image: linear-gradient(
     135deg,
@@ -310,6 +384,69 @@ body,
     var(--leo-metallic-green) 22%,
     var(--leo-metallic-green) 100%
   ) 1 !important;
+}
+
+[data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] {
+  background:
+    radial-gradient(circle at top right, rgba(92, 142, 198, 0.18), transparent 42%),
+    linear-gradient(145deg, rgba(76,120,169,0.20), rgba(230,238,246,0.86) 48%, rgba(255,255,255,0.92)) !important;
+  border: 1px solid rgba(74, 110, 150, 0.34) !important;
+  border-image: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.34),
+    0 0 14px rgba(18,57,91,0.08) !important;
+}
+
+[data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] > *,
+[data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] [role="combobox"],
+[data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] svg {
+  background: transparent !important;
+  color: var(--leo-prussian-mineral) !important;
+  fill: var(--leo-prussian-mineral) !important;
+}
+
+[data-baseweb="input"] input,
+[data-baseweb="base-input"] input,
+[data-baseweb="select"] [role="combobox"],
+[data-testid="stTextArea"] textarea {
+  color: var(--leo-ink) !important;
+}
+
+[data-baseweb="input"] input::placeholder,
+[data-baseweb="base-input"] input::placeholder,
+[data-testid="stTextArea"] textarea::placeholder {
+  color: var(--leo-ink-sub) !important;
+}
+
+[data-baseweb="popover"],
+[data-baseweb="popover"] > div,
+[data-testid="stSelectboxVirtualDropdown"] {
+  background:
+    radial-gradient(circle at top right, rgba(18,57,91,0.10), transparent 44%),
+    radial-gradient(circle at top left, rgba(174,143,84,0.12), transparent 34%),
+    linear-gradient(155deg, rgba(255,255,255,0.97), rgba(230,238,246,0.96)) !important;
+  color: var(--leo-ink) !important;
+  border: 1px solid rgba(126, 101, 58, 0.20) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.52),
+    0 18px 38px rgba(18,57,91,0.08),
+    0 0 0 1px rgba(174,143,84,0.08) !important;
+}
+
+[data-baseweb="popover"] [role="option"],
+[data-testid="stSelectboxVirtualDropdown"] [role="option"] {
+  color: var(--leo-ink) !important;
+}
+
+[data-baseweb="popover"] [role="option"][aria-selected="true"],
+[data-testid="stSelectboxVirtualDropdown"] [role="option"][aria-selected="true"] {
+  background: rgba(18, 57, 91, 0.10) !important;
+  color: var(--leo-ink) !important;
+}
+
+[data-baseweb="popover"] [role="option"]:hover,
+[data-testid="stSelectboxVirtualDropdown"] [role="option"]:hover {
+  background: rgba(174, 143, 84, 0.10) !important;
 }
 
 [data-baseweb="input"]:focus-within,
@@ -326,6 +463,69 @@ body,
   box-shadow:
     0 0 0 1px rgba(0, 66, 37, 0.20),
     0 0 14px rgba(0, 66, 37, 0.10) !important;
+}
+
+[data-theme="dark"] [data-baseweb="input"],
+[data-theme="dark"] [data-baseweb="base-input"],
+[data-theme="dark"] [data-baseweb="select"] > div[data-baseweb="control"],
+[data-theme="dark"] [data-testid="stTextArea"] textarea {
+  background: linear-gradient(145deg, rgba(26,29,31,0.92), rgba(38,39,48,0.94)) !important;
+}
+
+[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] {
+  background:
+    linear-gradient(145deg, rgba(12,40,68,0.76), rgba(22,67,106,0.50) 48%, rgba(9,31,52,0.82)) !important;
+  border: 1px solid rgba(174, 143, 84, 0.30) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 0 14px rgba(18,57,91,0.14) !important;
+}
+
+[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] > *,
+[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] [role="combobox"],
+[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] svg {
+  color: var(--leo-ink-on-blue) !important;
+  fill: var(--leo-ink-on-blue) !important;
+}
+
+[data-theme="dark"] [data-baseweb="input"] input,
+[data-theme="dark"] [data-baseweb="base-input"] input,
+[data-theme="dark"] [data-baseweb="select"] [role="combobox"],
+[data-theme="dark"] [data-testid="stTextArea"] textarea {
+  color: var(--leo-ink) !important;
+}
+
+[data-theme="dark"] [data-baseweb="input"] input::placeholder,
+[data-theme="dark"] [data-baseweb="base-input"] input::placeholder,
+[data-theme="dark"] [data-testid="stTextArea"] textarea::placeholder {
+  color: var(--leo-ink-sub) !important;
+}
+
+[data-theme="dark"] [data-baseweb="popover"],
+[data-theme="dark"] [data-baseweb="popover"] > div,
+[data-theme="dark"] [data-testid="stSelectboxVirtualDropdown"] {
+  background: linear-gradient(155deg, rgba(14,17,23,0.98), rgba(26,29,31,0.98)) !important;
+  color: var(--leo-ink) !important;
+  border-color: rgba(126, 101, 58, 0.24) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 18px 38px rgba(0,0,0,0.24),
+    0 0 0 1px rgba(18,57,91,0.14) !important;
+}
+
+[data-theme="dark"] [data-baseweb="popover"] [role="option"],
+[data-theme="dark"] [data-testid="stSelectboxVirtualDropdown"] [role="option"] {
+  color: var(--leo-ink) !important;
+}
+
+[data-theme="dark"] [data-baseweb="popover"] [role="option"][aria-selected="true"],
+[data-theme="dark"] [data-testid="stSelectboxVirtualDropdown"] [role="option"][aria-selected="true"] {
+  background: rgba(244, 240, 232, 0.08) !important;
+}
+
+[data-theme="dark"] [data-baseweb="popover"] [role="option"]:hover,
+[data-theme="dark"] [data-testid="stSelectboxVirtualDropdown"] [role="option"]:hover {
+  background: rgba(18, 57, 91, 0.20) !important;
 }
 
 [data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
@@ -389,6 +589,27 @@ body,
   font-size: 0.70rem !important;
   line-height: 1.45 !important;
   color: var(--leo-ink-sub) !important;
+}
+
+[data-testid="stAlert"],
+[data-testid="stAlert"] > div,
+[data-testid="stAlert"] p,
+[data-baseweb="notification"],
+[data-baseweb="notification"] p {
+  color: var(--leo-ink) !important;
+}
+
+[data-testid="stAlert"] *,
+[data-baseweb="notification"] * {
+  color: inherit !important;
+}
+
+[data-theme="dark"] [data-testid="stAlert"],
+[data-theme="dark"] [data-testid="stAlert"] > div,
+[data-theme="dark"] [data-testid="stAlert"] p,
+[data-theme="dark"] [data-baseweb="notification"],
+[data-theme="dark"] [data-baseweb="notification"] p {
+  color: var(--leo-ink) !important;
 }
 
 [data-testid="stSidebar"] [data-baseweb="radio"] {
@@ -483,7 +704,7 @@ body,
   border-radius: 0 !important;
   clip-path: none !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 8px rgba(0,66,37,0.16) !important;
-  color: rgba(244,240,232,0.96) !important;
+  color: var(--leo-ink-on-green) !important;
   font-size: 0.76rem !important;
   font-weight: 700 !important;
   letter-spacing: 0.12em !important;
@@ -526,5 +747,5 @@ body,
 [data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="slider"] [data-testid="stTickBarMax"],
 [data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="slider"] p,
 [data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="slider"] span {
-  color: rgba(244, 240, 232, 0.92) !important;
+  color: var(--leo-ink) !important;
 }

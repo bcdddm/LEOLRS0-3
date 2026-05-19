@@ -2,6 +2,77 @@
 
 This English changelog is a translation of the Chinese source changelog. The Chinese file `docs/CHANGELOG.md` remains the source of truth; this file is shown when the UI language is English.
 
+## v0.2.8 - 2026-05-19
+
+### 1. Final theme-system phase: follow-system mode
+
+This release completes the final execution phase of the theme system. The UI theme now supports three modes:
+
+- Manual dark
+- Manual light
+- Follow system
+
+The app now manages “theme mode” separately from the “effective rendered theme”, which prevents browser/system theme state, settings-page selections, and runtime rendering from leaking into one another.
+
+### 2. Full light/dark palette isolation
+
+This pass also closes out the remaining theme-bleed issues:
+
+- Dark-mode buttons, selectboxes, nav text, and dropdown surfaces that still carried light-mode styling are now tokenized.
+- The language-toggle capsule now has its own dark-mode token values instead of borrowing light-mode variables.
+- Closed selectbox states, popovers, download buttons, sidebar controls, and navigation buttons now share more consistent dark overrides.
+
+### 3. Audit close-out: unified theme state pipeline
+
+Theme normalization had previously been split across multiple paths. This version unifies that flow:
+
+- `gui.py` no longer maintains a separate theme-normalization branch and now reuses the shared theme resolver.
+- The settings page stores the theme mode, while runtime resolves the final effective light or dark theme.
+- Older sessions that only stored `ui_theme` remain compatible and do not lose the active theme on upgrade.
+
+### 4. Browser-follow bridge added
+
+Because of Streamlit’s runtime constraints, this release introduces a lightweight browser bridge:
+
+- When “Follow system” is selected, the app reads the browser/system `prefers-color-scheme`.
+- When the system theme changes, the app switches to the corresponding theme automatically.
+- Charts and background layers keep their existing theme-isolation logic, so light-mode visuals no longer leak back into dark mode.
+
+## v0.2.7 - 2026-05-19
+
+### 1. UI cleanup: desktop four-column rhythm restored
+
+This release reorganizes the desktop layout so the app returns to a true four-up desktop rhythm instead of inheriting mobile-first stacking patterns.
+
+- The main control and metrics areas in `Daily Signal`, `Market Health`, `Backtest`, and `Settings Overview` now follow a clearer four-column structure again.
+- Secondary actions, PDF areas, and result sections were tightened to reduce empty columns and duplicated blocks.
+- The backtest strategy-performance area was merged more cleanly with benchmark comparison content to remove repeated metric cards.
+
+### 2. Mobile interaction redesign: title menu and language switch
+
+The mobile top area has been restructured into a more compact interaction model:
+
+- Language switching is now surfaced near the title instead of being scattered across the page.
+- Mobile navigation no longer compresses into a row of tiny buttons; it now uses a title-triggered menu entry.
+- Narrow-screen breakpoints now handle the title band, navigation, and language switch more deliberately.
+
+### 3. Header and settings synchronization fixes
+
+This version also resolves several UI state-synchronization issues:
+
+- Chinese language switching no longer enters a rerun loop and now applies immediately again.
+- Duplicate theme/language controls in the top area were removed so shell and settings manage UI state consistently.
+- Sidebar overlay behavior, top entry styling, and related shell interactions were unified.
+
+### 4. Daily Signal and Backtest page refinements
+
+Several page-level issues were cleaned up as part of the same pass:
+
+- The `Daily Signal` date default now rolls forward with the current day.
+- The `Daily Signal` PDF button, control row, and trading-window cards were realigned and respaced.
+- Backtest toggles, comparison cards, benchmark chips, and execution-timing areas were reorganized.
+- Countdown panels, the trade timeline, and the background globe animation were visually retuned.
+
 ## v0.2.5 - 2026-05-16
 
 ### 1. Improvement: pages now prepare data automatically on first entry
