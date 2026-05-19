@@ -371,11 +371,23 @@ body,
 ───────────────────────────────────────────────────────────────────────────── */
 
 [data-baseweb="input"],
-[data-baseweb="base-input"],
-[data-baseweb="select"] > div[data-baseweb="control"],
 [data-testid="stTextArea"] textarea {
-  background:
-    linear-gradient(145deg, rgba(255,255,255,0.72), rgba(230,238,246,0.92)) !important;
+  background: var(--leo-input-bg) !important;
+  border: 1px solid transparent !important;
+  border-image: linear-gradient(
+    135deg,
+    var(--leo-metallic-gold) 0%,
+    rgba(92, 79, 52, 0.38) 9%,
+    var(--leo-metallic-green) 22%,
+    var(--leo-metallic-green) 100%
+  ) 1 !important;
+}
+
+[data-baseweb="base-input"] {
+  background: transparent !important;
+}
+
+[data-baseweb="select"] > div[data-baseweb="control"] {
   border: 1px solid transparent !important;
   border-image: linear-gradient(
     135deg,
@@ -465,12 +477,6 @@ body,
     0 0 14px rgba(0, 66, 37, 0.10) !important;
 }
 
-[data-theme="dark"] [data-baseweb="input"],
-[data-theme="dark"] [data-baseweb="base-input"],
-[data-theme="dark"] [data-baseweb="select"] > div[data-baseweb="control"],
-[data-theme="dark"] [data-testid="stTextArea"] textarea {
-  background: linear-gradient(145deg, rgba(26,29,31,0.92), rgba(38,39,48,0.94)) !important;
-}
 
 [data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] {
   background:
