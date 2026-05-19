@@ -1,22 +1,4 @@
 .leolrs-preparing-card {
-  --leo-prep-surface-a: rgba(244, 240, 232, 0.25);
-  --leo-prep-surface-b: rgba(255, 255, 255, 0.10);
-  --leo-prep-rim: rgba(174, 143, 84, 0.20);
-  --leo-prep-inner: rgba(255, 255, 255, 0.14);
-  --leo-prep-text: #1a1d1f;
-  --leo-prep-subtext: rgba(26, 29, 31, 0.72);
-}
-
-[data-theme="dark"] .leolrs-preparing-card {
-  --leo-prep-surface-a: rgba(26, 29, 31, 0.25);
-  --leo-prep-surface-b: rgba(244, 240, 232, 0.06);
-  --leo-prep-rim: rgba(174, 143, 84, 0.18);
-  --leo-prep-inner: rgba(255, 255, 255, 0.05);
-  --leo-prep-text: rgba(244, 240, 232, 0.92);
-  --leo-prep-subtext: rgba(244, 240, 232, 0.64);
-}
-
-.leolrs-preparing-card {
   display: flex;
   align-items: center;
   gap: 0.9rem;

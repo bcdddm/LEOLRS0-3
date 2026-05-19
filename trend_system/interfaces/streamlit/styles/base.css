@@ -399,22 +399,18 @@ body,
 }
 
 [data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] {
-  background:
-    radial-gradient(circle at top right, rgba(92, 142, 198, 0.18), transparent 42%),
-    linear-gradient(145deg, rgba(76,120,169,0.20), rgba(230,238,246,0.86) 48%, rgba(255,255,255,0.92)) !important;
-  border: 1px solid rgba(74, 110, 150, 0.34) !important;
+  background: var(--leo-selectbox-ctrl-bg) !important;
+  border: 1px solid var(--leo-selectbox-ctrl-border) !important;
   border-image: none !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.34),
-    0 0 14px rgba(18,57,91,0.08) !important;
+  box-shadow: var(--leo-selectbox-ctrl-shadow) !important;
 }
 
 [data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] > *,
 [data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] [role="combobox"],
 [data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] svg {
   background: transparent !important;
-  color: var(--leo-prussian-mineral) !important;
-  fill: var(--leo-prussian-mineral) !important;
+  color: var(--leo-selectbox-ctrl-color) !important;
+  fill: var(--leo-selectbox-ctrl-color) !important;
 }
 
 [data-baseweb="input"] input,
@@ -433,16 +429,10 @@ body,
 [data-baseweb="popover"],
 [data-baseweb="popover"] > div,
 [data-testid="stSelectboxVirtualDropdown"] {
-  background:
-    radial-gradient(circle at top right, rgba(18,57,91,0.10), transparent 44%),
-    radial-gradient(circle at top left, rgba(174,143,84,0.12), transparent 34%),
-    linear-gradient(155deg, rgba(255,255,255,0.97), rgba(230,238,246,0.96)) !important;
+  background: var(--leo-popover-bg) !important;
   color: var(--leo-ink) !important;
-  border: 1px solid rgba(126, 101, 58, 0.20) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.52),
-    0 18px 38px rgba(18,57,91,0.08),
-    0 0 0 1px rgba(174,143,84,0.08) !important;
+  border: 1px solid var(--leo-popover-border) !important;
+  box-shadow: var(--leo-popover-shadow) !important;
 }
 
 [data-baseweb="popover"] [role="option"],
@@ -452,13 +442,13 @@ body,
 
 [data-baseweb="popover"] [role="option"][aria-selected="true"],
 [data-testid="stSelectboxVirtualDropdown"] [role="option"][aria-selected="true"] {
-  background: rgba(18, 57, 91, 0.10) !important;
+  background: var(--leo-option-bg-selected) !important;
   color: var(--leo-ink) !important;
 }
 
 [data-baseweb="popover"] [role="option"]:hover,
 [data-testid="stSelectboxVirtualDropdown"] [role="option"]:hover {
-  background: rgba(174, 143, 84, 0.10) !important;
+  background: var(--leo-option-bg-hover) !important;
 }
 
 [data-baseweb="input"]:focus-within,
@@ -475,63 +465,6 @@ body,
   box-shadow:
     0 0 0 1px rgba(0, 66, 37, 0.20),
     0 0 14px rgba(0, 66, 37, 0.10) !important;
-}
-
-
-[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] {
-  background:
-    linear-gradient(145deg, rgba(12,40,68,0.76), rgba(22,67,106,0.50) 48%, rgba(9,31,52,0.82)) !important;
-  border: 1px solid rgba(174, 143, 84, 0.30) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.06),
-    0 0 14px rgba(18,57,91,0.14) !important;
-}
-
-[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] > *,
-[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] [role="combobox"],
-[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div[data-baseweb="control"] svg {
-  color: var(--leo-ink-on-blue) !important;
-  fill: var(--leo-ink-on-blue) !important;
-}
-
-[data-theme="dark"] [data-baseweb="input"] input,
-[data-theme="dark"] [data-baseweb="base-input"] input,
-[data-theme="dark"] [data-baseweb="select"] [role="combobox"],
-[data-theme="dark"] [data-testid="stTextArea"] textarea {
-  color: var(--leo-ink) !important;
-}
-
-[data-theme="dark"] [data-baseweb="input"] input::placeholder,
-[data-theme="dark"] [data-baseweb="base-input"] input::placeholder,
-[data-theme="dark"] [data-testid="stTextArea"] textarea::placeholder {
-  color: var(--leo-ink-sub) !important;
-}
-
-[data-theme="dark"] [data-baseweb="popover"],
-[data-theme="dark"] [data-baseweb="popover"] > div,
-[data-theme="dark"] [data-testid="stSelectboxVirtualDropdown"] {
-  background: linear-gradient(155deg, rgba(14,17,23,0.98), rgba(26,29,31,0.98)) !important;
-  color: var(--leo-ink) !important;
-  border-color: rgba(126, 101, 58, 0.24) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.06),
-    0 18px 38px rgba(0,0,0,0.24),
-    0 0 0 1px rgba(18,57,91,0.14) !important;
-}
-
-[data-theme="dark"] [data-baseweb="popover"] [role="option"],
-[data-theme="dark"] [data-testid="stSelectboxVirtualDropdown"] [role="option"] {
-  color: var(--leo-ink) !important;
-}
-
-[data-theme="dark"] [data-baseweb="popover"] [role="option"][aria-selected="true"],
-[data-theme="dark"] [data-testid="stSelectboxVirtualDropdown"] [role="option"][aria-selected="true"] {
-  background: rgba(244, 240, 232, 0.08) !important;
-}
-
-[data-theme="dark"] [data-baseweb="popover"] [role="option"]:hover,
-[data-theme="dark"] [data-testid="stSelectboxVirtualDropdown"] [role="option"]:hover {
-  background: rgba(18, 57, 91, 0.20) !important;
 }
 
 [data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
@@ -608,14 +541,6 @@ body,
 [data-testid="stAlert"] *,
 [data-baseweb="notification"] * {
   color: inherit !important;
-}
-
-[data-theme="dark"] [data-testid="stAlert"],
-[data-theme="dark"] [data-testid="stAlert"] > div,
-[data-theme="dark"] [data-testid="stAlert"] p,
-[data-theme="dark"] [data-baseweb="notification"],
-[data-theme="dark"] [data-baseweb="notification"] p {
-  color: var(--leo-ink) !important;
 }
 
 [data-testid="stSidebar"] [data-baseweb="radio"] {
@@ -742,16 +667,5 @@ body,
 [data-testid="stSidebar"] [data-baseweb="slider"] [data-testid="stTickBarMax"],
 [data-testid="stSidebar"] [data-baseweb="slider"] p,
 [data-testid="stSidebar"] [data-baseweb="slider"] span {
-  color: var(--leo-racing-green) !important;
-}
-
-[data-theme="dark"] [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
-[data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="radio"] label p,
-[data-theme="dark"] [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
-[data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="slider"] [data-testid="stThumbValue"],
-[data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="slider"] [data-testid="stTickBarMin"],
-[data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="slider"] [data-testid="stTickBarMax"],
-[data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="slider"] p,
-[data-theme="dark"] [data-testid="stSidebar"] [data-baseweb="slider"] span {
-  color: var(--leo-ink) !important;
+  color: var(--leo-sidebar-accent-text) !important;
 }
