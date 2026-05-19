@@ -389,6 +389,9 @@
 }
 
 @media (max-width: 480px) {
+  [data-testid="stHorizontalBlock"] {
+    flex-wrap: wrap !important;
+  }
   [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
     min-width: 48% !important;
     flex: 1 1 48% !important;

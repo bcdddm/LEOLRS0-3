@@ -167,6 +167,8 @@ def render_market_health_page(
 
 
 def _render_metric_rows(metrics: list[dict[str, str]], *, per_row: int = 4) -> None:
+    if per_row not in (2, 4, 6):
+        raise ValueError(f"per_row must be 2, 4, or 6; got {per_row}")
     for index in range(0, len(metrics), per_row):
         row = st.columns(per_row)
         for col, metric in zip(row, metrics[index:index + per_row]):
