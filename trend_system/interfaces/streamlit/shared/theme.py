@@ -36,6 +36,18 @@ def resolve_theme_mode(settings: dict) -> str:
 def resolve_theme(settings: dict) -> str:
     mode = resolve_theme_mode(settings)
     if mode == "system":
+        # Primary: read Streamlit's own theme (handles light/dark/OS-follow natively).
+        # st.context.theme.type is populated from the frontend ClientState proto and
+        # is updated on every rerun triggered by a Streamlit theme change.
+        try:
+            streamlit_type = _normalize_theme(st.context.theme.type)
+            if streamlit_type is not None:
+                st.session_state[SessionKeys.BROWSER_THEME] = streamlit_type
+                return streamlit_type
+        except Exception:
+            pass
+        # Fallback: URL query param written by render_theme_bridge() JS (first load,
+        # or Streamlit version without st.context.theme support).
         browser_theme = resolve_browser_theme()
         if browser_theme is not None:
             st.session_state[SessionKeys.BROWSER_THEME] = browser_theme
