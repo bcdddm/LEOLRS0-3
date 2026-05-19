@@ -14,6 +14,41 @@ def _set_active_page(nav_state_key: str, label: str) -> None:
     st.session_state[nav_state_key] = label
 
 
+def render_sidebar_navigation(
+    sidebar_container,
+    *,
+    language: str,
+    daily_renderer,
+    market_health_renderer,
+    backtest_renderer,
+    settings_renderer,
+) -> None:
+    page_specs = build_page_specs(
+        daily_renderer=daily_renderer,
+        market_health_renderer=market_health_renderer,
+        backtest_renderer=backtest_renderer,
+        settings_renderer=settings_renderer,
+    )
+    page_options = page_map_by_title(page_specs, language=language)
+    page_labels = list(page_options)
+    nav_state_key = SessionKeys.SHELL_ACTIVE_PAGE
+    if st.session_state.get(nav_state_key) not in page_labels:
+        st.session_state[nav_state_key] = page_labels[0]
+
+    with sidebar_container.container(key="app_shell_sidebar_nav"):
+        st.caption("Navigation")
+        for index, label in enumerate(page_labels):
+            active = st.session_state[nav_state_key] == label
+            if st.button(
+                label,
+                key=f"app_shell_sidebar_nav_{index}",
+                use_container_width=True,
+                type="primary" if active else "secondary",
+            ):
+                st.session_state[nav_state_key] = label
+                st.rerun()
+
+
 def render_app_shell(
     *,
     settings: dict,
@@ -41,37 +76,6 @@ def render_app_shell(
     nav_state_key = SessionKeys.SHELL_ACTIVE_PAGE
     if st.session_state.get(nav_state_key) not in page_labels:
         st.session_state[nav_state_key] = page_labels[0]
-
-    with st.container(key="app_shell_mobile_title_menu"):
-        with st.popover("LEOLRS0-3"):
-            for index, label in enumerate(page_labels):
-                active = st.session_state[nav_state_key] == label
-                if st.button(
-                    label,
-                    key=f"app_shell_mobile_burger_{index}",
-                    use_container_width=True,
-                    type="primary" if active else "secondary",
-                ):
-                    st.session_state[nav_state_key] = label
-                    st.rerun()
-
-    with st.container(key="app_shell_mobile_row"):
-        mobile_cols = st.columns([1], vertical_alignment="center")
-        with mobile_cols[0]:
-            mobile_language_label = "EN" if language == "en" else "中文"
-            st.session_state[SessionKeys.MOBILE_UI_LANGUAGE] = mobile_language_label
-            selected_mobile_language = st.segmented_control(
-                "Language",
-                ["EN", "中文"],
-                default=mobile_language_label,
-                key=SessionKeys.MOBILE_UI_LANGUAGE,
-                label_visibility="collapsed",
-                width="stretch",
-            )
-            resolved_mobile_language = "en" if selected_mobile_language == "EN" else "zh"
-            if resolved_mobile_language != language:
-                st.session_state[SessionKeys.UI_LANGUAGE] = resolved_mobile_language
-                settings.setdefault("ui", {})["language"] = resolved_mobile_language
 
     nav_cols = st.columns(len(page_labels))
     for index, label in enumerate(page_labels):
