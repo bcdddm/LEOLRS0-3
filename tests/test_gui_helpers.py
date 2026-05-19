@@ -309,7 +309,7 @@ def test_parameter_ui_name_follows_language_and_vix_rule_label():
 def test_streamlit_page_title_uses_leolrs_name():
     source = open("trend_system/gui.py", encoding="utf-8").read()
 
-    assert 'def _render_shell_header(settings: dict[str, Any], language: str) -> str:' in source
+    assert "def _render_shell_header(settings: dict[str, Any], language: str) -> None:" in source
     assert '<div class="shell-title">LEOLRS0-3</div>' in source
     assert "st.subheader(_tr(language, \"区段无新高锁仓模块\"" in source
     assert "st.subheader(_tr(language, \"趋势质量模块\"" in source
