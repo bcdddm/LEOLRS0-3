@@ -36,9 +36,19 @@ def resolve_theme_mode(settings: dict) -> str:
 def resolve_theme(settings: dict) -> str:
     mode = resolve_theme_mode(settings)
     if mode == "system":
-        # Primary: read Streamlit's own theme (handles light/dark/OS-follow natively).
-        # st.context.theme.type is populated from the frontend ClientState proto and
-        # is updated on every rerun triggered by a Streamlit theme change.
+        # Primary: URL query param written by render_theme_bridge() JS.  The JS
+        # bridge uses window.matchMedia on the parent frame to detect the OS
+        # preference and writes ?system_theme=dark|light, then reloads.  This
+        # reflects the OS-level preference reliably and must take priority over
+        # Streamlit's native theme setting (which the user may have pinned to
+        # "dark" in the Streamlit menu independently of the OS preference).
+        browser_theme = resolve_browser_theme()
+        if browser_theme is not None:
+            st.session_state[SessionKeys.BROWSER_THEME] = browser_theme
+            return browser_theme
+
+        # Secondary: Streamlit's own theme signal (populated from the frontend
+        # ClientState proto on every rerun after the first paint).
         try:
             streamlit_type = _normalize_theme(st.context.theme.type)
             if streamlit_type is not None:
@@ -46,15 +56,18 @@ def resolve_theme(settings: dict) -> str:
                 return streamlit_type
         except Exception:
             pass
-        # Fallback: URL query param written by render_theme_bridge() JS (first load,
-        # or Streamlit version without st.context.theme support).
-        browser_theme = resolve_browser_theme()
-        if browser_theme is not None:
-            st.session_state[SessionKeys.BROWSER_THEME] = browser_theme
-            return browser_theme
+
+        # Tertiary: last known theme from a previous rerun.
         cached_theme = _normalize_theme(st.session_state.get(SessionKeys.BROWSER_THEME))
         if cached_theme is not None:
             return cached_theme
+
+        # First-load: neither the URL param nor st.context.theme.type is
+        # available yet.  Trigger one extra rerun so the JS bridge has a chance
+        # to run and set the query param, then fall back to dark.
+        if not st.session_state.get("_theme_probe_done"):
+            st.session_state["_theme_probe_done"] = True
+            st.rerun()
         return "dark"
     return mode
 
