@@ -36,13 +36,30 @@ def resolve_theme_mode(settings: dict) -> str:
 def resolve_theme(settings: dict) -> str:
     mode = resolve_theme_mode(settings)
     if mode == "system":
+        # Primary: URL query param written by render_theme_bridge() JS.
+        # The JS bridge reads window.matchMedia("prefers-color-scheme: dark")
+        # on the parent frame and writes ?system_theme=dark|light, then
+        # reloads.  This is the only reliable signal for the actual OS
+        # preference — st.context.theme.type reflects Streamlit's hamburger
+        # setting, which the user may have pinned independently of the OS, so
+        # it is intentionally excluded from this chain.
         browser_theme = resolve_browser_theme()
         if browser_theme is not None:
             st.session_state[SessionKeys.BROWSER_THEME] = browser_theme
             return browser_theme
+
+        # Secondary: last OS theme confirmed by the JS bridge in a prior rerun.
         cached_theme = _normalize_theme(st.session_state.get(SessionKeys.BROWSER_THEME))
         if cached_theme is not None:
             return cached_theme
+
+        # First-load: URL param not yet written.  Trigger one extra rerun so
+        # render_theme_bridge() has a chance to inject the JS that sets it.
+        # _theme_probe_done is cleared by gui.py whenever the user enters
+        # system mode from another mode, so the probe fires fresh each time.
+        if not st.session_state.get("_theme_probe_done"):
+            st.session_state["_theme_probe_done"] = True
+            st.rerun()
         return "dark"
     return mode
 
@@ -96,6 +113,62 @@ def render_theme_bridge(theme_mode: str) -> None:
     media.addEventListener("change", applyTheme);
   }} else if (typeof media.addListener === "function") {{
     media.addListener(applyTheme);
+  }}
+}})();
+</script>
+""",
+        height=0,
+    )
+
+
+def render_native_theme_sync(theme: str) -> None:
+    """Inject JS to keep Streamlit's built-in localStorage theme in sync.
+
+    Tries the known candidate keys in priority order.  If a key exists and
+    already holds the right name, it is skipped.  If it holds the wrong name
+    it is updated and a StorageEvent is dispatched so Streamlit's frontend
+    React store picks up the change without a full reload.
+    """
+    st_name = "Light theme" if theme == "light" else "Dark theme"
+    escaped = html.escape(st_name, quote=True)
+    components.html(
+        f"""
+<script>
+(() => {{
+  const target = "{escaped}";
+  const w = window.parent ?? window;
+  // Keys tried in order: Streamlit stores the active built-in theme under
+  // stActiveTheme (v1.28+).  Older builds used stTheme.
+  const candidates = ["stActiveTheme", "stTheme", "streamlit:theme"];
+  let updated = false;
+  for (const key of candidates) {{
+    try {{
+      const raw = w.localStorage.getItem(key);
+      if (raw === null) continue;           // key absent — skip
+      const parsed = JSON.parse(raw);
+      if (parsed.name === target) continue; // already correct — skip
+      const next = JSON.stringify({{...parsed, name: target}});
+      w.localStorage.setItem(key, next);
+      w.dispatchEvent(new StorageEvent("storage", {{
+        key: key,
+        newValue: next,
+        storageArea: w.localStorage
+      }}));
+      updated = true;
+    }} catch (_) {{}}
+  }}
+  // If none of the known keys existed yet, prime stActiveTheme so Streamlit
+  // picks it up on the next internal theme check.
+  if (!updated) {{
+    try {{
+      const payload = JSON.stringify({{name: target}});
+      w.localStorage.setItem("stActiveTheme", payload);
+      w.dispatchEvent(new StorageEvent("storage", {{
+        key: "stActiveTheme",
+        newValue: payload,
+        storageArea: w.localStorage
+      }}));
+    }} catch (_) {{}}
   }}
 }})();
 </script>
