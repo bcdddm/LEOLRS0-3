@@ -221,6 +221,18 @@ def main() -> None:
 
     _apply_session_preferences(working_settings)
     resolved_theme_mode = shared_resolve_theme_mode(working_settings)
+
+    # ── System-mode probe reset ───────────────────────────────────────────────
+    # _theme_probe_done prevents repeated reruns while waiting for the JS
+    # bridge to set the OS-theme URL param.  The flag must be cleared whenever
+    # the user switches INTO system mode so the probe fires fresh.
+    if resolved_theme_mode == "system":
+        _last_resolved_mode = _normalize_theme_mode(st.session_state.get("_last_resolved_mode"))
+        if _last_resolved_mode != "system":
+            st.session_state.pop("_theme_probe_done", None)
+            st.session_state.pop(SessionKeys.BROWSER_THEME, None)
+    # ─────────────────────────────────────────────────────────────────────────
+
     resolved_theme = shared_resolve_theme(working_settings)
     st.session_state[SessionKeys.UI_THEME_MODE] = resolved_theme_mode
     st.session_state[SessionKeys.UI_THEME] = resolved_theme
@@ -232,6 +244,7 @@ def main() -> None:
     if resolved_theme_mode in ("light", "dark"):
         shared_render_native_theme_sync(resolved_theme)
     # Save comparison values for the next rerun
+    st.session_state["_last_resolved_mode"] = resolved_theme_mode
     st.session_state["_last_st_native_type"] = _st_native
     st.session_state["_last_settings_ui_theme"] = st.session_state.get(SessionKeys.SETTINGS_UI_THEME)
     # ─────────────────────────────────────────────────────────────────────────
