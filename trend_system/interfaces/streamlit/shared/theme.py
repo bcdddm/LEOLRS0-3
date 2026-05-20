@@ -53,13 +53,11 @@ def resolve_theme(settings: dict) -> str:
         if cached_theme is not None:
             return cached_theme
 
-        # First-load: URL param not yet written.  Trigger one extra rerun so
-        # render_theme_bridge() has a chance to inject the JS that sets it.
-        # _theme_probe_done is cleared by gui.py whenever the user enters
-        # system mode from another mode, so the probe fires fresh each time.
-        if not st.session_state.get("_theme_probe_done"):
-            st.session_state["_theme_probe_done"] = True
-            st.rerun()
+        # First-load fallback: URL param not yet written by the JS bridge.
+        # Return "dark" and let render_theme_bridge() handle detection —
+        # if the OS preference differs it will call location.replace() to
+        # reload with the correct ?system_theme= param.  No st.rerun() here
+        # because that fires before main-content renders, leaving a black page.
         return "dark"
     return mode
 
