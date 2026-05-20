@@ -70,7 +70,6 @@ from trend_system.interfaces.streamlit.shared import (
     is_stale as shared_is_stale,
     migrate_legacy_keys as shared_migrate_legacy_keys,
     option_index as shared_option_index,
-    render_native_theme_sync as shared_render_native_theme_sync,
     render_theme_bridge as shared_render_theme_bridge,
     release_notes_path as shared_release_notes_path,
     release_notes_text as shared_release_notes_text,
@@ -239,10 +238,6 @@ def main() -> None:
     shared_render_theme_bridge(resolved_theme_mode)
     shared_inject_styles(resolved_theme)
 
-    # ── App → Streamlit sync ─────────────────────────────────────────────────
-    # Keep Streamlit's localStorage theme in sync so the hamburger menu matches.
-    if resolved_theme_mode in ("light", "dark"):
-        shared_render_native_theme_sync(resolved_theme)
     # Save comparison values for the next rerun
     st.session_state["_last_resolved_mode"] = resolved_theme_mode
     st.session_state["_last_st_native_type"] = _st_native
