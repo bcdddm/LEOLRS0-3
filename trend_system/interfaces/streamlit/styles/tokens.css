@@ -147,6 +147,53 @@
   --leo-border-action-strong: rgba(0, 92, 52, 0.96);
   --leo-border-info-strong: rgba(18, 57, 91, 0.90);
   --leo-border-neutral-strong: rgba(118, 96, 54, 0.78);
+  /* Collapse button — light */
+  --leo-collapse-bg: radial-gradient(circle at top left, rgba(174, 143, 84, 0.12), transparent 42%),
+                     radial-gradient(circle at top right, rgba(74, 110, 150, 0.18), transparent 44%),
+                     linear-gradient(145deg, rgba(255,255,255,0.92), rgba(220,231,241,0.96));
+  --leo-collapse-border: rgba(74, 110, 150, 0.34);
+  --leo-collapse-shadow: inset 0 1px 0 rgba(255,255,255,0.42),
+                         0 8px 20px rgba(18, 57, 91, 0.10),
+                         0 0 22px rgba(18, 57, 91, 0.08);
+  --leo-collapse-hover-bg: radial-gradient(circle at top left, rgba(174, 143, 84, 0.16), transparent 40%),
+                            radial-gradient(circle at top right, rgba(116, 168, 224, 0.22), transparent 42%),
+                            linear-gradient(145deg, rgba(255,255,255,0.96), rgba(230,238,246,0.98));
+  --leo-collapse-hover-border: rgba(18, 57, 91, 0.42);
+  --leo-collapse-hover-shadow: inset 0 1px 0 rgba(255,255,255,0.46),
+                                0 12px 26px rgba(18, 57, 91, 0.14),
+                                0 0 28px rgba(18, 57, 91, 0.12);
+  --leo-collapse-focus: rgba(18, 57, 91, 0.52);
+  --leo-collapse-icon: var(--leo-prussian-mineral);
+  --leo-collapse-inner-border: rgba(18, 57, 91, 0.12);
+  /* Spinner buttons — light */
+  --leo-spinner-bg: linear-gradient(145deg, rgba(255,255,255,0.08), rgba(0,66,37,0.06));
+  --leo-spinner-border: rgba(0, 66, 37, 0.20);
+  --leo-spinner-hover-bg: linear-gradient(145deg, rgba(255,255,255,0.10), rgba(0,66,37,0.12));
+  --leo-spinner-hover-border: rgba(0, 66, 37, 0.34);
+  /* Download button — light */
+  --leo-download-bg: linear-gradient(115deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.10) 16%, rgba(255,255,255,0) 34%),
+                     radial-gradient(circle at 14% 18%, rgba(92, 142, 198, 0.18), transparent 28%),
+                     linear-gradient(145deg, rgba(76,120,169,0.72), rgba(18,57,91,0.62) 48%, rgba(14,41,68,0.80));
+  --leo-download-border: rgba(74, 110, 150, 0.48);
+  --leo-download-shadow: inset 0 1px 0 rgba(255,255,255,0.08),
+                         inset 0 -1px 0 rgba(7, 20, 34, 0.22),
+                         0 2px 10px rgba(10,34,58,0.10),
+                         0 0 16px rgba(18,57,91,0.10);
+  --leo-download-hover-bg: linear-gradient(115deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.06) 16%, rgba(255,255,255,0) 34%),
+                            radial-gradient(circle at 14% 18%, rgba(118, 168, 224, 0.20), transparent 28%),
+                            linear-gradient(145deg, rgba(84,130,182,0.78), rgba(22,67,106,0.64) 48%, rgba(10,34,58,0.86));
+  --leo-download-hover-border: rgba(198, 166, 104, 0.56);
+  --leo-download-hover-shadow: inset 0 1px 0 rgba(255,255,255,0.10),
+                                inset 0 -1px 0 rgba(7, 20, 34, 0.30),
+                                0 0 0 1px rgba(174,143,84,0.16),
+                                0 0 18px rgba(18,57,91,0.12);
+  /* Toggle switch — light */
+  --leo-switch-bg: linear-gradient(90deg, rgba(31,106,83,0.16), rgba(31,106,83,0.08));
+  --leo-switch-border: var(--leo-surface-rim);
+  --leo-switch-shadow: inset 0 1px 0 var(--leo-surface-top);
+  --leo-switch-checked-bg: linear-gradient(90deg, rgba(31,106,83,0.28), rgba(31,106,83,0.20));
+  --leo-switch-checked-border: rgba(31, 106, 83, 0.26);
+  --leo-switch-checked-shadow: inset 0 1px 0 var(--leo-surface-top), 0 0 14px rgba(31,106,83,0.18);
   /* Streamlit built-in variables — override so native chrome follows our theme */
   --background-color: #E6EEF6;
   --secondary-background-color: #DCE7F1;
@@ -236,6 +283,51 @@
   --leo-prep-inner:     rgba(255, 255, 255, 0.05);
   --leo-prep-text:      rgba(244, 240, 232, 0.92);
   --leo-prep-subtext:   rgba(244, 240, 232, 0.64);
+  /* Collapse button — dark */
+  --leo-collapse-bg: radial-gradient(circle at top left, rgba(84, 204, 144, 0.18), transparent 40%),
+                     linear-gradient(145deg, rgba(0, 96, 54, 0.84), rgba(0, 52, 29, 0.78));
+  --leo-collapse-border: rgba(0, 124, 70, 0.72);
+  --leo-collapse-shadow: inset 0 1px 0 rgba(255,255,255,0.10),
+                         0 8px 20px rgba(0, 66, 37, 0.18),
+                         0 0 22px rgba(0, 104, 58, 0.12);
+  --leo-collapse-hover-bg: radial-gradient(circle at top left, rgba(110, 232, 170, 0.22), transparent 40%),
+                            linear-gradient(145deg, rgba(0, 112, 63, 0.90), rgba(0, 64, 36, 0.84));
+  --leo-collapse-hover-border: rgba(110, 232, 170, 0.82);
+  --leo-collapse-hover-shadow: inset 0 1px 0 rgba(255,255,255,0.14),
+                                0 12px 26px rgba(0, 66, 37, 0.22),
+                                0 0 28px rgba(0, 124, 70, 0.16);
+  --leo-collapse-focus: rgba(110, 232, 170, 0.84);
+  --leo-collapse-icon: var(--leo-ink-on-green);
+  --leo-collapse-inner-border: rgba(255,255,255,0.14);
+  /* Spinner buttons — dark */
+  --leo-spinner-bg: linear-gradient(145deg, rgba(244,240,232,0.06), rgba(0,66,37,0.14));
+  --leo-spinner-border: rgba(0, 96, 48, 0.34);
+  --leo-spinner-hover-bg: linear-gradient(145deg, rgba(244,240,232,0.08), rgba(0,80,45,0.20));
+  --leo-spinner-hover-border: rgba(0, 112, 56, 0.48);
+  /* Download button — dark */
+  --leo-download-bg: linear-gradient(115deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 16%, rgba(255,255,255,0) 34%),
+                     radial-gradient(circle at 14% 18%, rgba(92, 142, 198, 0.14), transparent 28%),
+                     linear-gradient(145deg, rgba(10,34,58,0.72), rgba(18,57,91,0.46) 48%, rgba(8,27,46,0.78));
+  --leo-download-border: rgba(174, 143, 84, 0.42);
+  --leo-download-shadow: inset 0 1px 0 rgba(255,255,255,0.08),
+                         inset 0 -1px 0 rgba(7, 20, 34, 0.28),
+                         0 2px 10px rgba(10,34,58,0.12),
+                         0 0 16px rgba(18,57,91,0.08);
+  --leo-download-hover-bg: linear-gradient(115deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 16%, rgba(255,255,255,0) 34%),
+                            radial-gradient(circle at 14% 18%, rgba(118, 168, 224, 0.16), transparent 28%),
+                            linear-gradient(145deg, rgba(12,40,68,0.76), rgba(22,67,106,0.50) 48%, rgba(9,31,52,0.82));
+  --leo-download-hover-border: rgba(198, 166, 104, 0.56);
+  --leo-download-hover-shadow: inset 0 1px 0 rgba(255,255,255,0.10),
+                                inset 0 -1px 0 rgba(7, 20, 34, 0.30),
+                                0 0 0 1px rgba(174,143,84,0.16),
+                                0 0 18px rgba(18,57,91,0.12);
+  /* Toggle switch — dark */
+  --leo-switch-bg: linear-gradient(90deg, rgba(0,80,45,0.24), rgba(0,80,45,0.14));
+  --leo-switch-border: rgba(0, 96, 48, 0.34);
+  --leo-switch-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  --leo-switch-checked-bg: linear-gradient(90deg, rgba(0,80,45,0.42), rgba(0,80,45,0.30));
+  --leo-switch-checked-border: rgba(0, 120, 60, 0.48);
+  --leo-switch-checked-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 0 14px rgba(0,66,37,0.12);
   /* Streamlit built-in variables — override so native chrome follows our theme */
   --background-color: #1A1D1F;
   --secondary-background-color: #14161A;

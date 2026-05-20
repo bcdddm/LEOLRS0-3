@@ -69,16 +69,10 @@ body,
   top: 2.05rem !important;
   width: 3.1rem !important;
   height: 3.1rem !important;
-  border: 1px solid rgba(74, 110, 150, 0.34) !important;
+  border: 1px solid var(--leo-collapse-border) !important;
   border-radius: 0 !important;
-  background:
-    radial-gradient(circle at top left, rgba(174, 143, 84, 0.12), transparent 42%),
-    radial-gradient(circle at top right, rgba(74, 110, 150, 0.18), transparent 44%),
-    linear-gradient(145deg, rgba(255,255,255,0.92), rgba(220,231,241,0.96)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.42),
-    0 8px 20px rgba(18, 57, 91, 0.10),
-    0 0 22px rgba(18, 57, 91, 0.08) !important;
+  background: var(--leo-collapse-bg) !important;
+  box-shadow: var(--leo-collapse-shadow) !important;
   backdrop-filter: blur(8px) !important;
   z-index: 1405 !important;
   overflow: visible !important;
@@ -118,21 +112,15 @@ body,
 
 [data-testid="stSidebarCollapseButton"]:hover,
 [data-testid="stSidebarCollapsedControl"]:hover {
-  border-color: rgba(18, 57, 91, 0.42) !important;
-  background:
-    radial-gradient(circle at top left, rgba(174, 143, 84, 0.16), transparent 40%),
-    radial-gradient(circle at top right, rgba(116, 168, 224, 0.22), transparent 42%),
-    linear-gradient(145deg, rgba(255,255,255,0.96), rgba(230,238,246,0.98)) !important;
+  border-color: var(--leo-collapse-hover-border) !important;
+  background: var(--leo-collapse-hover-bg) !important;
   transform: translateY(-2px) scale(1.01) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.46),
-    0 12px 26px rgba(18, 57, 91, 0.14),
-    0 0 28px rgba(18, 57, 91, 0.12) !important;
+  box-shadow: var(--leo-collapse-hover-shadow) !important;
 }
 
 [data-testid="stSidebarCollapseButton"] button:focus-visible,
 [data-testid="stSidebarCollapsedControl"] button:focus-visible {
-  outline: 2px solid rgba(18, 57, 91, 0.52) !important;
+  outline: 2px solid var(--leo-collapse-focus) !important;
   outline-offset: 2px !important;
 }
 
@@ -149,7 +137,7 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--leo-prussian-mineral);
+  color: var(--leo-collapse-icon);
   font-size: 1.2rem;
   font-weight: 700;
   line-height: 1;
@@ -161,49 +149,11 @@ body,
   content: "";
   position: absolute;
   inset: 0.42rem;
-  border: 1px solid rgba(18, 57, 91, 0.12);
+  border: 1px solid var(--leo-collapse-inner-border);
   border-radius: 0;
   pointer-events: none;
 }
 
-[data-theme="dark"] [data-testid="stSidebarCollapseButton"],
-[data-theme="dark"] [data-testid="stSidebarCollapsedControl"] {
-  border-color: rgba(0, 124, 70, 0.72) !important;
-  background:
-    radial-gradient(circle at top left, rgba(84, 204, 144, 0.18), transparent 40%),
-    linear-gradient(145deg, rgba(0, 96, 54, 0.84), rgba(0, 52, 29, 0.78)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.10),
-    0 8px 20px rgba(0, 66, 37, 0.18),
-    0 0 22px rgba(0, 104, 58, 0.12) !important;
-}
-
-[data-theme="dark"] [data-testid="stSidebarCollapseButton"]:hover,
-[data-theme="dark"] [data-testid="stSidebarCollapsedControl"]:hover {
-  border-color: rgba(110, 232, 170, 0.82) !important;
-  background:
-    radial-gradient(circle at top left, rgba(110, 232, 170, 0.22), transparent 40%),
-    linear-gradient(145deg, rgba(0, 112, 63, 0.90), rgba(0, 64, 36, 0.84)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.14),
-    0 12px 26px rgba(0, 66, 37, 0.22),
-    0 0 28px rgba(0, 124, 70, 0.16) !important;
-}
-
-[data-theme="dark"] [data-testid="stSidebarCollapseButton"] button:focus-visible,
-[data-theme="dark"] [data-testid="stSidebarCollapsedControl"] button:focus-visible {
-  outline-color: rgba(110, 232, 170, 0.84) !important;
-}
-
-[data-theme="dark"] [data-testid="stSidebarCollapseButton"]::before,
-[data-theme="dark"] [data-testid="stSidebarCollapsedControl"]::before {
-  color: var(--leo-ink-on-green);
-}
-
-[data-theme="dark"] [data-testid="stSidebarCollapseButton"]::after,
-[data-theme="dark"] [data-testid="stSidebarCollapsedControl"]::after {
-  border-color: rgba(255,255,255,0.14);
-}
 
 @media (max-width: 640px) {
   [data-testid="stSidebarCollapseButton"],
@@ -233,8 +183,8 @@ body,
 
 [data-testid="stNumberInput"] button,
 [data-testid="stDateInput"] button {
-  background: linear-gradient(145deg, rgba(255,255,255,0.08), rgba(0,66,37,0.06)) !important;
-  border: 1px solid rgba(0, 66, 37, 0.20) !important;
+  background: var(--leo-spinner-bg) !important;
+  border: 1px solid var(--leo-spinner-border) !important;
   color: var(--leo-ink-sub) !important;
   border-radius: 0 !important;
   box-shadow: none !important;
@@ -242,16 +192,9 @@ body,
 
 [data-testid="stNumberInput"] button:hover,
 [data-testid="stDateInput"] button:hover {
-  background: linear-gradient(145deg, rgba(255,255,255,0.10), rgba(0,66,37,0.12)) !important;
-  border-color: rgba(0, 66, 37, 0.34) !important;
+  background: var(--leo-spinner-hover-bg) !important;
+  border-color: var(--leo-spinner-hover-border) !important;
   color: var(--leo-ink) !important;
-}
-
-[data-theme="dark"] [data-testid="stNumberInput"] button,
-[data-theme="dark"] [data-testid="stDateInput"] button {
-  background: linear-gradient(145deg, rgba(244,240,232,0.06), rgba(0,66,37,0.14)) !important;
-  border-color: rgba(0, 96, 48, 0.34) !important;   /* dark BRG lifted for dark bg */
-  color: var(--leo-ink-sub) !important;
 }
 
 [data-testid="stButton"] > button,
@@ -268,17 +211,10 @@ body,
 }
 
 [data-testid="stDownloadButton"] button {
-  background:
-    linear-gradient(115deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.10) 16%, rgba(255,255,255,0) 34%),
-    radial-gradient(circle at 14% 18%, rgba(92, 142, 198, 0.18), transparent 28%),
-    linear-gradient(145deg, rgba(76,120,169,0.72), rgba(18,57,91,0.62) 48%, rgba(14,41,68,0.80)) !important;
-  border-color: rgba(74, 110, 150, 0.48) !important;
+  background: var(--leo-download-bg) !important;
+  border-color: var(--leo-download-border) !important;
   color: var(--leo-ink-on-blue) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08),
-    inset 0 -1px 0 rgba(7, 20, 34, 0.22),
-    0 2px 10px rgba(10,34,58,0.10),
-    0 0 16px rgba(18,57,91,0.10) !important;
+  box-shadow: var(--leo-download-shadow) !important;
 }
 
 [data-testid="stButton"] > button[kind="primary"] {
@@ -304,46 +240,10 @@ body,
 
 [data-testid="stDownloadButton"] button:hover,
 [data-testid="stDownloadButton"] button:focus-visible {
-  background:
-    linear-gradient(115deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.06) 16%, rgba(255,255,255,0) 34%),
-    radial-gradient(circle at 14% 18%, rgba(118, 168, 224, 0.20), transparent 28%),
-    linear-gradient(145deg, rgba(84,130,182,0.78), rgba(22,67,106,0.64) 48%, rgba(10,34,58,0.86)) !important;
-  border-color: rgba(198, 166, 104, 0.56) !important;
+  background: var(--leo-download-hover-bg) !important;
+  border-color: var(--leo-download-hover-border) !important;
   color: var(--leo-ink-on-blue) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.10),
-    inset 0 -1px 0 rgba(7, 20, 34, 0.30),
-    0 0 0 1px rgba(174,143,84,0.16),
-    0 0 18px rgba(18,57,91,0.12) !important;
-}
-
-[data-theme="dark"] [data-testid="stDownloadButton"] button {
-  background:
-    linear-gradient(115deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 16%, rgba(255,255,255,0) 34%),
-    radial-gradient(circle at 14% 18%, rgba(92, 142, 198, 0.14), transparent 28%),
-    linear-gradient(145deg, rgba(10,34,58,0.72), rgba(18,57,91,0.46) 48%, rgba(8,27,46,0.78)) !important;
-  border-color: rgba(174, 143, 84, 0.42) !important;
-  color: var(--leo-ink-on-blue) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08),
-    inset 0 -1px 0 rgba(7, 20, 34, 0.28),
-    0 2px 10px rgba(10,34,58,0.12),
-    0 0 16px rgba(18,57,91,0.08) !important;
-}
-
-[data-theme="dark"] [data-testid="stDownloadButton"] button:hover,
-[data-theme="dark"] [data-testid="stDownloadButton"] button:focus-visible {
-  background:
-    linear-gradient(115deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 16%, rgba(255,255,255,0) 34%),
-    radial-gradient(circle at 14% 18%, rgba(118, 168, 224, 0.16), transparent 28%),
-    linear-gradient(145deg, rgba(12,40,68,0.76), rgba(22,67,106,0.50) 48%, rgba(9,31,52,0.82)) !important;
-  border-color: rgba(198, 166, 104, 0.56) !important;
-  color: var(--leo-ink-on-blue) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.10),
-    inset 0 -1px 0 rgba(7, 20, 34, 0.30),
-    0 0 0 1px rgba(174,143,84,0.16),
-    0 0 18px rgba(18,57,91,0.12) !important;
+  box-shadow: var(--leo-download-hover-shadow) !important;
 }
 
 [data-testid="stButton"] > button[kind="primary"]:hover {
@@ -585,34 +485,21 @@ body,
 }
 
 [role="switch"] {
-  background: linear-gradient(90deg, rgba(0,66,37,0.18), rgba(0,66,37,0.10)) !important;
-  border: 1px solid rgba(0, 80, 45, 0.26) !important;
+  background: var(--leo-switch-bg) !important;
+  border: 1px solid var(--leo-switch-border) !important;
   border-radius: 999px !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06) !important;
+  box-shadow: var(--leo-switch-shadow) !important;
 }
 
 [role="switch"][aria-checked="true"] {
-  background:
-    linear-gradient(90deg, rgba(0,80,45,0.44), rgba(0,66,37,0.30)) !important;
-  border-color: rgba(0, 118, 63, 0.48) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.10),
-    0 0 14px rgba(0,66,37,0.12) !important;
+  background: var(--leo-switch-checked-bg) !important;
+  border-color: var(--leo-switch-checked-border) !important;
+  box-shadow: var(--leo-switch-checked-shadow) !important;
 }
 
 [role="switch"] > div {
   background: linear-gradient(145deg, rgba(244,240,232,0.92), rgba(217,208,188,0.78)) !important;
   box-shadow: 0 1px 3px rgba(17,18,20,0.18), inset 0 1px 0 rgba(255,255,255,0.34) !important;
-}
-
-[data-theme="dark"] [role="switch"] {
-  background: linear-gradient(90deg, rgba(0,80,45,0.24), rgba(0,80,45,0.14)) !important;
-  border-color: rgba(0, 96, 48, 0.34) !important;   /* dark BRG lifted */
-}
-
-[data-theme="dark"] [role="switch"][aria-checked="true"] {
-  background: linear-gradient(90deg, rgba(0,80,45,0.42), rgba(0,80,45,0.30)) !important;
-  border-color: rgba(0, 120, 60, 0.48) !important;   /* active: brighter BRG */
 }
 
 [data-testid="stSidebar"] [data-testid="stExpander"] summary {
