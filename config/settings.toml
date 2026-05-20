@@ -5,7 +5,7 @@ base_currency = "NZD"
 
 [ui]
 language = "en"
-theme = "dark"
+theme = "system"
 
 [signals]
 primary = "SPY"
