@@ -129,6 +129,35 @@ def render_theme_bridge(theme_mode: str) -> None:
     )
 
 
+def render_native_theme_sync(theme: str) -> None:
+    """Inject JS to keep Streamlit's built-in localStorage theme in sync."""
+    st_name = "Light theme" if theme == "light" else "Dark theme"
+    escaped = html.escape(st_name, quote=True)
+    components.html(
+        f"""
+<script>
+(() => {{
+  const target = "{escaped}";
+  const w = window.parent ?? window;
+  const key = "stActiveTheme";
+  try {{
+    const cur = w.localStorage.getItem(key);
+    const curName = cur ? JSON.parse(cur).name : null;
+    if (curName === target) return;
+    w.localStorage.setItem(key, JSON.stringify({{name: target}}));
+    w.dispatchEvent(new StorageEvent("storage", {{
+      key: key,
+      newValue: JSON.stringify({{name: target}}),
+      storageArea: w.localStorage
+    }}));
+  }} catch (_) {{}}
+}})();
+</script>
+""",
+        height=0,
+    )
+
+
 def stylesheet_text() -> str:
     parts: list[str] = []
     for name in STYLE_FILES:

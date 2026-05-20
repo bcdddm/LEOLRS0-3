@@ -17,6 +17,7 @@ from trend_system.interfaces.streamlit.shared.session_state import (
 from trend_system.interfaces.streamlit.shared.state import fingerprint, is_stale, model_settings
 from trend_system.interfaces.streamlit.shared.theme import (
     inject_styles,
+    render_native_theme_sync,
     render_theme_bridge,
     resolve_theme,
     resolve_theme_mode,
@@ -43,6 +44,7 @@ __all__ = [
     "preparing_markup",
     "render_lightweight_chart",
     "render_preparing",
+    "render_native_theme_sync",
     "render_theme_bridge",
     "release_notes_path",
     "release_notes_text",

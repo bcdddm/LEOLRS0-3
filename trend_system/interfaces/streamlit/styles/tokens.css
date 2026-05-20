@@ -147,6 +147,10 @@
   --leo-border-action-strong: rgba(0, 92, 52, 0.96);
   --leo-border-info-strong: rgba(18, 57, 91, 0.90);
   --leo-border-neutral-strong: rgba(118, 96, 54, 0.78);
+  /* Streamlit built-in variables — override so native chrome follows our theme */
+  --background-color: #E6EEF6;
+  --secondary-background-color: #DCE7F1;
+  --text-color: #0A0C0D;
 }
 
 [data-theme="dark"] {
@@ -232,4 +236,8 @@
   --leo-prep-inner:     rgba(255, 255, 255, 0.05);
   --leo-prep-text:      rgba(244, 240, 232, 0.92);
   --leo-prep-subtext:   rgba(244, 240, 232, 0.64);
+  /* Streamlit built-in variables — override so native chrome follows our theme */
+  --background-color: #1A1D1F;
+  --secondary-background-color: #14161A;
+  --text-color: rgba(244, 240, 232, 0.92);
 }

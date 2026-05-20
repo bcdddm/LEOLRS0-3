@@ -70,6 +70,7 @@ from trend_system.interfaces.streamlit.shared import (
     is_stale as shared_is_stale,
     migrate_legacy_keys as shared_migrate_legacy_keys,
     option_index as shared_option_index,
+    render_native_theme_sync as shared_render_native_theme_sync,
     render_theme_bridge as shared_render_theme_bridge,
     release_notes_path as shared_release_notes_path,
     release_notes_text as shared_release_notes_text,
@@ -185,6 +186,39 @@ def main() -> None:
     st.sidebar.caption(f"当前配置：{Path(config_path).resolve()}")
     settings = load_settings(config_path)
     working_settings = deepcopy(settings.raw)
+
+    # ── Streamlit → App sync ─────────────────────────────────────────────────
+    # Detect when the user changes Streamlit's native theme via the hamburger
+    # menu and propagate it to the app's own settings widget.
+    try:
+        _st_native = _normalize_theme(st.context.theme.type)
+    except Exception:
+        _st_native = None
+
+    _last_st_native = _normalize_theme(st.session_state.get("_last_st_native_type"))
+    _last_settings_theme = _normalize_theme_mode(st.session_state.get("_last_settings_ui_theme"))
+    _curr_settings_theme = _normalize_theme_mode(st.session_state.get(SessionKeys.SETTINGS_UI_THEME))
+    _current_mode = _normalize_theme_mode(st.session_state.get(SessionKeys.UI_THEME_MODE)) or "dark"
+
+    # Settings widget just changed in this rerun (user picked from settings page)
+    _settings_just_changed = (
+        _last_settings_theme is not None
+        and _curr_settings_theme != _last_settings_theme
+    )
+
+    # Streamlit's native theme changed AND it wasn't triggered by our JS sync
+    if (
+        _st_native is not None
+        and _last_st_native is not None
+        and _st_native != _last_st_native
+        and not _settings_just_changed
+        and _current_mode in ("light", "dark")
+        and _st_native != _current_mode
+    ):
+        st.session_state[SessionKeys.SETTINGS_UI_THEME] = _st_native
+        st.session_state[SessionKeys.UI_THEME_MODE] = _st_native
+    # ─────────────────────────────────────────────────────────────────────────
+
     _apply_session_preferences(working_settings)
     resolved_theme_mode = shared_resolve_theme_mode(working_settings)
     resolved_theme = shared_resolve_theme(working_settings)
@@ -192,6 +226,15 @@ def main() -> None:
     st.session_state[SessionKeys.UI_THEME] = resolved_theme
     shared_render_theme_bridge(resolved_theme_mode)
     shared_inject_styles(resolved_theme)
+
+    # ── App → Streamlit sync ─────────────────────────────────────────────────
+    # Keep Streamlit's localStorage theme in sync so the hamburger menu matches.
+    if resolved_theme_mode in ("light", "dark"):
+        shared_render_native_theme_sync(resolved_theme)
+    # Save comparison values for the next rerun
+    st.session_state["_last_st_native_type"] = _st_native
+    st.session_state["_last_settings_ui_theme"] = st.session_state.get(SessionKeys.SETTINGS_UI_THEME)
+    # ─────────────────────────────────────────────────────────────────────────
     working_settings = _settings_sidebar(working_settings, config_path)
     language = _ui_language(working_settings)
     render_sidebar_navigation(
